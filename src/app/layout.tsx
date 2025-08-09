@@ -16,7 +16,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} h-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 antialiased`}>
+      <body className={`${inter.className} h-full bg-gray-50 antialiased`}>
         <div className="min-h-full flex flex-col">
           {children}
         </div>

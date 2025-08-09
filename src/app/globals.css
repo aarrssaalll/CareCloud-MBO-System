@@ -3,24 +3,52 @@
 @tailwind utilities;
 
 :root {
-  /* Microsoft Theme Colors */
-  --ms-blue: #0078d4;
-  --ms-blue-dark: #106ebe;
-  --ms-blue-light: #2b88d8;
-  --ms-gray-50: #faf9f8;
-  --ms-gray-100: #f3f2f1;
-  --ms-gray-200: #edebe9;
-  --ms-gray-300: #e1dfdd;
-  --ms-gray-400: #d2d0ce;
-  --ms-gray-500: #c8c6c4;
-  --ms-gray-600: #a19f9d;
-  --ms-gray-700: #605e5c;
-  --ms-gray-800: #323130;
-  --ms-gray-900: #201f1e;
+  /* Professional Business Color Palette */
+  --primary-blue: #1e40af;
+  --primary-blue-light: #3b82f6;
+  --primary-blue-dark: #1e3a8a;
+  
+  /* Neutral Grays - Professional */
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+  
+  /* Accent Colors - Minimal */
+  --success: #059669;
+  --warning: #d97706;
+  --error: #dc2626;
+  --info: #0369a1;
+  
+  /* Background Colors */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #f1f5f9;
+  
+  /* Microsoft Theme Colors - Updated */
+  --ms-blue: #1e40af;
+  --ms-blue-dark: #1e3a8a;
+  --ms-blue-light: #3b82f6;
+  --ms-gray-50: #f8fafc;
+  --ms-gray-100: #f1f5f9;
+  --ms-gray-200: #e2e8f0;
+  --ms-gray-300: #cbd5e1;
+  --ms-gray-400: #94a3b8;
+  --ms-gray-500: #64748b;
+  --ms-gray-600: #475569;
+  --ms-gray-700: #334155;
+  --ms-gray-800: #1e293b;
+  --ms-gray-900: #0f172a;
   --ms-white: #ffffff;
-  --ms-error: #d83b01;
-  --ms-success: #107c10;
-  --ms-warning: #ff8c00;
+  --ms-error: #dc2626;
+  --ms-success: #059669;
+  --ms-warning: #d97706;
   
   /* Enhanced UX/UI Classes */
 .ms-card-interactive {

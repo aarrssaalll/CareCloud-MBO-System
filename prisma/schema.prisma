@@ -1,0 +1,124 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  objectives Objective[]
+  reviews    Review[]
+  bonuses    Bonus[]
+  
+  @@map("users")
+}
+
+model Objective {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  category    String
+  target      Float
+  current     Float
+  weight      Float         @default(1.0)
+  status      ObjectiveStatus @default(ACTIVE)
+  dueDate     DateTime
+  quarter     String
+  year        Int
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  reviews     ObjectiveReview[]
+  
+  @@map("objectives")
+}
+
+model ObjectiveReview {
+  id           String   @id @default(cuid())
+  score        Float
+  comments     String?
+  reviewDate   DateTime @default(now())
+  
+  objectiveId  String
+  objective    Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  
+  reviewerId   String
+  reviewer     User     @relation(fields: [reviewerId], references: [id])
+  
+  @@map("objective_reviews")
+}
+
+model Review {
+  id              String      @id @default(cuid())
+  quarter         String
+  year            Int
+  overallScore    Float
+  comments        String?
+  status          ReviewStatus @default(DRAFT)
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  employeeId      String
+  employee        User        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@map("reviews")
+}
+
+model Bonus {
+  id            String   @id @default(cuid())
+  quarter       String
+  year          Int
+  baseAmount    Float
+  performanceMultiplier Float
+  finalAmount   Float
+  status        BonusStatus @default(CALCULATED)
+  calculatedAt  DateTime @default(now())
+  paidAt        DateTime?
+  
+  employeeId    String
+  employee      User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  @@map("bonuses")
+}
+
+enum Role {
+  EMPLOYEE
+  MANAGER
+  HR
+  SENIOR_MANAGEMENT
+}
+
+enum ObjectiveStatus {
+  ACTIVE
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum ReviewStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+  REJECTED
+}
+
+enum BonusStatus {
+  CALCULATED
+  APPROVED
+  PAID
+  REJECTED
+}

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -9,9 +10,13 @@ export default function LoginPage() {
     password: "",
     role: "employee"
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
     // Demo authentication - check against demo credentials
     const demoCredentials = {
@@ -21,21 +26,25 @@ export default function LoginPage() {
       "exec@carecloud.com": { role: "senior_management", name: "Sarah Wilson" }
     };
 
-    if (formData.email in demoCredentials && formData.password === "demo123") {
-      const userInfo = demoCredentials[formData.email as keyof typeof demoCredentials];
-      
-      // Store user info in localStorage for demo purposes
-      localStorage.setItem("user", JSON.stringify({
-        email: formData.email,
-        role: userInfo.role,
-        name: userInfo.name
-      }));
+    // Simulate loading time
+    setTimeout(() => {
+      if (formData.email in demoCredentials && formData.password === "demo123") {
+        const userInfo = demoCredentials[formData.email as keyof typeof demoCredentials];
+        
+        // Store user info in localStorage for demo purposes
+        localStorage.setItem("user", JSON.stringify({
+          email: formData.email,
+          role: userInfo.role,
+          name: userInfo.name
+        }));
 
-      // Redirect to dashboard
-      window.location.href = "/dashboard";
-    } else {
-      alert("Invalid credentials. Please use demo credentials:\nEmail: employee@carecloud.com\nPassword: demo123");
-    }
+        // Redirect to dashboard
+        router.push("/dashboard");
+      } else {
+        alert("Invalid credentials. Please use demo credentials provided below.");
+        setIsLoading(false);
+      }
+    }, 1000);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -46,61 +55,75 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-ms-gray-50 flex items-center justify-center">
-      <div className="max-w-md w-full mx-4">
-        {/* Microsoft-style Login Card */}
-        <div className="ms-card-elevated p-8">
-          {/* CareCloud Logo Style Header */}
-          <div className="text-center mb-8">
-            <div className="flex items-center justify-center mb-4">
-              <div className="w-8 h-8 bg-ms-blue mr-3 flex items-center justify-center rounded">
-                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+    <div className="min-h-screen flex">
+      {/* Left Side - Login Form */}
+      <div className="flex-1 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-20 xl:px-24 bg-white">
+        <div className="mx-auto w-full max-w-sm lg:w-96">
+          {/* Logo and Header */}
+          <div className="mb-8">
+            <div className="flex items-center mb-6">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
               </div>
-              <span className="text-2xl font-semibold text-ms-gray-900">CareCloud</span>
+              <h1 className="text-2xl font-bold text-gray-900">CareCloud</h1>
             </div>
-            <h1 className="ms-heading-3 text-ms-gray-900 mb-2">MBO System</h1>
-            <p className="ms-text-small text-ms-gray-700">Management by Objectives Platform</p>
+            <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome back</h2>
+            <p className="text-gray-600">Sign in to your MBO dashboard</p>
           </div>
 
-          <h2 className="ms-heading-4 text-center mb-6">Sign in</h2>
-          
+          {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block ms-text-medium font-medium text-ms-gray-800 mb-2">
-                Email Address
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email address
               </label>
               <input
-                type="email"
                 id="email"
                 name="email"
+                type="email"
+                autoComplete="email"
+                required
                 value={formData.email}
                 onChange={handleChange}
-                className="ms-input w-full"
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
                 placeholder="Enter your email"
-                required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block ms-text-medium font-medium text-ms-gray-800 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
                 Password
               </label>
-              <input
-                type="password"
-                id="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                className="ms-input w-full"
-                placeholder="Enter your password"
-                required
-              />
+              <div className="relative">
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  required
+                  value={formData.password}
+                  onChange={handleChange}
+                  className="block w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+                  placeholder="Enter your password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                >
+                  {showPassword ? (
+                    <EyeSlashIcon className="w-5 h-5" />
+                  ) : (
+                    <EyeIcon className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div>
-              <label htmlFor="role" className="block ms-text-medium font-medium text-ms-gray-800 mb-2">
+              <label htmlFor="role" className="block text-sm font-medium text-gray-700 mb-2">
                 Role
               </label>
               <select
@@ -108,7 +131,7 @@ export default function LoginPage() {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="ms-input w-full"
+                className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
                 <option value="employee">Employee</option>
                 <option value="manager">Manager</option>
@@ -123,60 +146,98 @@ export default function LoginPage() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-ms-blue focus:ring-ms-blue border-ms-gray-400 rounded"
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block ms-text-small text-ms-gray-700">
-                  Keep me signed in
+                <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                  Remember me
                 </label>
               </div>
-
-              <div className="ms-text-small">
-                <a href="#" className="ms-link">
-                  Forgot password?
-                </a>
-              </div>
+              <a href="#" className="text-sm text-blue-600 hover:text-blue-500 font-medium">
+                Forgot password?
+              </a>
             </div>
 
             <button
               type="submit"
-              className="ms-button-primary w-full py-3 text-base font-semibold"
+              disabled={isLoading}
+              className={`w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white transition-colors ${
+                isLoading 
+                  ? 'bg-gray-400 cursor-not-allowed' 
+                  : 'bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
+              }`}
             >
-              Sign in
+              {isLoading ? (
+                <div className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </div>
+              ) : (
+                'Sign in'
+              )}
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="ms-text-small text-ms-gray-700">
-              Don't have an account?{" "}
-              <a href="#" className="ms-link">
-                Contact your administrator
-              </a>
-            </p>
+          {/* Demo Credentials */}
+          <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <h3 className="text-sm font-medium text-gray-800 mb-3">Demo Credentials</h3>
+            <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
+              <div>
+                <p className="font-medium text-gray-700">Employee</p>
+                <p>employee@carecloud.com</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700">Manager</p>
+                <p>manager@carecloud.com</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700">HR</p>
+                <p>hr@carecloud.com</p>
+              </div>
+              <div>
+                <p className="font-medium text-gray-700">Executive</p>
+                <p>exec@carecloud.com</p>
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-2 text-center">Password: <span className="font-medium">demo123</span> for all accounts</p>
           </div>
         </div>
+      </div>
 
-        {/* Demo Access - Microsoft Style */}
-        <div className="mt-6 ms-card bg-ms-gray-100 border border-ms-gray-200">
-          <h3 className="ms-heading-4 text-ms-gray-900 mb-3">Demo Access</h3>
-          <div className="grid grid-cols-2 gap-3 ms-text-small">
-            <div>
-              <p className="font-semibold text-ms-gray-800">Employee</p>
-              <p className="text-ms-gray-700">employee@carecloud.com</p>
+      {/* Right Side - Professional Branding */}
+      <div className="hidden lg:block relative w-0 flex-1 bg-gradient-to-br from-gray-900 to-gray-700">
+        <div className="absolute inset-0 flex items-center justify-center p-12">
+          <div className="text-center text-white max-w-md">
+            <div className="w-20 h-20 bg-white/10 rounded-xl flex items-center justify-center mx-auto mb-8 backdrop-blur-sm">
+              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+              </svg>
             </div>
-            <div>
-              <p className="font-semibold text-ms-gray-800">Manager</p>
-              <p className="text-ms-gray-700">manager@carecloud.com</p>
-            </div>
-            <div>
-              <p className="font-semibold text-ms-gray-800">HR</p>
-              <p className="text-ms-gray-700">hr@carecloud.com</p>
-            </div>
-            <div>
-              <p className="font-semibold text-ms-gray-800">Senior Mgmt</p>
-              <p className="text-ms-gray-700">exec@carecloud.com</p>
+            <h2 className="text-3xl font-bold mb-4">Management by Objectives</h2>
+            <p className="text-lg text-gray-300 mb-8">
+              Streamline performance management with our comprehensive MBO platform
+            </p>
+            <div className="space-y-4 text-left">
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mr-4 flex-shrink-0"></div>
+                <span className="text-gray-300">Set and track strategic objectives</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mr-4 flex-shrink-0"></div>
+                <span className="text-gray-300">Automated performance reviews</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mr-4 flex-shrink-0"></div>
+                <span className="text-gray-300">Real-time analytics and reporting</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-2 h-2 bg-blue-400 rounded-full mr-4 flex-shrink-0"></div>
+                <span className="text-gray-300">Bonus calculation and insights</span>
+              </div>
             </div>
           </div>
-          <p className="ms-text-small text-ms-gray-600 mt-2">Password: demo123 for all accounts</p>
         </div>
       </div>
     </div>

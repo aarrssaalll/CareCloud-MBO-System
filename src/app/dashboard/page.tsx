@@ -48,6 +48,40 @@ export default function DashboardPage() {
     email: "guest@carecloud.com"
   });
 
+  // Mock objectives data
+  const mockObjectives = [
+    {
+      title: "Q4 Revenue Target",
+      description: "Achieve 15% increase in quarterly revenue through strategic initiatives and client expansion",
+      progress: 85,
+      status: "In Progress"
+    },
+    {
+      title: "Customer Satisfaction",
+      description: "Maintain NPS score above 85 through improved service delivery and support",
+      progress: 100,
+      status: "Completed"
+    },
+    {
+      title: "Process Optimization",
+      description: "Reduce operational costs by 10% through automation and efficiency improvements",
+      progress: 76,
+      status: "At Risk"
+    },
+    {
+      title: "Team Development",
+      description: "Complete leadership training program and mentor 2 junior team members",
+      progress: 65,
+      status: "In Progress"
+    },
+    {
+      title: "Innovation Initiative",
+      description: "Launch new product feature that increases user engagement by 20%",
+      progress: 45,
+      status: "In Progress"
+    }
+  ];
+
   useEffect(() => {
     // Get user data from localStorage
     const userData = localStorage.getItem("user");
@@ -60,18 +94,18 @@ export default function DashboardPage() {
   }, []);
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="h-screen flex flex-col bg-gray-50">
       <Navigation />
       
       {/* Main Content Area - Full Screen Layout */}
       <div className="flex-1 flex overflow-hidden">
         
         {/* Left Sidebar - Quick Stats & Navigation */}
-        <aside className="w-80 bg-white/70 backdrop-blur-xl border-r border-gray-200/50 shadow-xl">
+        <aside className="w-80 bg-white/90 backdrop-blur-xl border-r border-gray-200 shadow-sm">
           <div className="h-full p-6 space-y-6 overflow-y-auto">
             
             {/* User Profile Card */}
-            <div className="bg-gradient-to-br from-blue-600 to-purple-700 rounded-2xl p-6 text-white relative overflow-hidden">
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
               <div className="relative z-10">
                 <div className="flex items-center space-x-4 mb-4">
@@ -166,7 +200,7 @@ export default function DashboardPage() {
         <main className="flex-1 flex flex-col overflow-hidden">
           
           {/* Header Section */}
-          <div className="bg-white/70 backdrop-blur-xl border-b border-gray-200/50 px-8 py-6">
+          <div className="bg-white/90 backdrop-blur-xl border-b border-gray-200 px-8 py-6">
             <div className="flex items-center justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -182,11 +216,11 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="flex items-center space-x-4">
-                <div className="bg-gradient-to-r from-green-500 to-blue-600 text-white px-6 py-3 rounded-xl shadow-lg">
+                <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl shadow-sm">
                   <div className="text-2xl font-bold">$4,250</div>
                   <div className="text-sm opacity-90">Current Bonus</div>
                 </div>
-                <div className="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-xl shadow-lg">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-sm">
                   <div className="text-2xl font-bold">87%</div>
                   <div className="text-sm opacity-90">Performance</div>
                 </div>
