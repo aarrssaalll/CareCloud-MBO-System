@@ -9,44 +9,77 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        // Microsoft Fluent Design System Colors
+        ms: {
+          blue: {
+            DEFAULT: '#0078d4',
+            50: '#f0f8ff',
+            100: '#e6f3ff',
+            200: '#c7e4ff',
+            300: '#a8d4ff',
+            400: '#6ab7ff',
+            500: '#2b88d8',
+            600: '#0078d4',
+            700: '#106ebe',
+            800: '#005a9e',
+            900: '#004578'
+          },
+          gray: {
+            50: '#faf9f8',
+            100: '#f3f2f1',
+            200: '#edebe9',
+            300: '#e1dfdd',
+            400: '#d2d0ce',
+            500: '#c8c6c4',
+            600: '#a19f9d',
+            700: '#605e5c',
+            800: '#323130',
+            900: '#201f1e'
+          },
+          white: '#ffffff',
+          error: '#d83b01',
+          success: '#107c10',
+          warning: '#ff8c00'
+        },
+        // Legacy support for existing components
         primary: {
-          DEFAULT: '#004E9E',
-          50: '#E6F2FF',
-          100: '#CCE5FF',
-          200: '#99CBFF',
-          300: '#66B1FF',
-          400: '#3397FF',
-          500: '#007BFF',
-          600: '#004E9E',
-          700: '#003D7A',
-          800: '#002C56',
-          900: '#001B32'
+          DEFAULT: '#0078d4',
+          50: '#f0f8ff',
+          100: '#e6f3ff',
+          200: '#c7e4ff',
+          300: '#a8d4ff',
+          400: '#6ab7ff',
+          500: '#2b88d8',
+          600: '#0078d4',
+          700: '#106ebe',
+          800: '#005a9e',
+          900: '#004578'
         },
         secondary: {
-          DEFAULT: '#007BFF',
-          50: '#E6F2FF',
-          100: '#CCE5FF',
-          200: '#99CBFF',
-          300: '#66B1FF',
-          400: '#3397FF',
-          500: '#007BFF',
-          600: '#0056CC',
-          700: '#004299',
-          800: '#002E66',
-          900: '#001A33'
+          DEFAULT: '#605e5c',
+          50: '#faf9f8',
+          100: '#f3f2f1',
+          200: '#edebe9',
+          300: '#e1dfdd',
+          400: '#d2d0ce',
+          500: '#c8c6c4',
+          600: '#a19f9d',
+          700: '#605e5c',
+          800: '#323130',
+          900: '#201f1e'
         },
         accent: {
-          DEFAULT: '#F5F7FA',
-          50: '#FFFFFF',
-          100: '#F5F7FA',
-          200: '#E9EDF2',
-          300: '#DDE3EA',
-          400: '#D1D9E2',
-          500: '#C5CFDA',
-          600: '#B9C5D2',
-          700: '#ADBACA',
-          800: '#A1B0C2',
-          900: '#95A6BA'
+          DEFAULT: '#f3f2f1',
+          50: '#faf9f8',
+          100: '#f3f2f1',
+          200: '#edebe9',
+          300: '#e1dfdd',
+          400: '#d2d0ce',
+          500: '#c8c6c4',
+          600: '#a19f9d',
+          700: '#605e5c',
+          800: '#323130',
+          900: '#201f1e'
         },
         text: {
           DEFAULT: '#333333',

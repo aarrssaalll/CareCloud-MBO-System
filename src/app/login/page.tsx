@@ -46,23 +46,29 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-accent-50 to-accent-100 flex items-center justify-center">
+    <div className="min-h-screen bg-ms-gray-50 flex items-center justify-center">
       <div className="max-w-md w-full mx-4">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-block">
-            <h1 className="text-4xl font-bold text-primary mb-2">CareCloud</h1>
-            <p className="text-text-light text-lg">MBO System</p>
-          </Link>
-        </div>
+        {/* Microsoft-style Login Card */}
+        <div className="ms-card-elevated p-8">
+          {/* Microsoft Logo Style Header */}
+          <div className="text-center mb-8">
+            <div className="flex items-center justify-center mb-4">
+              <div className="w-8 h-8 bg-ms-blue mr-3 flex items-center justify-center">
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M0 0h11v11H0V0zm13 0h11v11H13V0zM0 13h11v11H0V13zm13 0h11v11H13V13z"/>
+                </svg>
+              </div>
+              <span className="text-2xl font-semibold text-ms-gray-900">Microsoft</span>
+            </div>
+            <h1 className="ms-heading-3 text-ms-gray-900 mb-2">CareCloud MBO System</h1>
+            <p className="ms-text-small text-ms-gray-700">Management by Objectives Platform</p>
+          </div>
 
-        {/* Login Form */}
-        <div className="card">
-          <h2 className="text-2xl font-bold text-text text-center mb-6">Sign In</h2>
+          <h2 className="ms-heading-4 text-center mb-6">Sign in</h2>
           
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="email" className="block ms-text-medium font-medium text-ms-gray-800 mb-2">
                 Email Address
               </label>
               <input
@@ -71,14 +77,14 @@ export default function LoginPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className="input-field"
+                className="ms-input w-full"
                 placeholder="Enter your email"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="password" className="block ms-text-medium font-medium text-ms-gray-800 mb-2">
                 Password
               </label>
               <input
@@ -87,14 +93,14 @@ export default function LoginPage() {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className="input-field"
+                className="ms-input w-full"
                 placeholder="Enter your password"
                 required
               />
             </div>
 
             <div>
-              <label htmlFor="role" className="block text-sm font-medium text-text mb-2">
+              <label htmlFor="role" className="block ms-text-medium font-medium text-ms-gray-800 mb-2">
                 Role
               </label>
               <select
@@ -102,7 +108,7 @@ export default function LoginPage() {
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
-                className="input-field"
+                className="ms-input w-full"
               >
                 <option value="employee">Employee</option>
                 <option value="manager">Manager</option>
@@ -117,60 +123,60 @@ export default function LoginPage() {
                   id="remember-me"
                   name="remember-me"
                   type="checkbox"
-                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                  className="h-4 w-4 text-ms-blue focus:ring-ms-blue border-ms-gray-400 rounded"
                 />
-                <label htmlFor="remember-me" className="ml-2 block text-sm text-text-light">
-                  Remember me
+                <label htmlFor="remember-me" className="ml-2 block ms-text-small text-ms-gray-700">
+                  Keep me signed in
                 </label>
               </div>
 
-              <div className="text-sm">
-                <a href="#" className="font-medium text-primary hover:text-primary-700">
-                  Forgot your password?
+              <div className="ms-text-small">
+                <a href="#" className="ms-link">
+                  Forgot password?
                 </a>
               </div>
             </div>
 
             <button
               type="submit"
-              className="btn-primary w-full py-3 text-lg"
+              className="ms-button-primary w-full py-3 text-base font-semibold"
             >
-              Sign In
+              Sign in
             </button>
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-sm text-text-light">
+            <p className="ms-text-small text-ms-gray-700">
               Don't have an account?{" "}
-              <a href="#" className="font-medium text-primary hover:text-primary-700">
+              <a href="#" className="ms-link">
                 Contact your administrator
               </a>
             </p>
           </div>
         </div>
 
-        {/* Demo Access */}
-        <div className="mt-6 card bg-accent-100">
-          <h3 className="text-lg font-semibold text-text mb-3">Demo Access</h3>
-          <div className="grid grid-cols-2 gap-3 text-sm">
+        {/* Demo Access - Microsoft Style */}
+        <div className="mt-6 ms-card bg-ms-gray-100 border border-ms-gray-200">
+          <h3 className="ms-heading-4 text-ms-gray-900 mb-3">Demo Access</h3>
+          <div className="grid grid-cols-2 gap-3 ms-text-small">
             <div>
-              <p className="font-medium text-text">Employee</p>
-              <p className="text-text-light">employee@carecloud.com</p>
+              <p className="font-semibold text-ms-gray-800">Employee</p>
+              <p className="text-ms-gray-700">employee@carecloud.com</p>
             </div>
             <div>
-              <p className="font-medium text-text">Manager</p>
-              <p className="text-text-light">manager@carecloud.com</p>
+              <p className="font-semibold text-ms-gray-800">Manager</p>
+              <p className="text-ms-gray-700">manager@carecloud.com</p>
             </div>
             <div>
-              <p className="font-medium text-text">HR</p>
-              <p className="text-text-light">hr@carecloud.com</p>
+              <p className="font-semibold text-ms-gray-800">HR</p>
+              <p className="text-ms-gray-700">hr@carecloud.com</p>
             </div>
             <div>
-              <p className="font-medium text-text">Senior Mgmt</p>
-              <p className="text-text-light">exec@carecloud.com</p>
+              <p className="font-semibold text-ms-gray-800">Senior Mgmt</p>
+              <p className="text-ms-gray-700">exec@carecloud.com</p>
             </div>
           </div>
-          <p className="text-xs text-text-light mt-2">Password: demo123 for all accounts</p>
+          <p className="ms-text-small text-ms-gray-600 mt-2">Password: demo123 for all accounts</p>
         </div>
       </div>
     </div>
