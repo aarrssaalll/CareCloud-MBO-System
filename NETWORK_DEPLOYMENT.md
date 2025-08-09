@@ -1,67 +1,104 @@
 # CareCloud MBO System - Company Network Deployment Guide
 
 ## Overview
-This guide helps you host the CareCloud MBO System on your local machine and make it accessible to other employees in your company network.
+This guide helps you host the CareCloud MBO System on your local machine and make it accessible to other employees in your company network for testing phases.
 
-## Prerequisites
-- Node.js 18+ installed on your system
-- Network admin access (for firewall configuration)
-- Your system must be connected to the company network
-- Windows Defender/Firewall access
+## Testing Phase Setup (Verified Working Configuration)
 
-## Step 1: Get Your Local IP Address
+### System Details Used:
+- **Development Machine IP:** 172.16.14.115
+- **Testing Access URL:** http://172.16.14.115:3000
+- **Environment:** Windows with Next.js development server
 
-### Method 1: Command Prompt
-```powershell
-ipconfig
-```
-Look for your IPv4 Address (usually starts with 192.168.x.x or 10.x.x.x)
+### Verified Working Steps:
 
-### Method 2: PowerShell
-```powershell
-Get-NetIPAddress -AddressFamily IPv4 | Where-Object {$_.IPAddress -like "192.168.*" -or $_.IPAddress -like "10.*"}
-```
-
-**Example Output:** Your IP might be something like `192.168.1.100`
-
-## Step 2: Configure Windows Firewall
-
-### Option A: Allow Node.js through Firewall (Recommended)
-1. Open **Windows Defender Firewall with Advanced Security**
-2. Click **Inbound Rules** → **New Rule**
-3. Select **Program** → **Next**
-4. Browse to your Node.js installation (usually `C:\Program Files\nodejs\node.exe`)
-5. Select **Allow the connection** → **Next**
-6. Check all network types → **Next**
-7. Name it "Node.js CareCloud MBO" → **Finish**
-
-### Option B: Allow Port 3000 (Alternative)
+#### Step 1: Configure Windows Firewall (CRITICAL)
 1. Open **Windows Defender Firewall with Advanced Security**
 2. Click **Inbound Rules** → **New Rule**
 3. Select **Port** → **Next**
 4. Select **TCP** and enter **3000** → **Next**
 5. Select **Allow the connection** → **Next**
 6. Check all network types → **Next**
-7. Name it "CareCloud MBO Port 3000" → **Finish**
+7. Name it "CareCloud MBO System" → **Finish**
 
-## Step 3: Start the Application for Network Access
+#### Step 2: Update Next.js Configuration
+The following configuration was added to `next.config.mjs`:
+```javascript
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  // Enable network access
+  experimental: {
+    serverHost: '0.0.0.0'
+  }
+};
 
-### Development Mode (For Testing)
-```powershell
-cd "c:\Users\gulsherzahid\Documents\MBO\bolt 02"
-npm run dev:network
+export default nextConfig;
 ```
 
-### Production Mode (For Company Use)
+#### Step 3: Start Application with Network Access
+Use one of these verified working commands:
+
+**Option A (Recommended):**
 ```powershell
-cd "c:\Users\gulsherzahid\Documents\MBO\bolt 02"
-npm run build
-npm run start:network
+npx next dev --hostname 172.16.14.115 --port 3000
 ```
 
-## Step 4: Share Access with Company Users
+**Option B (Alternative):**
+```powershell
+npx next dev -H 0.0.0.0 -p 3000
+```
 
-Once the application is running, share this information with your colleagues:
+**Option C (Using batch file):**
+```powershell
+.\start-network.bat
+```
+
+### Expected Successful Output:
+```
+▲ Next.js 15.4.6
+- Local:        http://localhost:3000
+- Network:      http://172.16.14.115:3000
+
+✓ Ready in 2.3s
+```
+
+## Testing Phase Information for Company Users
+
+### Current Testing Deployment Status:
+- **Status:** ACTIVE - Running on Development Machine
+- **Access URL:** http://172.16.14.115:3000
+- **Environment:** Development/Testing Phase
+- **Availability:** During business hours when host machine is running
+
+### Demo Accounts for Testing:
+| Role | Email | Password | Access Level |
+|------|-------|----------|--------------|
+| Employee | employee@carecloud.com | demo123 | Basic user dashboard, objectives view |
+| Manager | manager@carecloud.com | demo123 | Team management, score reviews |
+| HR | hr@carecloud.com | demo123 | Reports, bonus management |
+| Senior Management | exec@carecloud.com | demo123 | Executive dashboard, analytics |
+
+### What to Test:
+1. **Login Process** - Try different user roles
+2. **Navigation System** - Hover over header for role-specific options
+3. **Dashboard Features** - Each role has different capabilities
+4. **Performance Analytics** - Charts and reporting features
+5. **Objectives Management** - Setting and tracking objectives
+6. **Cross-device Compatibility** - Test on different devices/browsers
+
+### Testing Guidelines:
+- **Use realistic data** when testing features
+- **Report any bugs or issues** to the development team
+- **Test different user scenarios** to validate role-based access
+- **Check responsive design** on mobile devices
+- **Validate data accuracy** in reports and analytics
+
+### System Requirements for Users:
+- **Modern web browser** (Chrome, Firefox, Safari, Edge)
+- **Network access** to company internal network
+- **No additional software** required - web-based application
+
+## Prerequisites for Setup (Technical Team)
 
 ### Access URL Format:
 ```
