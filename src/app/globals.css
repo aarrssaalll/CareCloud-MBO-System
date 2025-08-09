@@ -22,7 +22,189 @@
   --ms-success: #107c10;
   --ms-warning: #ff8c00;
   
-  /* Typography */
+  /* Enhanced UX/UI Classes */
+.ms-card-interactive {
+  background: var(--ms-white);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  padding: var(--ms-spacing-l);
+  border: 1px solid var(--ms-gray-200);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.ms-card-interactive:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
+  border-color: var(--ms-blue);
+}
+
+.ms-card-interactive:active {
+  transform: translateY(0);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.ms-button-enhanced {
+  background: linear-gradient(135deg, var(--ms-blue) 0%, var(--ms-blue-dark) 100%);
+  color: var(--ms-white);
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-family: var(--ms-font-family);
+  font-size: var(--ms-font-size-14);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.ms-button-enhanced::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+  transition: left 0.5s;
+}
+
+.ms-button-enhanced:hover::before {
+  left: 100%;
+}
+
+.ms-button-enhanced:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 120, 212, 0.3);
+}
+
+.ms-input-enhanced {
+  font-family: var(--ms-font-family);
+  font-size: var(--ms-font-size-14);
+  padding: 16px 16px;
+  border: 2px solid var(--ms-gray-300);
+  border-radius: 8px;
+  background: var(--ms-white);
+  color: var(--ms-gray-800);
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  min-height: 48px;
+  width: 100%;
+}
+
+.ms-input-enhanced:focus {
+  border-color: var(--ms-blue);
+  box-shadow: 0 0 0 3px rgba(0, 120, 212, 0.1);
+  transform: translateY(-1px);
+}
+
+.ms-badge-modern {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 16px;
+  font-size: var(--ms-font-size-12);
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.ms-progress-modern {
+  width: 100%;
+  height: 8px;
+  background: var(--ms-gray-200);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.ms-progress-fill-modern {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ms-blue) 0%, var(--ms-blue-light) 100%);
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.ms-progress-fill-modern::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  right: 0;
+  background-image: linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, .2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, .2) 50%,
+    rgba(255, 255, 255, .2) 75%,
+    transparent 75%,
+    transparent
+  );
+  background-size: 16px 16px;
+  animation: move 1s linear infinite;
+}
+
+.ms-nav-enhanced {
+  background: var(--ms-white);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--ms-gray-200);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.ms-hero-section {
+  background: linear-gradient(135deg, var(--ms-blue) 0%, var(--ms-blue-dark) 100%);
+  color: var(--ms-white);
+  padding: 60px 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.ms-hero-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+.ms-animation-fadeInUp {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.ms-animation-stagger {
+  animation: fadeInUp 0.6s ease-out;
+}
+
+.ms-animation-stagger:nth-child(1) { animation-delay: 0.1s; }
+.ms-animation-stagger:nth-child(2) { animation-delay: 0.2s; }
+.ms-animation-stagger:nth-child(3) { animation-delay: 0.3s; }
+.ms-animation-stagger:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes move {
+  0% { background-position: 0 0; }
+  100% { background-position: 16px 16px; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Improved Typography */
   --ms-font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, "Roboto", "Helvetica Neue", sans-serif;
   --ms-font-size-10: 10px;
   --ms-font-size-12: 12px;

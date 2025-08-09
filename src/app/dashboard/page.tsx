@@ -64,80 +64,122 @@ export default function DashboardPage() {
       <Navigation />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">
-            Good morning, {user.name.split(' ')[0]}
-          </h1>
-          <p className="ms-text-medium text-ms-gray-600 mt-2">
-            Here's an overview of your performance and objectives
-          </p>
+        {/* Enhanced Header with Welcome Message */}
+        <div className="mb-8 ms-animation-fadeInUp">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900 mb-2">
+                Good morning, {user.name.split(' ')[0]} 👋
+              </h1>
+              <p className="ms-text-medium text-ms-gray-600">
+                Here's your performance overview for this quarter
+              </p>
+            </div>
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="text-right">
+                <div className="ms-text-small text-ms-gray-600">Today</div>
+                <div className="ms-text-medium font-semibold text-ms-gray-900">
+                  {new Date().toLocaleDateString('en-US', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                  })}
+                </div>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-ms-blue to-ms-blue-dark rounded-xl flex items-center justify-center">
+                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* KPI Cards */}
+        {/* Enhanced KPI Cards with better spacing and animations */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="ms-card p-6 hover:shadow-md transition-shadow">
+          <div className="ms-card-interactive ms-animation-stagger">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-lg bg-ms-gray-100">
-                <ChartBarIcon className="w-6 h-6 text-green-600" />
+              <div className="p-4 rounded-xl bg-gradient-to-br from-green-100 to-green-200">
+                <ChartBarIcon className="w-8 h-8 text-green-600" />
               </div>
-              <div className="flex items-center space-x-1 ms-text-small text-green-600">
-                <ArrowUpIcon className="w-4 h-4" />
-                <span className="font-medium">5.2%</span>
+              <div className="flex items-center space-x-1 ms-text-small text-green-600 font-semibold">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M7 14l5-5 5 5z"/>
+                </svg>
+                <span>5.2%</span>
               </div>
             </div>
             <div>
-              <p className="ms-text-xlarge font-semibold text-ms-gray-900 mb-1">87%</p>
-              <p className="ms-text-small text-ms-gray-600">Overall Performance</p>
+              <p className="ms-text-xxlarge font-bold text-ms-gray-900 mb-1">87%</p>
+              <p className="ms-text-small text-ms-gray-600 mb-3">Overall Performance</p>
+              <div className="ms-progress-modern">
+                <div className="ms-progress-fill-modern" style={{ width: "87%" }}></div>
+              </div>
             </div>
           </div>
 
-          <div className="ms-card p-6 hover:shadow-md transition-shadow">
+          <div className="ms-card-interactive ms-animation-stagger">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-lg bg-ms-gray-100">
-                <TrophyIcon className="w-6 h-6 text-blue-600" />
+              <div className="p-4 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200">
+                <TrophyIcon className="w-8 h-8 text-blue-600" />
               </div>
-              <div className="flex items-center space-x-1 ms-text-small text-green-600">
-                <ArrowUpIcon className="w-4 h-4" />
-                <span className="font-medium">12.5%</span>
+              <div className="flex items-center space-x-1 ms-text-small text-green-600 font-semibold">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M7 14l5-5 5 5z"/>
+                </svg>
+                <span>12.5%</span>
               </div>
             </div>
             <div>
-              <p className="ms-text-xlarge font-semibold text-ms-gray-900 mb-1">6/8</p>
-              <p className="ms-text-small text-ms-gray-600">Objectives Progress</p>
+              <p className="ms-text-xxlarge font-bold text-ms-gray-900 mb-1">6/8</p>
+              <p className="ms-text-small text-ms-gray-600 mb-3">Objectives Progress</p>
+              <div className="ms-progress-modern">
+                <div className="ms-progress-fill-modern" style={{ width: "75%" }}></div>
+              </div>
             </div>
           </div>
 
-          <div className="ms-card p-6 hover:shadow-md transition-shadow">
+          <div className="ms-card-interactive ms-animation-stagger">
             <div className="flex items-center justify-between mb-4">
-              <div className="p-3 rounded-lg bg-ms-gray-100">
-                <CurrencyDollarIcon className="w-6 h-6 text-ms-blue" />
+              <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-100 to-yellow-200">
+                <CurrencyDollarIcon className="w-8 h-8 text-yellow-600" />
               </div>
-              <div className="flex items-center space-x-1 ms-text-small text-green-600">
-                <ArrowUpIcon className="w-4 h-4" />
-                <span className="font-medium">8.3%</span>
+              <div className="flex items-center space-x-1 ms-text-small text-green-600 font-semibold">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M7 14l5-5 5 5z"/>
+                </svg>
+                <span>8.3%</span>
               </div>
             </div>
             <div>
-              <p className="ms-text-xlarge font-semibold text-ms-gray-900 mb-1">$4,250</p>
-              <p className="ms-text-small text-ms-gray-600">Quarterly Bonus</p>
+              <p className="ms-text-xxlarge font-bold text-ms-gray-900 mb-1">$4,250</p>
+              <p className="ms-text-small text-ms-gray-600 mb-3">Quarterly Bonus</p>
+              <div className="ms-progress-modern">
+                <div className="ms-progress-fill-modern" style={{ width: "85%" }}></div>
+              </div>
             </div>
           </div>
 
           {(user.role === "manager" || user.role === "senior_management") && (
-            <div className="ms-card p-6 hover:shadow-md transition-shadow">
+            <div className="ms-card-interactive ms-animation-stagger">
               <div className="flex items-center justify-between mb-4">
-                <div className="p-3 rounded-lg bg-ms-gray-100">
-                  <UsersIcon className="w-6 h-6 text-purple-600" />
+                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-100 to-purple-200">
+                  <UsersIcon className="w-8 h-8 text-purple-600" />
                 </div>
-                <div className="flex items-center space-x-1 ms-text-small text-green-600">
-                  <ArrowUpIcon className="w-4 h-4" />
-                  <span className="font-medium">3.1%</span>
+                <div className="flex items-center space-x-1 ms-text-small text-green-600 font-semibold">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M7 14l5-5 5 5z"/>
+                  </svg>
+                  <span>3.1%</span>
                 </div>
               </div>
               <div>
-                <p className="ms-text-xlarge font-semibold text-ms-gray-900 mb-1">92%</p>
-                <p className="ms-text-small text-ms-gray-600">Team Performance</p>
+                <p className="ms-text-xxlarge font-bold text-ms-gray-900 mb-1">92%</p>
+                <p className="ms-text-small text-ms-gray-600 mb-3">Team Performance</p>
+                <div className="ms-progress-modern">
+                  <div className="ms-progress-fill-modern" style={{ width: "92%" }}></div>
+                </div>
               </div>
             </div>
           )}
