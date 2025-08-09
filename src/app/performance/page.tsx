@@ -143,7 +143,7 @@ export default function PerformancePage() {
                 <p className="text-3xl font-bold">{currentQuarter.avgScore}/100</p>
                 <p className="text-white/80 text-sm">Q4 2024</p>
               </div>
-              <div className="text-4xl">📊</div>
+              <div className="text-4xl">�</div>
             </div>
           </div>
 
@@ -154,7 +154,7 @@ export default function PerformancePage() {
                 <p className="text-3xl font-bold text-text">#7</p>
                 <p className="text-green-600 text-sm">↑ 3 positions</p>
               </div>
-              <div className="text-4xl">🏆</div>
+              <div className="text-4xl">⭐</div>
             </div>
           </div>
 
@@ -165,7 +165,7 @@ export default function PerformancePage() {
                 <p className="text-3xl font-bold text-text">{currentQuarter.completedObjectives}/{currentQuarter.totalObjectives}</p>
                 <p className="text-blue-600 text-sm">83% complete</p>
               </div>
-              <div className="text-4xl">🎯</div>
+              <div className="text-4xl">◯</div>
             </div>
           </div>
 
@@ -176,7 +176,7 @@ export default function PerformancePage() {
                 <p className="text-3xl font-bold text-text">${currentQuarter.bonusAmount.toLocaleString()}</p>
                 <p className="text-green-600 text-sm">Eligible</p>
               </div>
-              <div className="text-4xl">💰</div>
+              <div className="text-4xl">$</div>
             </div>
           </div>
         </div>
@@ -312,7 +312,7 @@ export default function PerformancePage() {
           {/* Strengths */}
           <div className="card">
             <h4 className="font-semibold text-text mb-4 flex items-center">
-              <span className="text-green-600 mr-2">💪</span>
+              <span className="text-green-600 mr-2">+</span>
               Key Strengths
             </h4>
             <ul className="space-y-2 text-sm text-text-light">
@@ -338,7 +338,7 @@ export default function PerformancePage() {
           {/* Areas for Improvement */}
           <div className="card">
             <h4 className="font-semibold text-text mb-4 flex items-center">
-              <span className="text-yellow-600 mr-2">📈</span>
+              <span className="text-yellow-600 mr-2">↗</span>
               Growth Areas
             </h4>
             <ul className="space-y-2 text-sm text-text-light">
@@ -364,7 +364,7 @@ export default function PerformancePage() {
           {/* Goals & Recommendations */}
           <div className="card">
             <h4 className="font-semibold text-text mb-4 flex items-center">
-              <span className="text-blue-600 mr-2">🎯</span>
+              <span className="text-blue-600 mr-2">→</span>
               Next Quarter Goals
             </h4>
             <ul className="space-y-2 text-sm text-text-light">

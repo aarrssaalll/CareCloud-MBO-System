@@ -59,9 +59,9 @@
 - Example: `hotfix/login-bug`
 
 ## Current Status
-- ✅ `main` - Initial CareCloud MBO System
-- ✅ `development` - Ready for team development
-- 🚀 Ready for multi-user collaboration
+- main - Initial CareCloud MBO System
+- development - Ready for team development
+- Ready for multi-user collaboration
 
 ## Team Collaboration Guidelines
 
