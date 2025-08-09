@@ -109,7 +109,7 @@ export default function PerformancePage() {
   };
 
   return (
-    <div className="min-h-screen bg-accent-50">
+    <div className="min-h-screen ms-surface bg-ms-gray-50">
       <Navigation />
       
       <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -117,14 +117,14 @@ export default function PerformancePage() {
         <div className="px-4 py-6 sm:px-0">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-text">Performance Analytics</h1>
-              <p className="mt-2 text-text-light">Track your performance trends and bonus history</p>
+              <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">Performance Analytics</h1>
+              <p className="mt-2 ms-text-medium text-ms-gray-600">Track your performance trends and bonus history</p>
             </div>
             <div className="flex space-x-4">
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
-                className="input-field w-40"
+                className="ms-input w-40"
               >
                 <option value="2024">2024</option>
                 <option value="2023">2023</option>

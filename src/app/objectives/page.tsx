@@ -190,7 +190,7 @@ export default function ObjectivesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen ms-surface bg-ms-gray-50">
       <Navigation />
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -198,26 +198,26 @@ export default function ObjectivesPage() {
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div className="mb-6 lg:mb-0">
-              <h1 className="text-3xl font-bold text-text-dark">My Objectives</h1>
-              <p className="mt-2 text-text-light">Q4 2024 • Track your progress and add remarks</p>
+              <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">My Objectives</h1>
+              <p className="mt-2 ms-text-medium text-ms-gray-600">Q4 2024 • Track your progress and add remarks</p>
             </div>
             
             {/* Score Summary Card */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:w-80">
+            <div className="ms-card p-6 lg:w-80">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-text-dark">Current Score</h3>
-                  <p className="text-sm text-text-light">AI-Generated Assessment</p>
+                  <h3 className="ms-text-large font-semibold text-ms-gray-900">Current Score</h3>
+                  <p className="ms-text-small text-ms-gray-600">AI-Generated Assessment</p>
                 </div>
-                <div className="p-3 bg-primary-50 rounded-lg">
-                  <StarIcon className="w-6 h-6 text-primary" />
+                <div className="p-3 bg-ms-blue-100 rounded-lg">
+                  <StarIcon className="w-6 h-6 text-ms-blue" />
                 </div>
               </div>
               <div className="flex items-end space-x-2">
-                <p className="text-4xl font-bold text-primary">{calculateTotalScore()}</p>
-                <p className="text-lg text-text-light mb-1">/100</p>
+                <p className="ms-text-xxlarge font-semibold text-ms-blue">{calculateTotalScore()}</p>
+                <p className="ms-text-large text-ms-gray-600 mb-1">/100</p>
               </div>
-              <div className="mt-3 text-sm text-text-light">
+              <div className="mt-3 ms-text-small text-ms-gray-600">
                 {objectives.filter(o => o.status === "completed").length} of {objectives.length} objectives completed
               </div>
             </div>

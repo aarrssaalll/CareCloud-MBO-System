@@ -50,17 +50,17 @@ export default function LoginPage() {
       <div className="max-w-md w-full mx-4">
         {/* Microsoft-style Login Card */}
         <div className="ms-card-elevated p-8">
-          {/* Microsoft Logo Style Header */}
+          {/* CareCloud Logo Style Header */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center mb-4">
-              <div className="w-8 h-8 bg-ms-blue mr-3 flex items-center justify-center">
+              <div className="w-8 h-8 bg-ms-blue mr-3 flex items-center justify-center rounded">
                 <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M0 0h11v11H0V0zm13 0h11v11H13V0zM0 13h11v11H0V13zm13 0h11v11H13V13z"/>
+                  <path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
                 </svg>
               </div>
-              <span className="text-2xl font-semibold text-ms-gray-900">Microsoft</span>
+              <span className="text-2xl font-semibold text-ms-gray-900">CareCloud</span>
             </div>
-            <h1 className="ms-heading-3 text-ms-gray-900 mb-2">CareCloud MBO System</h1>
+            <h1 className="ms-heading-3 text-ms-gray-900 mb-2">MBO System</h1>
             <p className="ms-text-small text-ms-gray-700">Management by Objectives Platform</p>
           </div>
 

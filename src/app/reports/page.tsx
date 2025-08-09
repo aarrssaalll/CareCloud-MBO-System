@@ -283,24 +283,24 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen ms-surface bg-ms-gray-50">
       <Navigation />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-text-dark">Reports & Analytics</h1>
-          <p className="text-text-light mt-2">Comprehensive performance and analytics reports</p>
+          <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">Reports & Analytics</h1>
+          <p className="ms-text-medium text-ms-gray-600 mt-2">Comprehensive performance and analytics reports</p>
         </div>
 
         {/* Report Controls */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="ms-card p-6 mb-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center space-y-4 md:space-y-0">
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
-                <FunnelIcon className="w-5 h-5 text-text-light" />
+                <FunnelIcon className="w-5 h-5 text-ms-gray-600" />
                 <select
                   value={selectedReport}
                   onChange={(e) => setSelectedReport(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="ms-input"
                 >
                   {reportTypes.map((type) => (
                     <option key={type.id} value={type.id}>
@@ -310,11 +310,11 @@ export default function ReportsPage() {
                 </select>
               </div>
               <div className="flex items-center space-x-2">
-                <CalendarIcon className="w-5 h-5 text-text-light" />
+                <CalendarIcon className="w-5 h-5 text-ms-gray-600" />
                 <select
                   value={dateRange}
                   onChange={(e) => setDateRange(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
+                  className="ms-input"
                 >
                   <option value="q4-2024">Q4 2024</option>
                   <option value="q3-2024">Q3 2024</option>
@@ -326,7 +326,7 @@ export default function ReportsPage() {
             </div>
             <button
               onClick={() => exportReport(selectedReport)}
-              className="flex items-center space-x-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors"
+              className="ms-button-primary flex items-center space-x-2"
             >
               <ArrowDownTrayIcon className="w-5 h-5" />
               <span>Export Report</span>
