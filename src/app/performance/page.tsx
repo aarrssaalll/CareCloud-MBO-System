@@ -112,7 +112,7 @@ export default function PerformancePage() {
     <div className="min-h-screen ms-surface bg-ms-gray-50">
       <Navigation />
       
-      <main className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+      <main className="w-full px-6 lg:px-8 py-6">
         {/* Header */}
         <div className="px-4 py-6 sm:px-0">
           <div className="flex items-center justify-between">

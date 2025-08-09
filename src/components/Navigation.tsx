@@ -8,13 +8,10 @@ import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
   UserGroupIcon,
-  CogIcon,
   UserIcon,
   ArrowRightOnRectangleIcon,
-  ChartPieIcon,
   DocumentTextIcon,
   ClockIcon,
-  ShieldCheckIcon,
   AcademicCapIcon,
   TrophyIcon,
   BriefcaseIcon,
@@ -22,7 +19,7 @@ import {
   BuildingOfficeIcon,
   CheckCircleIcon,
   Cog8ToothIcon
-} from '@heroicons/react/24/outline';
+} from '@/components/Icon';
 
 interface NavigationItem {
   name: string;
@@ -136,7 +133,7 @@ export default function Navigation() {
   return (
     <>
       <nav className="ms-nav-enhanced bg-ms-white border-b border-ms-gray-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
               <Link href="/dashboard" className="flex-shrink-0 flex items-center group">
@@ -208,7 +205,7 @@ export default function Navigation() {
         onMouseEnter={() => setIsHeroVisible(true)}
         onMouseLeave={() => setIsHeroVisible(false)}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="w-full px-6 lg:px-8 py-10">
           <div className="text-center mb-10 ms-animation-fadeInUp">
             <h2 className="ms-text-xxlarge font-bold text-ms-gray-900 mb-3">
               Welcome to your {user?.role?.replace(/_/g, ' ').replace(/-/g, ' ').toUpperCase()} Portal

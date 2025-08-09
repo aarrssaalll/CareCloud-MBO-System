@@ -1,0 +1,85 @@
+/* Critical styles loaded first - performance optimized */
+:root {
+  /* Core colors only */
+  --ms-blue: #0078d4;
+  --ms-blue-dark: #106ebe;
+  --ms-gray-100: #f3f2f1;
+  --ms-gray-200: #edebe9;
+  --ms-gray-600: #a19f9d;
+  --ms-gray-700: #605e5c;
+  --ms-gray-800: #323130;
+  --ms-gray-900: #201f1e;
+  --ms-white: #ffffff;
+}
+
+/* Essential layout styles */
+.ms-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+}
+
+.ms-button-primary {
+  background: #2563eb;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ms-button-primary:hover {
+  background: #1d4ed8;
+}
+
+.ms-button-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.ms-button-secondary:hover {
+  background: #e5e7eb;
+}
+
+/* Typography utilities */
+.ms-text-large { font-size: 1.125rem; }
+.ms-text-medium { font-size: 1rem; }
+.ms-text-small { font-size: 0.875rem; }
+.ms-text-xsmall { font-size: 0.75rem; }
+
+/* Navigation optimized */
+.ms-nav-enhanced {
+  background: white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Performance: Defer non-critical animations */
+@media (prefers-reduced-motion: no-preference) {
+  .ms-animation-fadeInUp {
+    animation: fadeInUp 0.6s ease-out;
+  }
+  
+  .ms-animation-stagger {
+    animation: fadeInUp 0.6s ease-out;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

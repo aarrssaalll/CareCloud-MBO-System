@@ -285,7 +285,7 @@ export default function ReportsPage() {
   return (
     <div className="min-h-screen ms-surface bg-ms-gray-50">
       <Navigation />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="w-full px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">Reports & Analytics</h1>
           <p className="ms-text-medium text-ms-gray-600 mt-2">Comprehensive performance and analytics reports</p>

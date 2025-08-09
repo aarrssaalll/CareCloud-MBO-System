@@ -3,12 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "dev:network": "next dev -H 0.0.0.0",
+    "dev": "next dev --turbo",
+    "dev:network": "next dev --turbo -H 0.0.0.0",
+    "dev:fast": "next dev --turbo --experimental-https",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
     "start": "next start",
     "start:network": "next start -H 0.0.0.0",
-    "lint": "next lint"
+    "lint": "next lint --fix",
+    "lint:check": "next lint",
+    "clean": "rm -rf .next out",
+    "performance": "next build && next start"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",

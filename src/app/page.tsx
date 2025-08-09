@@ -5,7 +5,7 @@ export default function Home() {
     <div className="min-h-screen bg-gradient-to-br from-accent-50 to-accent-100">
       {/* Header */}
       <header className="bg-white shadow-lg border-b-4 border-primary">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-6 lg:px-8">
           <div className="flex justify-between items-center py-6">
             <div className="flex items-center">
               <h1 className="text-3xl font-bold text-primary">CareCloud</h1>
@@ -24,7 +24,7 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+      <main className="w-full px-6 lg:px-8 py-16">
         <div className="text-center">
           <h2 className="text-5xl font-bold text-text mb-6">
             Automated Management by Objectives

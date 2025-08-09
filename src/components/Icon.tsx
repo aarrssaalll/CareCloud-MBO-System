@@ -1,0 +1,27 @@
+// Optimized static icon imports for performance
+export {
+  HomeIcon,
+  ClipboardDocumentListIcon,
+  ChartBarIcon,
+  UserGroupIcon,
+  UserIcon,
+  ArrowRightOnRectangleIcon,
+  TrophyIcon,
+  DocumentTextIcon,
+  ClockIcon,
+  AcademicCapIcon,
+  BriefcaseIcon,
+  GlobeAltIcon,
+  BuildingOfficeIcon,
+  CheckCircleIcon,
+  Cog8ToothIcon,
+  CurrencyDollarIcon,
+  ExclamationTriangleIcon,
+  PencilIcon,
+  CalendarIcon,
+  ScaleIcon,
+  StarIcon,
+  EyeIcon,
+  TrashIcon,
+  PlusIcon
+} from '@heroicons/react/24/outline';
