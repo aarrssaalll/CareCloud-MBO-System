@@ -41,3 +41,15 @@ This is a comprehensive Automated Management by Objectives (MBO) Reporting Syste
 - Use the defined color variables from Tailwind config
 - Create reusable components
 - Maintain clean, professional design
+
+## SEcurity Practices
+- Implement secure authentication and authorization
+- Validate and sanitize all user inputs
+- Ensure proper session management
+- Data encryption for sensitive information
+
+## Company Name 
+- CareCloud
+
+## Developer
+- Gulsher Zahid (prompt Engineer)

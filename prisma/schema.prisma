@@ -7,22 +7,46 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  role      Role
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// MBO System Models - Using prefixed table names to avoid conflicts
+
+model MboUser {
+  id          String   @id @default(cuid())
+  employeeId  String?  @unique
+  email       String   @unique
+  firstName   String?
+  lastName    String?
+  name        String   // Full name for compatibility
+  role        String   // EMPLOYEE, MANAGER, HR, SENIOR_MANAGEMENT
+  title       String?
+  phone       String?
+  hireDate    DateTime?
+  salary      Float?
+  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, TERMINATED
+  permissions String?  // JSON array of permissions
+  profileImage String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  objectives Objective[]
-  reviews    Review[]
-  bonuses    Bonus[]
+  // Organizational hierarchy
+  departmentId String?
+  department   MboDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  teamId       String?
+  team         MboTeam?       @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  managerId    String?
+  manager      MboUser?       @relation("ManagerEmployee", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  directReports MboUser[]     @relation("ManagerEmployee")
   
-  @@map("users")
+  objectives       MboObjective[]
+  reviews          MboReview[]
+  bonuses          MboBonus[]
+  objectiveReviews MboObjectiveReview[] @relation("ReviewerRelation")
+  assignedObjectives MboObjective[] @relation("AssignedBy")
+  approvals        MboApproval[]
+  
+  @@map("mbo_users")
 }
 
-model Objective {
+model MboObjective {
   id          String        @id @default(cuid())
   title       String
   description String
@@ -30,7 +54,7 @@ model Objective {
   target      Float
   current     Float
   weight      Float         @default(1.0)
-  status      ObjectiveStatus @default(ACTIVE)
+  status      String        @default("ACTIVE") // ACTIVE, COMPLETED, ON_HOLD, CANCELLED
   dueDate     DateTime
   quarter     String
   year        Int
@@ -38,87 +62,109 @@ model Objective {
   updatedAt   DateTime      @updatedAt
   
   userId      String
-  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        MboUser       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   
-  reviews     ObjectiveReview[]
+  assignedById String?
+  assignedBy   MboUser?     @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
   
-  @@map("objectives")
+  reviews     MboObjectiveReview[]
+  
+  @@map("mbo_objectives")
 }
 
-model ObjectiveReview {
+model MboObjectiveReview {
   id           String   @id @default(cuid())
   score        Float
   comments     String?
   reviewDate   DateTime @default(now())
   
   objectiveId  String
-  objective    Objective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  objective    MboObjective @relation(fields: [objectiveId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   
   reviewerId   String
-  reviewer     User     @relation(fields: [reviewerId], references: [id])
+  reviewer     MboUser   @relation("ReviewerRelation", fields: [reviewerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   
-  @@map("objective_reviews")
+  @@map("mbo_objective_reviews")
 }
 
-model Review {
+model MboReview {
   id              String      @id @default(cuid())
   quarter         String
   year            Int
   overallScore    Float
   comments        String?
-  status          ReviewStatus @default(DRAFT)
+  status          String      @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
   submittedAt     DateTime?
   approvedAt      DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   
   employeeId      String
-  employee        User        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee        MboUser     @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   
-  @@map("reviews")
+  @@map("mbo_reviews")
 }
 
-model Bonus {
+model MboBonus {
   id            String   @id @default(cuid())
   quarter       String
   year          Int
   baseAmount    Float
   performanceMultiplier Float
   finalAmount   Float
-  status        BonusStatus @default(CALCULATED)
+  status        String   @default("CALCULATED") // CALCULATED, APPROVED, PAID, REJECTED
   calculatedAt  DateTime @default(now())
   paidAt        DateTime?
   
   employeeId    String
-  employee      User     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employee      MboUser  @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   
-  @@map("bonuses")
+  @@map("mbo_bonuses")
 }
 
-enum Role {
-  EMPLOYEE
-  MANAGER
-  HR
-  SENIOR_MANAGEMENT
+model MboDepartment {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  budget      Float?
+  managerId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  users       MboUser[]
+  teams       MboTeam[]
+  
+  @@map("mbo_departments")
 }
 
-enum ObjectiveStatus {
-  ACTIVE
-  COMPLETED
-  ON_HOLD
-  CANCELLED
+model MboTeam {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  leaderId     String?
+  departmentId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  department   MboDepartment @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users        MboUser[]
+  
+  @@map("mbo_teams")
 }
 
-enum ReviewStatus {
-  DRAFT
-  SUBMITTED
-  APPROVED
-  REJECTED
-}
-
-enum BonusStatus {
-  CALCULATED
-  APPROVED
-  PAID
-  REJECTED
+model MboApproval {
+  id          String   @id @default(cuid())
+  type        String   // REVIEW, BONUS, OBJECTIVE
+  entityId    String   // ID of the entity being approved
+  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  comments    String?
+  approvedAt  DateTime?
+  rejectedAt  DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  approverId  String
+  approver    MboUser  @relation(fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  @@map("mbo_approvals")
 }

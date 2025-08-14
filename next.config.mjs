@@ -1,31 +1,27 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Enable development optimizations
-  experimental: {
-    // Remove invalid serverHost option
-  },
-  // Enable SWC minification for better performance
-  swcMinify: true,
-  // Optimize images
+  // Performance optimizations
+  poweredByHeader: false,
+  
+  // Image optimization
   images: {
-    domains: ['localhost'],
+    formats: ['image/webp', 'image/avif'],
+    minimumCacheTTL: 60,
   },
-  // Enable compression
-  compress: true,
-  // Optimize CSS
-  optimizeFonts: true,
-  // Development server config
+  
+  // Development optimizations
   ...(process.env.NODE_ENV === 'development' && {
-    // Use webpack 5 cache
-    webpack: (config, { dev }) => {
-      if (dev) {
-        config.cache = {
-          type: 'filesystem',
-        };
-      }
-      return config;
-    }
-  })
+    experimental: {
+      optimizePackageImports: ['@heroicons/react'],
+    },
+  }),
+  
+  // Production optimizations
+  ...(process.env.NODE_ENV === 'production' && {
+    experimental: {
+      optimizePackageImports: ['@heroicons/react'],
+    },
+  }),
 };
 
 export default nextConfig;

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test MBO Authentication</title>
+</head>
+<body>
+    <h1>MBO Authentication Test</h1>
+    <button onclick="testAuth()">Test Authentication</button>
+    <button onclick="testUsers()">Test Users API</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAuth() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing authentication...';
+            
+            try {
+                const response = await fetch('/api/mbo/auth', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: 'crystal.williams@company.com'
+                    }),
+                });
+                
+                const data = await response.json();
+                results.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML = 'Error: ' + error.message;
+            }
+        }
+
+        async function testUsers() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing users API...';
+            
+            try {
+                const response = await fetch('/api/mbo/data?type=users');
+                const data = await response.json();
+                results.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

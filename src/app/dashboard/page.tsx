@@ -1,24 +1,37 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import Navigation from "@/components/Navigation";
+import { initializeSampleDataIfNeeded } from "@/lib/sample-data";
 import {
   ChartBarIcon,
   TrophyIcon,
   CurrencyDollarIcon,
   ArrowUpIcon,
-  ArrowDownIcon,
   ClockIcon,
   CheckCircleIcon,
-  ExclamationTriangleIcon,
   UsersIcon,
+  BellIcon,
+  CogIcon,
+  PlusIcon,
+  ChatBubbleLeftRightIcon,
+  SparklesIcon,
+  ArrowTrendingUpIcon,
+  CalendarIcon,
+  DocumentTextIcon,
+  EyeIcon,
 } from "@heroicons/react/24/outline";
+// layout-driven navigation (AppShell) picks items from shared config; no need here
 
 interface User {
   name: string;
   email: string;
-  role: "employee" | "manager" | "hr" | "senior_management";
+  role: "employee" | "manager" | "hr" | "senior-management";
+  avatar?: string;
+  department?: string;
+  designation?: string;
+  joinDate?: string;
+  employeeId?: string;
 }
 
 interface Objective {
@@ -30,6 +43,9 @@ interface Objective {
   status: "on-track" | "at-risk" | "completed" | "overdue";
   dueDate: string;
   category: string;
+  remarks?: string;
+  aiScore?: number;
+  lastUpdated?: string;
 }
 
 interface KPI {
@@ -39,174 +55,207 @@ interface KPI {
   trend: "up" | "down" | "neutral";
   icon: any;
   color: string;
+  progress?: number;
+}
+
+interface Notification {
+  id: number;
+  type: "info" | "warning" | "success" | "error";
+  title: string;
+  message: string;
+  timestamp: string;
+  read: boolean;
+  actionRequired?: boolean;
+}
+
+interface PerformanceData {
+  quarter: string;
+  score: number;
+  trend: "up" | "down" | "neutral";
 }
 
 export default function DashboardPage() {
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<User>({
     name: "Guest",
-    role: "employee" as const,
-    email: "guest@carecloud.com"
+    role: "employee",
+    email: "guest@carecloud.com",
+    avatar: "/api/placeholder/64/64",
+    department: "Engineering",
+    designation: "Software Engineer",
+    joinDate: "2023-01-15",
+    employeeId: "EMP001"
   });
 
-  // Mock objectives data
-  const mockObjectives = [
+  const [notifications, setNotifications] = useState<Notification[]>([
     {
-      title: "Q4 Revenue Target",
-      description: "Achieve 15% increase in quarterly revenue through strategic initiatives and client expansion",
-      progress: 85,
-      status: "In Progress"
+      id: 1,
+      type: "info",
+      title: "AI Score Analysis",
+      message: "Your Q4 objective performance has been analyzed by AI. Score: 94.2%",
+      timestamp: "2 hours ago",
+      read: false,
+      actionRequired: false
     },
     {
-      title: "Customer Satisfaction",
-      description: "Maintain NPS score above 85 through improved service delivery and support",
-      progress: 100,
-      status: "Completed"
+      id: 2,
+      type: "warning", 
+      title: "Objective Due Soon",
+      message: "Process Optimization objective is due in 3 days",
+      timestamp: "1 day ago",
+      read: false,
+      actionRequired: true
     },
     {
-      title: "Process Optimization",
-      description: "Reduce operational costs by 10% through automation and efficiency improvements",
-      progress: 76,
-      status: "At Risk"
-    },
-    {
-      title: "Team Development",
-      description: "Complete leadership training program and mentor 2 junior team members",
-      progress: 65,
-      status: "In Progress"
-    },
-    {
-      title: "Innovation Initiative",
-      description: "Launch new product feature that increases user engagement by 20%",
-      progress: 45,
-      status: "In Progress"
+      id: 3,
+      type: "success",
+      title: "Bonus Calculated",
+      message: "Your Q3 bonus of $4,250 has been processed",
+      timestamp: "3 days ago",
+      read: true,
+      actionRequired: false
     }
-  ];
+  ]);
+
+  const [performanceData] = useState<PerformanceData[]>([
+    { quarter: "Q1", score: 78, trend: "up" },
+    { quarter: "Q2", score: 85, trend: "up" },
+    { quarter: "Q3", score: 91, trend: "up" },
+    { quarter: "Q4", score: 94.2, trend: "up" }
+  ]);
+
+  // Sidebar and navigation are provided by AppShell
+
+  // AI Analysis Function
+  const analyzeObjectiveWithAI = async (objective: Objective, remarks: string) => {
+    try {
+      const res = await fetch('/api/ai-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objective, remarks })
+      });
+      if (!res.ok) throw new Error('AI API failed');
+      return await res.json();
+    } catch (error) {
+      console.error('AI Analysis failed:', error);
+      return null;
+    }
+  };
+
+  const mockObjectives: Objective[] = useMemo(() => [
+    {
+      id: 1,
+      title: "Q4 Revenue Target",
+      description: "Achieve 15% increase in quarterly revenue",
+      target: 115,
+      current: 98,
+      status: "on-track",
+      dueDate: "2024-12-31",
+      category: "Sales",
+      remarks: "Making good progress on key client acquisitions. Secured 3 major deals this month.",
+      aiScore: 92.5,
+      lastUpdated: "2024-11-15"
+    },
+    {
+      id: 2,
+      title: "Customer Satisfaction",
+      description: "Maintain NPS score above 85",
+      target: 85,
+      current: 88,
+      status: "completed",
+      dueDate: "2024-12-15",
+      category: "Customer Success",
+      remarks: "Implemented new support workflow resulting in faster resolution times.",
+      aiScore: 98.1,
+      lastUpdated: "2024-11-10"
+    },
+    {
+      id: 3,
+      title: "Process Optimization", 
+      description: "Reduce operational costs by 10%",
+      target: 90,
+      current: 75,
+      status: "at-risk",
+      dueDate: "2024-11-30",
+      category: "Operations",
+      remarks: "Identified bottlenecks but implementation delayed due to resource constraints.",
+      aiScore: 76.3,
+      lastUpdated: "2024-11-14"
+    }
+  ], []);
+
+  const kpiData: KPI[] = useMemo(() => [
+    {
+      title: "Overall Performance",
+      value: "87%",
+      change: 5.2,
+  trend: "up",
+      icon: ChartBarIcon,
+      color: "from-[#004E9E] to-[#007BFF]",
+      progress: 87
+    },
+    {
+      title: "Goals Completed",
+      value: "6/8",
+      change: 12.5,
+  trend: "up",
+      icon: TrophyIcon,
+      color: "from-green-500 to-green-600",
+      progress: 75
+    },
+    {
+      title: "Quarterly Bonus",
+      value: "$4,250",
+      change: 8.3,
+  trend: "up",
+      icon: CurrencyDollarIcon,
+      color: "from-yellow-500 to-orange-600",
+      progress: 85
+    }
+  ], []);
 
   useEffect(() => {
-    // Get user data from localStorage
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      setUser(JSON.parse(userData));
-    } else {
-      // Redirect to login if no user data
-      window.location.href = "/login";
-    }
+    const initializeSystem = async () => {
+      // Initialize sample data if needed
+      await initializeSampleDataIfNeeded();
+      
+      // Load user data
+      const userData = localStorage.getItem("user");
+      if (userData) {
+        setUser(JSON.parse(userData));
+      } else {
+        window.location.href = "/login";
+      }
+    };
+
+    initializeSystem();
   }, []);
 
+  const markNotificationRead = (id: number) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const runAIForObjective = async (objectiveId: number) => {
+    const obj = mockObjectives.find(o => o.id === objectiveId);
+    if (!obj) return;
+    const result = await analyzeObjectiveWithAI(obj, obj.remarks || '');
+    if (result) {
+      alert(`AI Score: ${result.score.toFixed(1)}%\nRecommendations:\n- ${result.recommendations.join('\n- ')}`);
+    }
+  };
+
   return (
-    <div className="h-screen flex flex-col bg-gray-50">
-      <Navigation />
-      
-      {/* Main Content Area - Full Screen Layout */}
-      <div className="flex-1 flex overflow-hidden">
-        
-        {/* Left Sidebar - Quick Stats & Navigation */}
-        <aside className="w-80 bg-white/90 backdrop-blur-xl border-r border-gray-200 shadow-sm">
-          <div className="h-full p-6 space-y-6 overflow-y-auto">
-            
-            {/* User Profile Card */}
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6 text-white relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-16 translate-x-16"></div>
-              <div className="relative z-10">
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-16 h-16 bg-white/20 rounded-xl flex items-center justify-center backdrop-blur-sm">
-                    <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold">{user.name}</h3>
-                    <p className="text-white/80 capitalize">{user.role.replace('-', ' ')}</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4 mt-6">
-                  <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                    <div className="text-2xl font-bold">87%</div>
-                    <div className="text-sm text-white/80">Performance</div>
-                  </div>
-                  <div className="bg-white/10 rounded-lg p-3 backdrop-blur-sm">
-                    <div className="text-2xl font-bold">6/8</div>
-                    <div className="text-sm text-white/80">Goals</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="space-y-3">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h4>
-              <button className="w-full flex items-center space-x-3 p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-blue-200 group">
-                <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-all">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
-                  </svg>
-                </div>
-                <span className="text-gray-900 font-medium">Add New Objective</span>
-              </button>
-              
-              <button className="w-full flex items-center space-x-3 p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-green-200 group">
-                <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-600 group-hover:text-white transition-all">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                  </svg>
-                </div>
-                <span className="text-gray-900 font-medium">Update Progress</span>
-              </button>
-              
-              <button className="w-full flex items-center space-x-3 p-4 bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-200 border border-gray-100 hover:border-purple-200 group">
-                <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-all">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M9 17v-2.34c0-.22.04-.44.12-.64.09-.2.23-.37.42-.53.19-.15.42-.24.69-.26.26-.02.52.02.76.15l.38.22c.44-.06.89-.06 1.33 0l.38-.22c.24-.13.5-.17.76-.15.27.02.5.11.69.26.19.16.33.33.42.53.08.2.12.42.12.64V17c0 .55-.2 1.02-.59 1.41-.39.39-.86.59-1.41.59H10c-.55 0-1.02-.2-1.41-.59C8.2 18.02 8 17.55 8 17zm5-2c.83 0 1.5-.67 1.5-1.5S13.83 12 13 12s-1.5.67-1.5 1.5S12.17 15 13 15z"/>
-                  </svg>
-                </div>
-                <span className="text-gray-900 font-medium">Generate Report</span>
-              </button>
-            </div>
-
-            {/* Recent Activity */}
-            <div className="space-y-3">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h4>
-              <div className="space-y-3">
-                <div className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-gray-100">
-                  <div className="w-3 h-3 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">Objective completed</p>
-                    <p className="text-xs text-gray-500">Customer satisfaction target achieved</p>
-                    <p className="text-xs text-gray-400">2 hours ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-gray-100">
-                  <div className="w-3 h-3 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">Review scheduled</p>
-                    <p className="text-xs text-gray-500">Q4 performance review</p>
-                    <p className="text-xs text-gray-400">1 day ago</p>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-3 p-3 bg-white rounded-lg border border-gray-100">
-                  <div className="w-3 h-3 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-gray-900">Bonus calculated</p>
-                    <p className="text-xs text-gray-500">Q3 bonus processed</p>
-                    <p className="text-xs text-gray-400">3 days ago</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* Main Content Area */}
-        <main className="flex-1 flex flex-col overflow-hidden">
+    <>
+        {/* Main Content Area (AppShell wraps this) */}
+        <div className="flex-1 flex flex-col overflow-hidden">
           
-          {/* Header Section */}
-          <div className="bg-white/90 backdrop-blur-xl border-b border-gray-200 px-8 py-6">
+          {/* Enhanced Header Section */}
+          <div className="bg-white/95 backdrop-blur-xl border-b border-gray-200/50 px-8 py-6 shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#333333] to-[#666666] bg-clip-text text-transparent mb-2">
                   Good morning, {user.name.split(' ')[0]} 👋
                 </h1>
-                <p className="text-gray-600">
+                <p className="text-[#666666]">
                   {new Date().toLocaleDateString('en-US', { 
                     weekday: 'long', 
                     year: 'numeric', 
@@ -216,294 +265,215 @@ export default function DashboardPage() {
                 </p>
               </div>
               <div className="flex items-center space-x-4">
-                <div className="bg-gradient-to-r from-green-600 to-green-700 text-white px-6 py-3 rounded-xl shadow-sm">
+                <div className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
                   <div className="text-2xl font-bold">$4,250</div>
-                  <div className="text-sm opacity-90">Current Bonus</div>
+                  <div className="text-sm text-blue-100">Current Bonus</div>
                 </div>
-                <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl shadow-sm">
+                <div className="bg-gradient-to-r from-green-500 to-green-600 text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
                   <div className="text-2xl font-bold">87%</div>
-                  <div className="text-sm opacity-90">Performance</div>
+                  <div className="text-sm text-green-100">Performance</div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Dashboard Content - Scrollable */}
+          {/* Dashboard Content */}
           <div className="flex-1 overflow-y-auto p-8 space-y-8">
             
             {/* KPI Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              
-              {/* Performance Card */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <ChartBarIcon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-green-600 font-semibold flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M7 14l5-5 5 5z"/>
-                      </svg>
-                      +5.2%
-                    </div>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <div className="text-3xl font-bold text-gray-900 mb-1">87%</div>
-                  <div className="text-gray-600">Overall Performance</div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full transition-all duration-500" style={{ width: "87%" }}></div>
-                </div>
-              </div>
-
-              {/* Objectives Card */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <TrophyIcon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-blue-600 font-semibold flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M7 14l5-5 5 5z"/>
-                      </svg>
-                      +12.5%
-                    </div>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <div className="text-3xl font-bold text-gray-900 mb-1">6/8</div>
-                  <div className="text-gray-600">Objectives Progress</div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500" style={{ width: "75%" }}></div>
-                </div>
-              </div>
-
-              {/* Bonus Card */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <CurrencyDollarIcon className="w-6 h-6 text-white" />
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm text-orange-600 font-semibold flex items-center">
-                      <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M7 14l5-5 5 5z"/>
-                      </svg>
-                      +8.3%
-                    </div>
-                  </div>
-                </div>
-                <div className="mb-4">
-                  <div className="text-3xl font-bold text-gray-900 mb-1">$4,250</div>
-                  <div className="text-gray-600">Quarterly Bonus</div>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full transition-all duration-500" style={{ width: "85%" }}></div>
-                </div>
-              </div>
-
-              {/* Team Performance (for managers) */}
-              {(user.role === "manager" || user.role === "senior_management") && (
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 group">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {kpiData.map((kpi, index) => (
+                <div key={index} className="bg-white/90 backdrop-blur-sm rounded-3xl p-6 shadow-xl border border-[#004E9E]/10 hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 group">
                   <div className="flex items-center justify-between mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <UsersIcon className="w-6 h-6 text-white" />
+                    <div className="w-12 h-12 bg-gradient-to-br from-[#004E9E] to-[#007BFF] rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
+                      <kpi.icon className="w-6 h-6 text-white" />
                     </div>
                     <div className="text-right">
-                      <div className="text-sm text-purple-600 font-semibold flex items-center">
-                        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M7 14l5-5 5 5z"/>
-                        </svg>
-                        +3.1%
+                      <div className="text-sm text-green-600 font-semibold flex items-center">
+                        <ArrowUpIcon className="w-4 h-4 mr-1" />
+                        +{kpi.change}%
                       </div>
                     </div>
                   </div>
-                  <div className="mb-4">
-                    <div className="text-3xl font-bold text-gray-900 mb-1">92%</div>
-                    <div className="text-gray-600">Team Performance</div>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-2 rounded-full transition-all duration-500" style={{ width: "92%" }}></div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-[#333333] mb-1">{kpi.title}</h3>
+                    <p className="text-3xl font-bold text-[#004E9E]">{kpi.value}</p>
                   </div>
                 </div>
-              )}
+              ))}
             </div>
 
             {/* Main Dashboard Grid */}
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               
-              {/* Performance Analytics - Left Column */}
+              {/* Performance Analytics */}
               <div className="xl:col-span-2 space-y-8">
                 
-                {/* Performance Chart */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/50">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900">Performance Trend</h3>
-                    <div className="flex items-center space-x-3">
-                      <button className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors">
-                        This Quarter
-                      </button>
-                      <button className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
-                        This Year
-                      </button>
-                    </div>
+                {/* Enhanced Performance Chart */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-[#004E9E]/10 relative overflow-hidden">
+                  <div className="absolute inset-0 opacity-5">
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#004E9E] to-[#007BFF]"></div>
                   </div>
                   
-                  {/* Mock Chart Area with Grid */}
-                  <div className="h-80 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-gray-200/50 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-                    
-                    {/* Chart Lines */}
-                    <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 300">
-                      <defs>
-                        <linearGradient id="performanceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                          <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.3"/>
-                          <stop offset="100%" stopColor="#3B82F6" stopOpacity="0"/>
-                        </linearGradient>
-                      </defs>
-                      
-                      {/* Performance Line */}
-                      <path
-                        d="M50,200 Q100,150 150,120 T250,100 T350,80"
-                        stroke="#3B82F6"
-                        strokeWidth="4"
-                        fill="none"
-                        strokeLinecap="round"
-                        className="animate-pulse"
-                      />
-                      
-                      {/* Area under curve */}
-                      <path
-                        d="M50,200 Q100,150 150,120 T250,100 T350,80 L350,280 L50,280 Z"
-                        fill="url(#performanceGradient)"
-                      />
-                      
-                      {/* Data Points */}
-                      <circle cx="50" cy="200" r="6" fill="#3B82F6" className="animate-bounce" style={{animationDelay: '0.1s'}}/>
-                      <circle cx="150" cy="120" r="6" fill="#3B82F6" className="animate-bounce" style={{animationDelay: '0.3s'}}/>
-                      <circle cx="250" cy="100" r="6" fill="#3B82F6" className="animate-bounce" style={{animationDelay: '0.5s'}}/>
-                      <circle cx="350" cy="80" r="6" fill="#3B82F6" className="animate-bounce" style={{animationDelay: '0.7s'}}/>
-                    </svg>
-                    
-                    {/* Chart Labels */}
-                    <div className="absolute bottom-4 left-4 right-4 flex justify-between text-sm text-gray-600">
-                      <span>Jan</span>
-                      <span>Feb</span>
-                      <span>Mar</span>
-                      <span>Apr</span>
+                  <style jsx>{`
+                    @keyframes dash {
+                      to { stroke-dashoffset: -800; }
+                    }
+                  `}</style>
+                  
+                  <div className="relative z-10">
+                    <div className="flex items-center justify-between mb-8">
+                      <div>
+                        <h3 className="text-2xl font-bold bg-gradient-to-r from-[#004E9E] to-[#007BFF] bg-clip-text text-transparent">
+                          Performance Trend Analytics
+                        </h3>
+                        <p className="text-gray-600 mt-1">Real-time performance tracking</p>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <button className="px-4 py-2 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-xl hover:shadow-lg transition-all duration-300">
+                          This Quarter
+                        </button>
+                        <button className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-all duration-300">
+                          This Year
+                        </button>
+                      </div>
                     </div>
                     
-                    {/* Chart Stats */}
-                    <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm rounded-lg p-4 shadow-sm">
-                      <div className="text-2xl font-bold text-green-600">+15.2%</div>
-                      <div className="text-sm text-gray-600">Growth Rate</div>
-                    </div>
-                  </div>
-                </div>
+                    {/* Chart Area */}
+                    <div className="h-96 bg-gradient-to-br from-gray-50/50 to-blue-50/50 rounded-2xl border border-gray-200/50 relative overflow-hidden">
+                      {/* Grid Pattern */}
+                      <div className="absolute inset-0">
+                        <svg className="w-full h-full" viewBox="0 0 400 300">
+                          <defs>
+                            <pattern id="grid" width="40" height="30" patternUnits="userSpaceOnUse">
+                              <path d="M 40 0 L 0 0 0 30" fill="none" stroke="#e5e7eb" strokeWidth="0.5" opacity="0.5"/>
+                            </pattern>
+                          </defs>
+                          <rect width="100%" height="100%" fill="url(#grid)" />
+                        </svg>
+                      </div>
 
-                {/* Objective Breakdown */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/50">
-                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Objective Breakdown</h3>
-                  <div className="space-y-6">
-                    
-                    <div className="group">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                          <span className="text-lg font-medium text-gray-700">Customer Satisfaction</span>
-                        </div>
-                        <span className="text-xl font-bold text-green-600">95%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div className="bg-gradient-to-r from-green-500 to-emerald-600 h-3 rounded-full transition-all duration-1000 group-hover:shadow-lg" style={{ width: "95%" }}></div>
-                      </div>
-                    </div>
-                    
-                    <div className="group">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                          <span className="text-lg font-medium text-gray-700">Revenue Growth</span>
-                        </div>
-                        <span className="text-xl font-bold text-blue-600">82%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-1000 group-hover:shadow-lg" style={{ width: "82%" }}></div>
-                      </div>
-                    </div>
-                    
-                    <div className="group">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                          <span className="text-lg font-medium text-gray-700">Team Efficiency</span>
-                        </div>
-                        <span className="text-xl font-bold text-purple-600">88%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div className="bg-gradient-to-r from-purple-500 to-purple-600 h-3 rounded-full transition-all duration-1000 group-hover:shadow-lg" style={{ width: "88%" }}></div>
-                      </div>
-                    </div>
+                      {/* Performance Chart */}
+                      <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 300">
+                        <defs>
+                          <linearGradient id="performanceGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" stopColor="#004E9E" stopOpacity="0.25"/>
+                            <stop offset="50%" stopColor="#007BFF" stopOpacity="0.15"/>
+                            <stop offset="100%" stopColor="#007BFF" stopOpacity="0"/>
+                          </linearGradient>
+                          <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#004E9E"/>
+                            <stop offset="100%" stopColor="#007BFF"/>
+                          </linearGradient>
+                        </defs>
+                        
+                        {/* Background Performance Area */}
+                        <path
+                          d="M40,220 Q100,180 150,160 T250,140 T360,120 L360,280 L40,280 Z"
+                          fill="url(#performanceGradient)"
+                        />
+                        
+                        {/* Main Performance Line */}
+                        <path
+                          d="M40,220 Q100,180 150,160 T250,140 T360,120"
+                          stroke="url(#lineGradient)"
+                          strokeWidth="3"
+                          fill="none"
+                          strokeLinecap="round"
+                        />
 
-                    <div className="group">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-3 h-3 bg-orange-500 rounded-full"></div>
-                          <span className="text-lg font-medium text-gray-700">Innovation Score</span>
-                        </div>
-                        <span className="text-xl font-bold text-orange-600">76%</span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                        <div className="bg-gradient-to-r from-orange-500 to-red-500 h-3 rounded-full transition-all duration-1000 group-hover:shadow-lg" style={{ width: "76%" }}></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                        {/* Animated dashed trail */}
+                        <path
+                          d="M40,220 Q100,180 150,160 T250,140 T360,120"
+                          stroke="#007BFF"
+                          strokeWidth="2"
+                          fill="none"
+                          strokeDasharray="10 8"
+                          style={{ animation: 'dash 6s linear infinite' }}
+                          opacity="0.5"
+                        />
 
-                {/* Current Objectives */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-gray-200/50">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-2xl font-bold text-gray-900">Current Objectives</h3>
-                    <button className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors shadow-lg">
-                      Add New Objective
-                    </button>
-                  </div>
-                  <div className="space-y-6">
-                    {mockObjectives.map((objective, index) => (
-                      <div key={index} className="border border-gray-200 rounded-xl p-6 hover:border-blue-300 hover:shadow-lg transition-all duration-300 group">
-                        <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
-                            <h4 className="text-xl font-semibold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors">
-                              {objective.title}
-                            </h4>
-                            <p className="text-gray-600 leading-relaxed">
-                              {objective.description}
-                            </p>
+                        {/* Small line markers at data points (no bouncing dots) */}
+                        <g stroke="#004E9E" strokeWidth="3" strokeLinecap="round">
+                          <line x1="40" y1="228" x2="40" y2="212" />
+                          <line x1="150" y1="168" x2="150" y2="152" />
+                          <line x1="250" y1="148" x2="250" y2="132" />
+                          <line x1="360" y1="128" x2="360" y2="112" />
+                        </g>
+
+                        {/* Labels */}
+                        <text x="40" y="245" textAnchor="middle" className="text-xs fill-gray-600 font-medium">Q1</text>
+                        <text x="150" y="245" textAnchor="middle" className="text-xs fill-gray-600 font-medium">Q2</text>
+                        <text x="250" y="245" textAnchor="middle" className="text-xs fill-gray-600 font-medium">Q3</text>
+                        <text x="360" y="245" textAnchor="middle" className="text-xs fill-gray-600 font-medium">Q4</text>
+                      </svg>
+
+                      {/* Performance Stats Overlay */}
+                      <div className="absolute top-4 right-4 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-lg border border-white/50">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-[#004E9E]">94.2%</div>
+                          <div className="text-xs text-gray-600">Current Score</div>
+                          <div className="flex items-center justify-center mt-2">
+                            <svg className="w-4 h-4 text-green-500 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+                            </svg>
+                            <span className="text-xs text-green-600 font-medium">+8.3%</span>
                           </div>
-                          <span className={`px-4 py-2 rounded-xl text-sm font-semibold ml-4 ${
-                            objective.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                            objective.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Performance Metrics */}
+                    <div className="grid grid-cols-4 gap-4 mt-6">
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-4 text-center border border-blue-200">
+                        <div className="text-lg font-bold text-[#004E9E]">78%</div>
+                        <div className="text-xs text-gray-600">Q1 Score</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-xl p-4 text-center border border-green-200">
+                        <div className="text-lg font-bold text-green-600">85%</div>
+                        <div className="text-xs text-gray-600">Q2 Score</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-4 text-center border border-purple-200">
+                        <div className="text-lg font-bold text-purple-600">91%</div>
+                        <div className="text-xs text-gray-600">Q3 Score</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 text-center border border-orange-200">
+                        <div className="text-lg font-bold text-orange-600">94%</div>
+                        <div className="text-xs text-gray-600">Q4 Score</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Objectives */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
+                  <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Objectives</h3>
+                  <div className="space-y-4">
+                    {mockObjectives.map((objective) => (
+                      <div key={objective.id} className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-all duration-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <h4 className="font-semibold text-[#333333]">{objective.title}</h4>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            objective.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            objective.status === 'on-track' ? 'bg-blue-100 text-blue-800' :
+                            objective.status === 'at-risk' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
                           }`}>
                             {objective.status}
                           </span>
                         </div>
+                        <p className="text-[#666666] text-sm mb-3">{objective.description}</p>
                         <div className="flex items-center justify-between">
-                          <div className="flex-1 mr-6">
-                            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                              <div 
-                                className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-1000 group-hover:shadow-lg" 
-                                style={{ width: `${objective.progress}%` }}
-                              ></div>
-                            </div>
+                          <div className="text-sm text-[#999999]">Due: {objective.dueDate}</div>
+                          <div className="text-sm font-medium text-[#004E9E]">
+                            {Math.round((objective.current / objective.target) * 100)}% Complete
                           </div>
-                          <span className="text-lg font-bold text-gray-900">
-                            {objective.progress}%
-                          </span>
+                        </div>
+                        <div className="flex items-center justify-between mt-3">
+                          <button onClick={() => runAIForObjective(objective.id)} className="px-3 py-1.5 text-xs rounded-lg bg-primary text-white hover:bg-[#003d7c]">AI Analyze</button>
+                          <div className="text-sm font-medium text-[#004E9E]">
+                            {Math.round((objective.current / objective.target) * 100)}% Complete
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -511,129 +481,74 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Right Sidebar - Analytics & Insights */}
-              <div className="space-y-8">
-                
-                {/* Performance Insights */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
-                  <h3 className="text-xl font-bold text-gray-900 mb-6">Performance Insights</h3>
-                  
-                  {/* Circular Progress */}
-                  <div className="relative w-48 h-48 mx-auto mb-6">
-                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        stroke="#E5E7EB"
-                        strokeWidth="8"
-                        fill="none"
-                      />
-                      <circle
-                        cx="50"
-                        cy="50"
-                        r="45"
-                        stroke="url(#circularGradient)"
-                        strokeWidth="8"
-                        fill="none"
-                        strokeLinecap="round"
-                        strokeDasharray="283"
-                        strokeDashoffset="37"
-                        className="transition-all duration-1000"
-                      />
-                      <defs>
-                        <linearGradient id="circularGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                          <stop offset="0%" stopColor="#3B82F6"/>
-                          <stop offset="100%" stopColor="#8B5CF6"/>
-                        </linearGradient>
-                      </defs>
-                    </svg>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="text-3xl font-bold text-gray-900">87%</div>
-                        <div className="text-sm text-gray-600">Overall Score</div>
+              {/* Right Sidebar (dashboard-only) */}
+              <div className="space-y-6">
+                {/* Notifications */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center"><BellIcon className="w-5 h-5 mr-2"/> Notifications</h3>
+                  <div className="space-y-3">
+                    {notifications.map(n => (
+                      <div key={n.id} className={`p-3 rounded-lg border flex items-start justify-between ${n.read ? 'bg-gray-50 border-gray-200' : 'bg-blue-50 border-blue-200'}`}>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-900">{n.title}</p>
+                          <p className="text-xs text-gray-600">{n.message}</p>
+                          <p className="text-[10px] text-gray-400 mt-1">{n.timestamp}</p>
+                        </div>
+                        {!n.read && (
+                          <button onClick={() => markNotificationRead(n.id)} className="text-xs text-[#004E9E] hover:underline">Mark read</button>
+                        )}
                       </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <span className="text-green-700 font-medium">Strong Areas</span>
-                      <span className="text-green-600 font-bold">4</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
-                      <span className="text-yellow-700 font-medium">Improvement Areas</span>
-                      <span className="text-yellow-600 font-bold">2</span>
-                    </div>
-                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
-                      <span className="text-blue-700 font-medium">Next Reviews</span>
-                      <span className="text-blue-600 font-bold">3</span>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Upcoming Deadlines */}
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
-                  <h3 className="text-xl font-bold text-gray-900 mb-6">Upcoming Deadlines</h3>
+                {/* Quick Stats */}
+                <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4">Quick Stats</h3>
                   <div className="space-y-4">
-                    <div className="flex items-center space-x-4 p-4 bg-red-50 rounded-xl border border-red-200">
-                      <div className="w-4 h-4 bg-red-500 rounded-full flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-red-800">Q4 Review</p>
-                        <p className="text-sm text-red-600">Due in 3 days</p>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Objectives Due</span>
+                      <span className="font-bold text-orange-600">3</span>
                     </div>
-                    <div className="flex items-center space-x-4 p-4 bg-orange-50 rounded-xl border border-orange-200">
-                      <div className="w-4 h-4 bg-orange-500 rounded-full flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-orange-800">Team Goals</p>
-                        <p className="text-sm text-orange-600">Due in 1 week</p>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Completed This Month</span>
+                      <span className="font-bold text-green-600">5</span>
                     </div>
-                    <div className="flex items-center space-x-4 p-4 bg-blue-50 rounded-xl border border-blue-200">
-                      <div className="w-4 h-4 bg-blue-500 rounded-full flex-shrink-0"></div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-blue-800">Annual Planning</p>
-                        <p className="text-sm text-blue-600">Due in 2 weeks</p>
-                      </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-gray-600">Average Score</span>
+                      <span className="font-bold text-blue-600">87%</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Team Leaderboard (for managers) */}
-                {(user.role === "manager" || user.role === "senior_management") && (
-                  <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
-                    <h3 className="text-xl font-bold text-gray-900 mb-6">Team Leaderboard</h3>
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl border border-yellow-200">
-                        <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold">1</div>
+                {(user.role === "manager" || user.role === "senior-management") && (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-gray-200/50">
+                    <h3 className="text-lg font-bold text-gray-900 mb-4">Team Leaderboard</h3>
+                    <div className="space-y-3">
+                      <div className="flex items-center space-x-3 p-3 bg-yellow-50 rounded-xl border border-yellow-200">
+                        <div className="w-8 h-8 bg-yellow-500 rounded-full flex items-center justify-center text-white font-bold text-sm">1</div>
                         <div className="flex-1">
-                          <p className="font-semibold text-gray-900">Sarah Johnson</p>
-                          <p className="text-sm text-gray-600">95% completion</p>
+                          <p className="font-semibold text-gray-900 text-sm">Sarah Johnson</p>
+                          <p className="text-xs text-gray-600">95% completion</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-yellow-600">$5,200</p>
-                        </div>
+                        <p className="font-bold text-yellow-600 text-sm">$5,200</p>
                       </div>
-                      <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                        <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white font-bold">2</div>
+                      <div className="flex items-center space-x-3 p-3 bg-blue-50 rounded-xl border border-blue-200">
+                        <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">2</div>
                         <div className="flex-1">
-                          <p className="font-semibold text-gray-900">Mike Chen</p>
-                          <p className="text-sm text-gray-600">89% completion</p>
+                          <p className="font-semibold text-gray-900 text-sm">Michael Chen</p>
+                          <p className="text-xs text-gray-600">92% completion</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-gray-600">$4,100</p>
-                        </div>
+                        <p className="font-bold text-blue-600 text-sm">$4,800</p>
                       </div>
-                      <div className="flex items-center space-x-4 p-4 bg-orange-50 rounded-xl border border-orange-200">
-                        <div className="w-8 h-8 bg-orange-400 rounded-full flex items-center justify-center text-white font-bold">3</div>
+                      <div className="flex items-center space-x-3 p-3 bg-green-50 rounded-xl border border-green-200">
+                        <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white font-bold text-sm">3</div>
                         <div className="flex-1">
-                          <p className="font-semibold text-gray-900">Lisa Wong</p>
-                          <p className="text-sm text-gray-600">87% completion</p>
+                          <p className="font-semibold text-gray-900 text-sm">Lisa Wong</p>
+                          <p className="text-xs text-gray-600">87% completion</p>
                         </div>
-                        <div className="text-right">
-                          <p className="font-bold text-orange-600">$4,250</p>
-                        </div>
+                        <p className="font-bold text-green-600 text-sm">$4,250</p>
                       </div>
                     </div>
                   </div>
@@ -641,8 +556,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-        </main>
-      </div>
     </div>
+  </>
   );
 }

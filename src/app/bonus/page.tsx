@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Navigation from "@/components/Navigation";
 
 export default function BonusPage() {
   const [user, setUser] = useState<any>(null);
@@ -21,7 +20,7 @@ export default function BonusPage() {
 
   return (
     <div className="min-h-screen ms-surface bg-ms-gray-50">
-      <Navigation />
+      
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">Bonus History</h1>

@@ -18,12 +18,36 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
     
-    // Demo authentication - check against demo credentials
+    try {
+      // Try database authentication first
+      const response = await fetch('/api/mbo/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: formData.email, password: formData.password }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        // Store user info in localStorage for session management
+        localStorage.setItem('mbo_current_user', JSON.stringify(result.user));
+        
+        // Redirect to live dashboard
+        router.push('/dashboard-live');
+        return;
+      }
+    } catch (error) {
+      console.error('Database auth error:', error);
+    }
+
+    // Fallback to demo authentication
     const demoCredentials = {
       "employee@carecloud.com": { role: "employee", name: "John Doe" },
       "manager@carecloud.com": { role: "manager", name: "Jane Smith" },
       "hr@carecloud.com": { role: "hr", name: "Mike Johnson" },
-      "exec@carecloud.com": { role: "senior_management", name: "Sarah Wilson" }
+      "exec@carecloud.com": { role: "senior-management", name: "Sarah Wilson" }
     };
 
     // Simulate loading time
@@ -38,10 +62,10 @@ export default function LoginPage() {
           name: userInfo.name
         }));
 
-        // Redirect to dashboard
+        // Redirect to original dashboard
         router.push("/dashboard");
       } else {
-        alert("Invalid credentials. Please use demo credentials provided below.");
+        alert("Invalid credentials. Please try database users or demo credentials provided below.");
         setIsLoading(false);
       }
     }, 1000);
@@ -136,7 +160,7 @@ export default function LoginPage() {
                 <option value="employee">Employee</option>
                 <option value="manager">Manager</option>
                 <option value="hr">HR</option>
-                <option value="senior_management">Senior Management</option>
+                <option value="senior-management">Senior Management</option>
               </select>
             </div>
 
@@ -202,6 +226,36 @@ export default function LoginPage() {
               </div>
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center">Password: <span className="font-medium">demo123</span> for all accounts</p>
+          </div>
+
+          {/* Database Users */}
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="text-sm font-medium text-blue-800 mb-3">Live Database Users</h3>
+            <div className="grid grid-cols-1 gap-2 text-xs text-blue-600">
+              <div>
+                <p className="font-medium">crystal.williams@company.com</p>
+                <p className="text-blue-500">Operations President</p>
+              </div>
+              <div>
+                <p className="font-medium">hadi.chaudhary@company.com</p>
+                <p className="text-blue-500">IT President</p>
+              </div>
+              <div>
+                <p className="font-medium">emily.davis@company.com</p>
+                <p className="text-blue-500">Employee</p>
+              </div>
+            </div>
+            <p className="text-xs text-blue-500 mt-2 text-center">
+              No password required - uses database authentication
+            </p>
+            <div className="mt-2 text-center">
+              <button
+                onClick={() => router.push('/dashboard-live')}
+                className="text-xs text-blue-600 hover:text-blue-800 underline"
+              >
+                Quick Access to Live Dashboard
+              </button>
+            </div>
           </div>
         </div>
       </div>

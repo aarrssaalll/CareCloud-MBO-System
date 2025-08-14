@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import ClientAppFrame from "@/components/ClientAppFrame";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -18,7 +19,8 @@ export default function RootLayout({
     <html lang="en" className="h-full">
       <body className={`${inter.className} h-full bg-gray-50 antialiased`}>
         <div className="min-h-full flex flex-col">
-          {children}
+          {/* Client frame wraps app pages with persistent sidebar/right panel */}
+          <ClientAppFrame>{children}</ClientAppFrame>
         </div>
       </body>
     </html>

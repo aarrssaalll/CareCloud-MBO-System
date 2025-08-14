@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Navigation from "@/components/Navigation";
 import {
   UsersIcon,
   ChartBarIcon,
@@ -106,11 +105,11 @@ export default function TeamPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
-      <main className="w-full px-6 lg:px-8 py-8">
+      
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-text-dark">Team Management</h1>
-          <p className="text-text-light mt-2">Monitor and manage your team's performance and objectives</p>
+          <p className="text-text-light mt-2">Monitor and manage your team&apos;s performance and objectives</p>
         </div>
 
         {/* Team Overview Stats */}

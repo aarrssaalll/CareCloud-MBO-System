@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-interface Objective {
+interface MboObjective {
   id: string
   title: string
   description: string
@@ -25,6 +25,10 @@ interface Objective {
   }
 }
 
+// Cache for storing recent results
+const cache = new Map()
+const CACHE_TTL = 30000 // 30 seconds
+
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
@@ -34,10 +38,24 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'User ID is required' }, { status: 400 })
     }
 
-    const objectives = await prisma.objective.findMany({
+    // Check cache first
+    const cacheKey = `objectives_${userId}`
+    const cached = cache.get(cacheKey)
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return NextResponse.json(cached.data)
+    }
+
+    const objectives = await prisma.mboObjective.findMany({
       where: { userId },
       include: {
-        reviews: true,
+        reviews: {
+          select: {
+            id: true,
+            score: true,
+            comments: true,
+            reviewDate: true
+          }
+        },
         user: {
           select: {
             id: true,
@@ -47,19 +65,28 @@ export async function GET(request: Request) {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      take: 50 // Limit results to improve performance
     })
 
     // Calculate progress for each objective
-    const objectivesWithProgress = objectives.map((objective: Objective) => ({
+    const objectivesWithProgress = objectives.map((objective: MboObjective) => ({
       ...objective,
       progress: Math.round((objective.current / objective.target) * 100)
     }))
 
-    return NextResponse.json({ 
+    const result = { 
       objectives: objectivesWithProgress,
       total: objectives.length 
+    }
+
+    // Cache the result
+    cache.set(cacheKey, {
+      data: result,
+      timestamp: Date.now()
     })
+
+    return NextResponse.json(result)
   } catch (error) {
     console.error('Error fetching objectives:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -87,7 +114,7 @@ export async function POST(request: Request) {
     const quarter = `Q${Math.ceil((dueDateObj.getMonth() + 1) / 3)}`
     const year = dueDateObj.getFullYear()
 
-    const objective = await prisma.objective.create({
+    const objective = await prisma.mboObjective.create({
       data: {
         title,
         description: description || '',
@@ -139,7 +166,7 @@ export async function PUT(request: Request) {
     if (status) updateData.status = status
     updateData.updatedAt = new Date()
 
-    const objective = await prisma.objective.update({
+    const objective = await prisma.mboObjective.update({
       where: { id },
       data: updateData,
       include: {

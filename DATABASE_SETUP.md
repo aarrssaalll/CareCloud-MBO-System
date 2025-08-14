@@ -2,20 +2,84 @@
 
 ## 🗄️ **Database Integration with Microsoft SQL Server**
 
-### **Option 1: Microsoft SQL Server with Prisma (Recommended)**
+### **✅ Recommended: Add MBO Tables to Your Existing Database**
 
-#### **1. Install Dependencies**
+If you already have a SQL Server database for another project, you can simply add the MBO tables to your existing database. This approach is efficient and avoids managing multiple databases.
+
+#### **1. Install Dependencies (if not already done)**
 ```bash
 npm install prisma @prisma/client
-npm install -D prisma
 ```
 
-#### **2. Initialize Prisma**
+#### **2. Quick Setup for Existing Database**
+
+**Step 1: Update Connection String**
+Update your `.env` file with your existing database name:
+```env
+DATABASE_URL="sqlserver://localhost:1433;database=YourExistingDatabase;user=your_username;password=your_password;encrypt=true;trustServerCertificate=true"
+```
+
+**Step 2: Run SQL Script**
+Execute the SQL script `sql/add-mbo-tables.sql` in your existing database using SQL Server Management Studio or Azure Data Studio.
+
+**Step 3: Generate Prisma Client**
 ```bash
-npx prisma init
+npm run db:generate
 ```
 
-#### **3. Database Schema (`prisma/schema.prisma`)**
+**Step 4: Test Connection**
+```bash
+npm run db:studio
+```
+
+#### **3. Database Schema with Prefixed Tables**
+
+The MBO system uses prefixed table names to avoid conflicts with your existing tables:
+
+**MBO Tables Created:**
+- `mbo_users` - Employee/user data for MBO system
+- `mbo_objectives` - Goals and targets
+- `mbo_reviews` - Performance evaluations  
+- `mbo_bonuses` - Quarterly bonus calculations
+- `mbo_objective_reviews` - Detailed objective scoring
+
+```prisma
+// Updated Prisma schema with prefixed models
+model MboUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role
+  objectives MboObjective[]
+  reviews    MboReview[]
+  bonuses    MboBonus[]
+  @@map("mbo_users")
+}
+
+model MboObjective {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  category    String
+  target      Float
+  current     Float
+  weight      Float         @default(1.0)
+  status      ObjectiveStatus @default(ACTIVE)
+  dueDate     DateTime
+  quarter     String
+  year        Int
+  userId      String
+  user        MboUser       @relation(fields: [userId], references: [id])
+  reviews     MboObjectiveReview[]
+  @@map("mbo_objectives")
+}
+
+// ... other models with mbo_ prefix
+```
+
+### **Alternative: Create New Database (if preferred)**
+
+If you prefer to keep the MBO system in a separate database:
 ```prisma
 generator client {
   provider = "prisma-client-js"

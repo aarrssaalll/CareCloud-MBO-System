@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Navigation from "@/components/Navigation";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface PerformanceData {
@@ -110,17 +109,15 @@ export default function PerformancePage() {
 
   return (
     <div className="min-h-screen ms-surface bg-ms-gray-50">
-      <Navigation />
-      
-      <main className="w-full px-6 lg:px-8 py-6">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
-        <div className="px-4 py-6 sm:px-0">
-          <div className="flex items-center justify-between">
+        <div className="mb-8">
+          <div className="flex items-center justify-between gap-4">
             <div>
               <h1 className="ms-text-xxlarge font-semibold text-ms-gray-900">Performance Analytics</h1>
               <p className="mt-2 ms-text-medium text-ms-gray-600">Track your performance trends and bonus history</p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex items-center gap-3">
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value)}
@@ -136,18 +133,18 @@ export default function PerformancePage() {
 
         {/* Key Metrics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card bg-gradient-to-r from-primary to-primary-600 text-white">
+          <div className="ms-card p-6 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-white/80 text-sm">Current Score</p>
                 <p className="text-3xl font-bold">{currentQuarter.avgScore}/100</p>
                 <p className="text-white/80 text-sm">Q4 2024</p>
               </div>
-              <div className="text-4xl">�</div>
+              <div className="text-4xl">★</div>
             </div>
           </div>
 
-          <div className="card">
+          <div className="ms-card p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-text-light text-sm">Current Ranking</p>
@@ -158,7 +155,7 @@ export default function PerformancePage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="ms-card p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-text-light text-sm">Objectives Progress</p>
@@ -169,7 +166,7 @@ export default function PerformancePage() {
             </div>
           </div>
 
-          <div className="card">
+          <div className="ms-card p-6">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-text-light text-sm">Estimated Bonus</p>
@@ -184,7 +181,7 @@ export default function PerformancePage() {
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Performance Trend Chart */}
-          <div className="card">
+          <div className="ms-card p-6">
             <h3 className="text-lg font-semibold text-text mb-4">Performance Trend</h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={performanceHistory}>
@@ -206,7 +203,7 @@ export default function PerformancePage() {
           </div>
 
           {/* Bonus History Chart */}
-          <div className="card">
+          <div className="ms-card p-6">
             <h3 className="text-lg font-semibold text-text mb-4">Bonus History</h3>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={performanceHistory}>
@@ -227,7 +224,7 @@ export default function PerformancePage() {
         </div>
 
         {/* Quarterly Details */}
-        <div className="card">
+  <div className="ms-card p-6">
           <h3 className="text-lg font-semibold text-text mb-6">Quarterly Performance Details</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
@@ -310,7 +307,7 @@ export default function PerformancePage() {
         {/* Performance Insights */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
           {/* Strengths */}
-          <div className="card">
+          <div className="ms-card p-6">
             <h4 className="font-semibold text-text mb-4 flex items-center">
               <span className="text-green-600 mr-2">+</span>
               Key Strengths
@@ -336,7 +333,7 @@ export default function PerformancePage() {
           </div>
 
           {/* Areas for Improvement */}
-          <div className="card">
+          <div className="ms-card p-6">
             <h4 className="font-semibold text-text mb-4 flex items-center">
               <span className="text-yellow-600 mr-2">↗</span>
               Growth Areas
@@ -362,7 +359,7 @@ export default function PerformancePage() {
           </div>
 
           {/* Goals & Recommendations */}
-          <div className="card">
+          <div className="ms-card p-6">
             <h4 className="font-semibold text-text mb-4 flex items-center">
               <span className="text-blue-600 mr-2">→</span>
               Next Quarter Goals

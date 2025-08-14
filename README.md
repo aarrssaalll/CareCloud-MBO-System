@@ -219,6 +219,26 @@ CMD ["npm", "start"]
 - `GET /api/performance/analytics` - Performance analytics
 - `GET /api/reports/export` - Export performance reports
 
+## Recent Enhancements (August 2025)
+
+### 🚀 UI/UX Transformation
+- **Futuristic Landing Page**: Animated star field with space theme and "Begin Your Journey" experience
+- **Enhanced Navigation**: Professional glass morphism dropdown with role-based features
+- **Performance Optimization**: API caching, component memoization, and performance utilities
+- **Visual Redesign**: Consistent CareCloud color scheme with modern glassmorphism effects
+
+### 🎨 Design System Updates
+- **Landing Experience**: Dark space theme with animated particles and aurora effects
+- **Professional Interface**: Enhanced dashboards with gradient cards and smooth animations
+- **Interactive Charts**: Working SVG-based performance visualizations with real-time data
+- **Responsive Design**: Cross-device compatibility with touch-friendly interactions
+
+### ⚡ Performance Improvements
+- **API Response Caching**: 30-second TTL cache for reduced database queries
+- **Component Optimization**: React.memo and useMemo for reduced re-renders
+- **Database Connection Pooling**: Optimized connection management
+- **Build Optimization**: SWC minification and package import optimization
+
 ## Contributing
 
 1. Fork the repository
@@ -234,10 +254,9 @@ This project is proprietary software developed for CareCloud. All rights reserve
 ## Support
 
 For technical support or questions:
-- Email: support@carecloud.com
-- Documentation: [Internal Wiki Link]
-- Issue Tracker: [Internal Tracking System]
+- Email: Gulsherzahid@carecloud.com
+
 
 ---
 
-**Built with care for CareCloud by the Development Team**
+**Built with care for CareCloud by the Gulsher - Prompt Engineer**
