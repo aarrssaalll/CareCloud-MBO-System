@@ -94,9 +94,36 @@ export interface MboApproval {
 
 export class MboDataAccess {
   private pool: sql.ConnectionPool | null = null;
+  private objectivesHasAssigner: boolean | null = null;
 
   async initialize() {
     this.pool = await getDbConnection();
+  }
+
+  private async ensurePool() {
+    if (!this.pool) {
+      await this.initialize();
+      return;
+    }
+    // If pool is closed or not connected, reinitialize
+    // mssql doesn't expose direct 'closed' flag, catch request errors instead
+    try {
+      await this.pool.request().query('SELECT 1');
+    } catch (e) {
+      this.pool = null;
+      await this.initialize();
+    }
+  }
+
+  private async detectObjectivesAssignedBy() {
+    if (this.objectivesHasAssigner !== null) return;
+    try {
+      await this.ensurePool();
+      const rs = await this.pool!.request().query("SELECT TOP 1 assignedById FROM dbo.mbo_objectives");
+      if (rs) this.objectivesHasAssigner = true;
+    } catch {
+      this.objectivesHasAssigner = false;
+    }
   }
 
   // User operations
@@ -249,14 +276,16 @@ export class MboDataAccess {
 
   // Objective operations
   async getObjectivesByUser(userId: string): Promise<MboObjective[]> {
-    if (!this.pool) await this.initialize();
+  await this.ensurePool();
+  await this.detectObjectivesAssignedBy();
 
-    const result = await this.pool!.request()
+  const selectAssigned = this.objectivesHasAssigner ? 'LEFT JOIN mbo_users a ON o.assignedById = a.id' : '';
+  const result = await this.pool!.request()
       .input('userId', sql.NVarChar, userId)
       .query(`
         SELECT o.*, a.name as assignedByName
         FROM mbo_objectives o
-        LEFT JOIN mbo_users a ON o.assignedById = a.id
+    ${selectAssigned}
         WHERE o.userId = @userId
         ORDER BY o.dueDate
       `);
@@ -265,9 +294,10 @@ export class MboDataAccess {
   }
 
   async getObjectivesByAssigner(assignerId: string): Promise<MboObjective[]> {
-    if (!this.pool) await this.initialize();
-
-    const result = await this.pool!.request()
+  await this.ensurePool();
+  await this.detectObjectivesAssignedBy();
+  if (!this.objectivesHasAssigner) return [];
+  const result = await this.pool!.request()
       .input('assignerId', sql.NVarChar, assignerId)
       .query(`
         SELECT o.*, u.name as userName, u.title as userTitle
@@ -281,11 +311,12 @@ export class MboDataAccess {
   }
 
   async createObjective(objective: Omit<MboObjective, 'id'>): Promise<string> {
-    if (!this.pool) await this.initialize();
+  await this.ensurePool();
+  await this.detectObjectivesAssignedBy();
 
     const id = this.generateId();
 
-    await this.pool!.request()
+    const request = this.pool!.request()
       .input('id', sql.NVarChar, id)
       .input('title', sql.NVarChar, objective.title)
       .input('description', sql.NVarChar, objective.description)
@@ -297,18 +328,17 @@ export class MboDataAccess {
       .input('dueDate', sql.DateTime2, objective.dueDate)
       .input('quarter', sql.NVarChar, objective.quarter)
       .input('year', sql.Int, objective.year)
-      .input('userId', sql.NVarChar, objective.userId)
-      .input('assignedById', sql.NVarChar, objective.assignedById)
-      .query(`
-        INSERT INTO mbo_objectives (
-          id, title, description, category, target, current, weight, status,
-          dueDate, quarter, year, userId, assignedById, createdAt, updatedAt
-        )
-        VALUES (
-          @id, @title, @description, @category, @target, @current, @weight, @status,
-          @dueDate, @quarter, @year, @userId, @assignedById, GETDATE(), GETDATE()
-        )
-      `);
+      .input('userId', sql.NVarChar, objective.userId);
+
+    let columns = 'id, title, description, category, target, current, weight, status, dueDate, quarter, year, userId, createdAt, updatedAt';
+    let values = '@id, @title, @description, @category, @target, @current, @weight, @status, @dueDate, @quarter, @year, @userId, GETDATE(), GETDATE()';
+    if (this.objectivesHasAssigner) {
+      request.input('assignedById', sql.NVarChar, objective.assignedById);
+      columns = columns.replace('createdAt', 'assignedById, createdAt');
+      values = values.replace('GETDATE(), GETDATE()', '@assignedById, GETDATE(), GETDATE()');
+    }
+
+    await request.query(`INSERT INTO mbo_objectives (${columns}) VALUES (${values})`);
 
     return id;
   }
