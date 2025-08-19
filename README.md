@@ -2,45 +2,45 @@
 
 A comprehensive Automated Management by Objectives (MBO) Reporting System built with Next.js, TypeScript, and Tailwind CSS.
 
-## 🎯 Project Overview
+## Project Overview
 
 The CareCloud MBO System is designed to streamline performance management through intelligent automation and meticulous design practices. It supports role-based access control for employees, managers, HR, and senior management, providing a complete solution for objective management, AI-powered scoring, and comprehensive reporting.
 
 ## ✨ Key Features
 
-### 🔐 Role-Based Access Control
+###  Role-Based Access Control
 - **Employee**: Add remarks, digital signature, view dashboard and performance metrics
 - **Manager**: All employee functions + set objectives, approve requests, override AI scores
 - **HR**: Define bonus structures, initial approvals, generate comprehensive reports
 - **Senior Management**: Strategic oversight, final approvals, organization-wide reporting
 
-### 🎯 Objective Management
+### Objective Management
 - Quarterly objective setting and tracking
 - Support for both quantitative and qualitative objectives
 - AI-assisted progress evaluation and scoring
 - Digital signature workflow with edit request system
 - Manager override capabilities with justifications
 
-### 📊 Performance Analytics
+###  Performance Analytics
 - Historical performance tracking and trends
 - Comparative analytics across quarters
 - Bonus eligibility calculations
 - Individual and team performance insights
 - Downloadable reports in PDF/Excel formats
 
-### 🤖 AI-Powered Features
+###  AI-Powered Features
 - Intelligent scoring based on objective completion and remarks
 - Sentiment analysis for qualitative objectives
 - Performance prediction and recommendations
 - Automated feedback generation
 
-### 💰 Bonus Management
+### Bonus Management
 - Quarterly bonus calculation based on weighted objectives
 - HR-defined bonus structures
 - Multi-level approval workflow
 - Audit trails for compliance
 
-## 🎨 Design System
+##  Design System
 
 ### Color Palette
 - **Primary Blue**: #004E9E
@@ -55,7 +55,7 @@ The CareCloud MBO System is designed to streamline performance management throug
 - Consistent styling with centralized CSS variables
 - Accessible color contrasts and typography
 
-## 🛠️ Technology Stack
+## 🛠Technology Stack
 
 - **Frontend**: Next.js 15.4+ with TypeScript
 - **Styling**: Tailwind CSS with custom design system
@@ -65,7 +65,7 @@ The CareCloud MBO System is designed to streamline performance management throug
 - **Database**: Ready for PostgreSQL/MongoDB integration
 - **Authentication**: Prepared for NextAuth.js implementation
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Node.js 18+ 
@@ -99,7 +99,7 @@ npm run build
 npm start
 ```
 
-## 📱 Demo Access
+##  Demo Access
 
 The system includes demo accounts for testing different user roles:
 
@@ -110,7 +110,7 @@ The system includes demo accounts for testing different user roles:
 | HR | hr@carecloud.com | demo123 |
 | Senior Management | exec@carecloud.com | demo123 |
 
-## 🗂️ Project Structure
+##  Project Structure
 
 ```
 src/
@@ -125,7 +125,7 @@ src/
 └── globals.css          # Global styles and CSS variables
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 Create a `.env.local` file for environment-specific configuration:
@@ -148,7 +148,7 @@ EMAIL_SERVER_URL=your_email_server_url
 ### Tailwind Configuration
 The color system is defined in `tailwind.config.ts` with custom color variables that can be easily modified for branding requirements.
 
-## 🧪 Development Guidelines
+##  Development Guidelines
 
 ### Code Style
 - Use TypeScript throughout the application
@@ -163,7 +163,7 @@ The color system is defined in `tailwind.config.ts` with custom color variables 
 - Follow the established design system
 - Ensure responsive design principles
 
-## 🚀 Deployment
+##  Deployment
 
 ### Vercel (Recommended)
 ```bash
@@ -184,7 +184,7 @@ EXPOSE 3000
 CMD ["npm", "start"]
 ```
 
-## 🔮 Future Enhancements
+##  Future Enhancements
 
 ### Planned Features
 - [ ] Real-time notifications system
@@ -201,7 +201,7 @@ CMD ["npm", "start"]
 - Redis caching for performance optimization
 - Backup and disaster recovery procedures
 
-## 📝 API Routes
+##  API Routes
 
 ### Authentication
 - `POST /api/auth/login` - User authentication
@@ -219,7 +219,7 @@ CMD ["npm", "start"]
 - `GET /api/performance/analytics` - Performance analytics
 - `GET /api/reports/export` - Export performance reports
 
-## 🤝 Contributing
+##  Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -227,17 +227,7 @@ CMD ["npm", "start"]
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+##  License
 
 This project is proprietary software developed for CareCloud. All rights reserved.
 
-## 🆘 Support
-
-For technical support or questions:
-- Email: support@carecloud.com
-- Documentation: [Internal Wiki Link]
-- Issue Tracker: [Internal Tracking System]
-
----
-
-**Built with ❤️ for CareCloud by the Development Team**
