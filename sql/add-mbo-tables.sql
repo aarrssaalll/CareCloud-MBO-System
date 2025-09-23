@@ -26,7 +26,7 @@ CREATE TABLE mbo_objectives (
     description NVARCHAR(MAX),
     category NVARCHAR(100),
     target FLOAT NOT NULL,
-    current FLOAT DEFAULT 0,
+    [current] FLOAT DEFAULT 0,
     weight FLOAT DEFAULT 1.0,
     status NVARCHAR(50) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'COMPLETED', 'ON_HOLD', 'CANCELLED')),
     dueDate DATETIME2 NOT NULL,
@@ -97,7 +97,7 @@ INSERT INTO mbo_users (id, email, name, role) VALUES
 ('user2', 'jane.smith@carecloud.com', 'Jane Smith', 'MANAGER'),
 ('user3', 'hr.admin@carecloud.com', 'HR Admin', 'HR');
 
-INSERT INTO mbo_objectives (id, title, description, category, target, current, dueDate, quarter, year, userId) VALUES 
+INSERT INTO mbo_objectives (id, title, description, category, target, [current], dueDate, quarter, year, userId) VALUES 
 ('obj1', 'Q4 Revenue Target', 'Achieve 15% increase in quarterly revenue', 'Revenue', 115, 98, '2024-12-31', 'Q4', 2024, 'user1'),
 ('obj2', 'Customer Satisfaction', 'Maintain NPS score above 85', 'Quality', 85, 88, '2024-12-15', 'Q4', 2024, 'user1'),
 ('obj3', 'Team Leadership', 'Successfully lead 3 major projects', 'Leadership', 3, 2, '2024-11-30', 'Q4', 2024, 'user2');

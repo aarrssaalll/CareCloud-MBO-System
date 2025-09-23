@@ -10,12 +10,19 @@ export default function Navigation() {
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) setUser(JSON.parse(userData));
+    const userData = localStorage.getItem('mbo_user');
+    if (userData) {
+      const parsedUser = JSON.parse(userData);
+      setUser({
+        name: parsedUser.name || `${parsedUser.firstName || ''} ${parsedUser.lastName || ''}`.trim(),
+        email: parsedUser.email,
+        role: parsedUser.role?.toLowerCase().replace('_', '-') || 'employee'
+      });
+    }
   }, []);
 
   const handleLogout = () => {
-    localStorage.removeItem('user');
+    localStorage.removeItem('mbo_user');
     router.push('/login');
   };
 

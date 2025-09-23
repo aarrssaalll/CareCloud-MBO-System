@@ -1,30 +1,42 @@
 "use client";
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { filterNavByRole } from '@/config/navigation';
 import { ClockIcon } from '@heroicons/react/24/outline';
-
-interface User {
-  name: string;
-  email: string;
-  role: 'employee' | 'manager' | 'hr' | 'senior-management';
-}
+import { useAuth } from '@/hooks/useAuth';
 
 export default function AppSidebar() {
-  const [user, setUser] = useState<User | null>(null);
+  const { user, isLoading } = useAuth(false); // Don't require auth for sidebar, let individual pages handle it
   const pathname = usePathname();
 
-  useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (userData) setUser(JSON.parse(userData));
-  }, []);
-
   const items = useMemo(() => {
-    const list = filterNavByRole(user?.role);
+    if (!user) return [];
+    const userRole = user.role?.toLowerCase().replace('_', '-') || 'employee';
+    const list = filterNavByRole(userRole);
     // Remove Profile from sidebar; accessible via top bar only
     return list.filter(i => i.name !== 'Profile' && i.href !== '/profile');
   }, [user?.role]);
+
+  if (isLoading) {
+    return (
+      <aside className="w-80 bg-white/80 backdrop-blur-xl border-r border-gray-200/50 shadow-lg hidden lg:block">
+        <div className="h-full p-6 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E] mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </aside>
+    );
+  }
+
+  if (!user) {
+    return null; // Don't render sidebar if no user
+  }
+
+  const displayName = user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Guest';
+  const userRole = user.role?.toLowerCase().replace('_', '-') || 'employee';
 
   return (
     <aside className="w-80 bg-white/80 backdrop-blur-xl border-r border-gray-200/50 shadow-lg hidden lg:block">
@@ -37,8 +49,8 @@ export default function AppSidebar() {
                 <svg className="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm-8 8a8 8 0 1116 0v2H4v-2z"/></svg>
               </div>
               <div>
-                <h3 className="text-xl font-bold">{user?.name || 'Guest'}</h3>
-                <p className="text-blue-100 capitalize font-medium">{(user?.role || 'employee').replace('-', ' ')}</p>
+                <h3 className="text-xl font-bold">{displayName}</h3>
+                <p className="text-blue-100 capitalize font-medium">{userRole.replace('-', ' ')}</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4 mt-6">
@@ -59,8 +71,52 @@ export default function AppSidebar() {
           {items.map(item => {
             const Icon = item.icon as any;
             const active = pathname === item.href;
+            
+            // Determine the correct route based on role and page
+            const getRouteForItem = (itemName: string, userRole: string) => {
+              switch (itemName) {
+                case 'Dashboard':
+                  if (userRole === 'senior-management') return '/system-dashboard';
+                  if (userRole === 'hr') return '/hr-dashboard';
+                  if (userRole === 'manager') return '/manager-dashboard';
+                  return '/emp-dashboard';
+                case 'Objectives':
+                  return '/objectives';
+                case 'Incoming Reviews':
+                  return '/hr/incoming-objectives';
+                case 'All Objectives':
+                  return '/hr/objectives';
+                case 'Performance Review':
+                  return '/performance';
+                case 'Team Management':
+                  return '/team';
+                case 'Manager Review':
+                  return '/manager-review';
+                case 'Manager Reports':
+                  return '/manager-reports';
+                case 'Bonus Structure':
+                  return '/bonus-structure';
+                case 'HR Reports':
+                  return '/hr-reports';
+                case 'Employee Enrollment':
+                  return '/employee-enrollment';
+                case 'Strategic Overview':
+                  return '/strategic';
+                case 'Organization Reports':
+                  return '/org-reports';
+                case 'Final Approvals':
+                  return '/approvals';
+                case 'Settings':
+                  return '/settings';
+                default:
+                  return item.href;
+              }
+            };
+
+            const targetRoute = getRouteForItem(item.name, userRole);
+            
             return (
-              <Link key={item.name} href={item.href}
+              <Link key={item.name} href={targetRoute}
                 className={`group flex items-center gap-3 px-3 py-3 rounded-xl border transition-all duration-200 ${active ? 'bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white border-transparent shadow-md' : 'bg-white hover:bg-blue-50/60 text-gray-700 border-gray-100 hover:border-blue-200'}`}>
                 <div className={`p-2 rounded-lg ${active ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-blue-100'}`}>
                   <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-600 group-hover:text-[#004E9E]'}`} />
@@ -70,9 +126,11 @@ export default function AppSidebar() {
                   <div className={`text-xs ${active ? 'text-blue-100' : 'text-gray-500'}`}>
                     {item.name === 'Dashboard' && 'Overview and analytics'}
                     {item.name === 'Objectives' && 'Track your goals'}
+                    {item.name === 'Incoming Reviews' && 'Review manager submissions'}
+                    {item.name === 'All Objectives' && 'Organization-wide view'}
                     {item.name === 'Performance Review' && 'Trends and reviews'}
                     {item.name === 'Team Management' && 'Manage your team'}
-                    {item.name === 'Score Reviews' && 'Review/approve scores'}
+                    {item.name === 'Manager Review' && 'Final scoring & HR submission'}
                     {item.name === 'Manager Reports' && 'Team reports'}
                     {item.name === 'Bonus Structure' && 'Configure bonus'}
                     {item.name === 'HR Reports' && 'Org insights'}

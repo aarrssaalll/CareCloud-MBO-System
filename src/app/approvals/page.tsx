@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from '@/hooks/useAuth';
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -18,141 +19,159 @@ import {
 
 interface ApprovalItem {
   id: string;
-  type: "objective_override" | "bonus_adjustment" | "performance_review" | "strategic_initiative";
-  title: string;
-  description: string;
-  requestedBy: string;
-  requestedByRole: string;
-  requestDate: string;
-  priority: "high" | "medium" | "low";
-  status: "pending" | "approved" | "rejected";
-  currentValue?: string | number;
-  proposedValue?: string | number;
-  justification: string;
-  impact: string;
-  relatedEmployee?: string;
-  department: string;
+  type: string; // Matches the 'type' field in MboApproval
+  status: string; // Matches the 'status' field in MboApproval
+  comments?: string; // Matches the 'comments' field in MboApproval
+  approverId: string; // Matches the 'approverId' field in MboApproval
+  createdAt: string; // Matches the 'createdAt' field in MboApproval
+  updatedAt: string; // Matches the 'updatedAt' field in MboApproval
+  approvedAt?: string; // Matches the 'approvedAt' field in MboApproval
 }
 
 export default function ApprovalsPage() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading: isAuthLoading } = useAuth(true, ['SENIOR_MANAGEMENT', 'senior-management']);
   const [selectedApproval, setSelectedApproval] = useState<ApprovalItem | null>(null);
   const [filterStatus, setFilterStatus] = useState("pending");
   const [filterType, setFilterType] = useState("all");
   const [isProcessing, setIsProcessing] = useState(false);
   const router = useRouter();
 
+
+
+  // Fetch live approvals once user is available
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/login");
-      return;
+    if (user && user.id) {
+      fetchApprovals(user.id).catch(err => console.error('fetchApprovals error:', err));
     }
-    setUser(JSON.parse(userData));
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  if (!user) return <div>Loading...</div>;
-
-  // Sample approval items
-  const approvalItems: ApprovalItem[] = [
+  // Demo fallback approval items (used when API is not reachable)
+  const SAMPLE_APPROVALS: ApprovalItem[] = [
     {
       id: "1",
       type: "objective_override",
-      title: "Manager Score Override - John Doe",
-      description: "Request to override AI-generated score for Q4 objectives",
-      requestedBy: "Jane Smith",
-      requestedByRole: "Department Manager",
-      requestDate: "2024-12-01",
-      priority: "high",
       status: "pending",
-      currentValue: 22,
-      proposedValue: 25,
-      justification: "Employee achieved exceptional results despite difficult market conditions. AI scoring didn't account for external factors and client retention efforts.",
-      impact: "Increase in quarterly bonus calculation",
-      relatedEmployee: "John Doe",
-      department: "Sales"
+      comments: "Request to override AI-generated score for Q4 objectives",
+      approverId: "Jane Smith",
+      createdAt: "2024-12-01",
+      updatedAt: "2024-12-01",
+      approvedAt: undefined,
     },
     {
       id: "2", 
       type: "bonus_adjustment",
-      title: "Exceptional Performance Bonus - Emily Davis",
-      description: "Request for additional performance bonus for outstanding project delivery",
-      requestedBy: "Mike Johnson",
-      requestedByRole: "HR Director",
-      requestDate: "2024-11-28",
-      priority: "medium",
       status: "pending",
-      currentValue: "$8,200",
-      proposedValue: "$12,500",
-      justification: "Led critical project that saved company $150K and delivered 2 weeks ahead of schedule. Performance significantly exceeded standard metrics.",
-      impact: "One-time bonus adjustment",
-      relatedEmployee: "Emily Davis",
-      department: "Engineering"
+      comments: "Request for additional performance bonus for outstanding project delivery",
+      approverId: "Mike Johnson",
+      createdAt: "2024-11-28",
+      updatedAt: "2024-11-28",
+      approvedAt: undefined,
     },
     {
       id: "3",
       type: "performance_review",
-      title: "Mid-Cycle Performance Review - Marketing Team",
-      description: "Request to conduct early performance review due to organizational restructure",
-      requestedBy: "Sarah Wilson",
-      requestedByRole: "VP Marketing",
-      requestDate: "2024-11-25",
-      priority: "medium",
       status: "pending",
-      justification: "Department restructure requires updated performance baselines. Need to reset objectives for Q1 2025 planning.",
-      impact: "Affects 28 employees in marketing department",
-      department: "Marketing"
+      comments: "Request to conduct early performance review due to organizational restructure",
+      approverId: "Sarah Wilson",
+      createdAt: "2024-11-25",
+      updatedAt: "2024-11-25",
+      approvedAt: undefined,
     },
     {
       id: "4",
       type: "strategic_initiative",
-      title: "Emergency Budget Allocation - Customer Success",
-      description: "Request for additional budget allocation for customer retention initiative",
-      requestedBy: "David Brown",
-      requestedByRole: "Director of Customer Success",
-      requestDate: "2024-11-30",
-      priority: "high",
       status: "pending",
-      currentValue: "$50,000",
-      proposedValue: "$85,000",
-      justification: "Urgent need to address increasing churn rate. Additional resources required for customer success team expansion and retention tools.",
-      impact: "Potential to reduce churn by 15% and save $300K in lost revenue",
-      department: "Customer Success"
+      comments: "Request for additional budget allocation for customer retention initiative",
+      approverId: "David Brown",
+      createdAt: "2024-11-30",
+      updatedAt: "2024-11-30",
+      approvedAt: undefined,
     },
     {
       id: "5",
       type: "objective_override",
-      title: "Score Adjustment - Team Lead Performance",
-      description: "Manager override request for team leadership objectives",
-      requestedBy: "Tom Wilson",
-      requestedByRole: "Engineering Manager",
-      requestDate: "2024-11-20",
-      priority: "low",
       status: "approved",
-      currentValue: 18,
-      proposedValue: 20,
-      justification: "Employee mentored 3 junior developers and contributed significantly to team knowledge sharing initiatives.",
-      impact: "Minor bonus adjustment",
-      relatedEmployee: "Alex Chen",
-      department: "Engineering"
+      comments: "Manager override request for team leadership objectives",
+      approverId: "Tom Wilson",
+      createdAt: "2024-11-20",
+      updatedAt: "2024-11-20",
+      approvedAt: "2024-11-21",
     }
   ];
+
+  const [approvals, setApprovals] = useState<ApprovalItem[]>([]);
+  const [isLoadingApprovals, setIsLoadingApprovals] = useState(false);
+  const [approvalsError, setApprovalsError] = useState<string | null>(null);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   const handleApproval = async (id: string, action: "approve" | "reject", notes?: string) => {
     setIsProcessing(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      console.log(`${action} approval ${id}:`, notes);
+      // Prefer API call to update approval status
+      const res = await fetch('/api/mbo/approvals', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approvalId: id, status: action === 'approve' ? 'APPROVED' : 'REJECTED', comments: notes }),
+      });
+
+      const result = await res.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Failed to update approval');
+      }
+
+      // Refresh approvals for current user if available
+      if (user && user.id) {
+        await fetchApprovals(user.id);
+      } else {
+        // remove or update locally as fallback
+        setApprovals(prev => prev.map(a => a.id === id ? { ...a, status: action === 'approve' ? 'approved' : 'rejected' } : a));
+      }
+
       alert(`Request ${action}d successfully!`);
       setSelectedApproval(null);
-    } catch (error) {
-      console.error("Error processing approval:", error);
-      alert("Error processing request. Please try again.");
+    } catch (error: any) {
+      console.error('Error processing approval:', error);
+      alert('Error processing request. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
+
+  const fetchApprovals = async (approverId: string) => {
+    setIsLoadingApprovals(true);
+    setApprovalsError(null);
+    try {
+      const response = await fetch(`/api/mbo/approvals?approverId=${approverId}`);
+      const data = await response.json();
+      if (data.success) {
+        // normalize status values to match frontend expectations (lowercase for display)
+        const normalized = data.data.map((a: any) => ({
+          ...a,
+          status: (a.status || '').toLowerCase(),
+          createdAt: a.createdAt || a.requestedAt || a.requestDate,
+          approverId: a.requestedByName || a.requestedBy || a.requestedById || 'Unknown',
+        }));
+        setApprovals(normalized);
+        setUsingFallback(false);
+      } else {
+        setApprovalsError(data.message || 'Failed to load approvals');
+        // fallback to sample data so UI remains usable in dev
+        setApprovals(SAMPLE_APPROVALS);
+        setUsingFallback(true);
+      }
+    } catch (err: any) {
+      console.error('Failed to load approvals:', err);
+      setApprovalsError(err.message || 'Failed to load approvals');
+      setApprovals(SAMPLE_APPROVALS);
+      setUsingFallback(true);
+    } finally {
+      setIsLoadingApprovals(false);
+    }
+  };
+
+  // Only render after auth is resolved; user check happens here (keeps hooks order stable)
+  if (isAuthLoading || !user) return <div>Loading...</div>;
 
   const getTypeConfig = (type: ApprovalItem["type"]) => {
     switch (type) {
@@ -169,36 +188,13 @@ export default function ApprovalsPage() {
     }
   };
 
-  const getPriorityConfig = (priority: ApprovalItem["priority"]) => {
-    switch (priority) {
-      case "high":
-        return { color: "text-red-600", bg: "bg-red-50", label: "High Priority" };
-      case "medium":
-        return { color: "text-yellow-600", bg: "bg-yellow-50", label: "Medium Priority" };
-      case "low":
-        return { color: "text-green-600", bg: "bg-green-50", label: "Low Priority" };
-    }
-  };
-
-  const getStatusConfig = (status: ApprovalItem["status"]) => {
-    switch (status) {
-      case "pending":
-        return { icon: ClockIcon, color: "text-yellow-600", bg: "bg-yellow-50", label: "Pending Review" };
-      case "approved":
-        return { icon: CheckCircleIcon, color: "text-green-600", bg: "bg-green-50", label: "Approved" };
-      case "rejected":
-        return { icon: XCircleIcon, color: "text-red-600", bg: "bg-red-50", label: "Rejected" };
-    }
-  };
-
-  const filteredApprovals = approvalItems.filter(item => {
+  const filteredApprovals = approvals.filter(item => {
     const statusMatch = filterStatus === "all" || item.status === filterStatus;
     const typeMatch = filterType === "all" || item.type === filterType;
     return statusMatch && typeMatch;
   });
 
-  const pendingCount = approvalItems.filter(item => item.status === "pending").length;
-  const highPriorityCount = approvalItems.filter(item => item.priority === "high" && item.status === "pending").length;
+  const pendingCount = approvals.filter(item => item.status === "pending").length;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -226,21 +222,14 @@ export default function ApprovalsPage() {
                   </div>
                 </div>
               </div>
-              
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-red-50 rounded-lg">
-                    <ExclamationTriangleIcon className="w-5 h-5 text-red-600" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold text-text-dark">{highPriorityCount}</p>
-                    <p className="text-sm text-text-light">High Priority</p>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>
+        {usingFallback && (
+          <div className="mb-4 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800 text-sm">
+            Showing demo fallback approvals because the approvals API failed or returned no data.
+          </div>
+        )}
 
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
@@ -279,10 +268,7 @@ export default function ApprovalsPage() {
         <div className="space-y-6">
           {filteredApprovals.map((approval) => {
             const typeConfig = getTypeConfig(approval.type);
-            const priorityConfig = getPriorityConfig(approval.priority);
-            const statusConfig = getStatusConfig(approval.status);
             const TypeIcon = typeConfig.icon;
-            const StatusIcon = statusConfig.icon;
 
             return (
               <div key={approval.id} className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow">
@@ -290,62 +276,31 @@ export default function ApprovalsPage() {
                   <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex flex-wrap items-center gap-3 mb-3">
-                        <h3 className="text-xl font-semibold text-text-dark">{approval.title}</h3>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${statusConfig.color} ${statusConfig.bg}`}>
-                          <StatusIcon className="w-4 h-4 mr-1" />
-                          {statusConfig.label}
-                        </span>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${priorityConfig.color} ${priorityConfig.bg}`}>
-                          {priorityConfig.label}
-                        </span>
+                        <h3 className="text-xl font-semibold text-text-dark">{approval.type}</h3>
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${typeConfig.color} ${typeConfig.bg}`}>
                           <TypeIcon className="w-4 h-4 mr-1" />
                           {typeConfig.label}
                         </span>
                       </div>
-                      <p className="text-text-light mb-3">{approval.description}</p>
                       
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="font-medium text-text-light">Requested by:</span>
-                          <p className="text-text-dark">{approval.requestedBy}</p>
-                          <p className="text-xs text-text-light">{approval.requestedByRole}</p>
-                        </div>
-                        <div>
-                          <span className="font-medium text-text-light">Department:</span>
-                          <p className="text-text-dark">{approval.department}</p>
+                          <p className="text-text-dark">{approval.approverId}</p>
                         </div>
                         <div>
                           <span className="font-medium text-text-light">Request Date:</span>
-                          <p className="text-text-dark">{new Date(approval.requestDate).toLocaleDateString()}</p>
+                          <p className="text-text-dark">{new Date(approval.createdAt).toLocaleDateString()}</p>
                         </div>
-                        {approval.relatedEmployee && (
+                        {approval.approvedAt && (
                           <div>
-                            <span className="font-medium text-text-light">Employee:</span>
-                            <p className="text-text-dark">{approval.relatedEmployee}</p>
+                            <span className="font-medium text-text-light">Approved At:</span>
+                            <p className="text-text-dark">{new Date(approval.approvedAt).toLocaleDateString()}</p>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
-
-                  {/* Value Change Display */}
-                  {approval.currentValue && approval.proposedValue && (
-                    <div className="mb-4 p-4 bg-gray-50 rounded-lg">
-                      <h4 className="font-medium text-text-dark mb-2">Proposed Change</h4>
-                      <div className="flex items-center space-x-4">
-                        <div>
-                          <span className="text-sm text-text-light">Current:</span>
-                          <span className="ml-2 font-semibold text-text-dark">{approval.currentValue}</span>
-                        </div>
-                        <span className="text-gray-400">→</span>
-                        <div>
-                          <span className="text-sm text-text-light">Proposed:</span>
-                          <span className="ml-2 font-semibold text-primary">{approval.proposedValue}</span>
-                        </div>
-                      </div>
-                    </div>
-                  )}
 
                   {/* Actions */}
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between pt-4 border-t border-gray-200">
@@ -390,7 +345,7 @@ export default function ApprovalsPage() {
             <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
               <div className="p-6 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-semibold text-text-dark">{selectedApproval.title}</h3>
+                  <h3 className="text-2xl font-semibold text-text-dark">{selectedApproval.type}</h3>
                   <button
                     onClick={() => setSelectedApproval(null)}
                     className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -403,17 +358,7 @@ export default function ApprovalsPage() {
               <div className="p-6 space-y-6">
                 <div>
                   <h4 className="text-lg font-medium text-text-dark mb-3">Request Details</h4>
-                  <p className="text-text-dark leading-relaxed">{selectedApproval.description}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-lg font-medium text-text-dark mb-3">Justification</h4>
-                  <p className="text-text-dark leading-relaxed">{selectedApproval.justification}</p>
-                </div>
-
-                <div>
-                  <h4 className="text-lg font-medium text-text-dark mb-3">Impact Assessment</h4>
-                  <p className="text-text-dark leading-relaxed">{selectedApproval.impact}</p>
+                  <p className="text-text-dark leading-relaxed">{selectedApproval.comments}</p>
                 </div>
 
                 {selectedApproval.status === "pending" && (

@@ -77,12 +77,6 @@ const navigationItems: NavigationItem[] = [
     roles: ['manager', 'senior-management']
   },
   {
-    name: 'Score Reviews',
-    href: '/score-reviews',
-    icon: TrophyIcon,
-    roles: ['manager']
-  },
-  {
     name: 'Manager Review',
     href: '/manager-review',
     icon: CheckCircleIcon,

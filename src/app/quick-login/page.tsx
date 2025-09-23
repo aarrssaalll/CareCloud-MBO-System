@@ -68,10 +68,10 @@ export default function QuickLoginPage() {
       
       if (result.success) {
         // Store user info in localStorage for session management
-        localStorage.setItem('mbo_current_user', JSON.stringify(result.user));
+        localStorage.setItem('mbo_user', JSON.stringify(result.user));
         
         // Redirect to dashboard
-        router.push('/dashboard-live');
+        router.push('/emp-dashboard');
       } else {
         alert('Login failed: ' + result.message);
       }
@@ -154,10 +154,10 @@ export default function QuickLoginPage() {
               Use Regular Login Form
             </button>
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.push('/emp-dashboard')}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
             >
-              Original Dashboard (localStorage)
+              Employee Dashboard
             </button>
             <button
               onClick={() => router.push('/mbo-test')}

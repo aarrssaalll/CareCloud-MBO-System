@@ -1,0 +1,13 @@
+{
+  "employeeId": "cmev046ug000zhz6sgpkfy9tt",
+  "assignedById": "cmev046tz000nhz6sn9vkj77c",
+  "objectives": [
+    {
+      "title": "Test Fixed Objective",
+      "description": "Testing after workflowStatus fix",
+      "target": 100,
+      "weight": 25,
+      "dueDate": "2025-12-31"
+    }
+  ]
+}

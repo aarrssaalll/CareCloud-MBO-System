@@ -1,48 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MboDataAccess } from '@/lib/database/mbo-data-access';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type');
 
-    const dataAccess = new MboDataAccess();
+    console.log('🔍 Fetching live data for type:', type);
 
     switch (type) {
       case 'users':
-        const users = await dataAccess.getAllUsers();
+        const users = await prisma.mboUser.findMany();
         return NextResponse.json({
           success: true,
           data: users,
         });
 
       case 'departments':
-        const departments = await dataAccess.getAllDepartments();
+        const departments = await prisma.mboDepartment.findMany();
         return NextResponse.json({
           success: true,
           data: departments,
         });
 
       case 'teams':
-        const teams = await dataAccess.getAllTeams();
+        const teams = await prisma.mboTeam.findMany();
         return NextResponse.json({
           success: true,
           data: teams,
-        });
-
-      case 'department-performance':
-        const deptMetrics = await dataAccess.getDepartmentPerformanceMetrics();
-        return NextResponse.json({
-          success: true,
-          data: deptMetrics,
-        });
-
-      case 'team-performance':
-        const departmentId = searchParams.get('departmentId');
-        const teamMetrics = await dataAccess.getTeamPerformanceMetrics(departmentId || undefined);
-        return NextResponse.json({
-          success: true,
-          data: teamMetrics,
         });
 
       default:
@@ -58,5 +45,7 @@ export async function GET(request: NextRequest) {
       message: 'Failed to fetch data',
       error: error instanceof Error ? error.message : 'Unknown error',
     }, { status: 500 });
+  } finally {
+    await prisma.$disconnect();
   }
 }

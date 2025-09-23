@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { MboDataAccess } from '../../../../lib/database/mbo-data-access';
+import { MboDataAccess } from '../../../../../lib/database/mbo-data-access';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,11 +14,11 @@ export async function GET(request: NextRequest) {
     }
 
     const dataAccess = new MboDataAccess();
-    const approvals = await dataAccess.getPendingApprovals(approverId);
+    const dbApprovals = await dataAccess.getPendingApprovals(approverId);
 
     return NextResponse.json({
       success: true,
-      data: approvals,
+      data: dbApprovals,
     });
   } catch (error) {
     console.error('Error fetching approvals:', error);

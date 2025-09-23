@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import { config } from 'dotenv';
+config();
+
 async function run() {
   const apiKey = process.env.GEMINI_API_KEY;
   try {
@@ -9,7 +12,17 @@ async function run() {
       const res = await model.generateContent({ contents: [{ role: 'user', parts: [{ text: 'Return JSON {"ok":true}' }] }] });
       const text = res.response?.text?.() || '';
       try {
-        const parsed = JSON.parse(text);
+        // Try to parse directly first
+        let parsed = null;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          // If direct parsing fails, try to extract JSON from markdown code blocks
+          const match = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) || text.match(/(\{[\s\S]*?\})/);
+          if (match) {
+            parsed = JSON.parse(match[1]);
+          }
+        }
         if (parsed?.ok === true) {
           console.log(JSON.stringify({ success: true, mode: 'apikey' }));
           return;
@@ -28,7 +41,17 @@ async function run() {
       const res = await model.generateContent({ contents: [{ role: 'user', parts: [{ text: 'Return JSON {"ok":true}' }] }] });
       const text = (res?.response?.candidates?.[0]?.content?.parts?.[0]?.text) || '';
       try {
-        const parsed = JSON.parse(text);
+        // Try to parse directly first
+        let parsed = null;
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          // If direct parsing fails, try to extract JSON from markdown code blocks
+          const match = text.match(/```(?:json)?\s*(\{[\s\S]*?\})\s*```/) || text.match(/(\{[\s\S]*?\})/);
+          if (match) {
+            parsed = JSON.parse(match[1]);
+          }
+        }
         if (parsed?.ok === true) {
           console.log(JSON.stringify({ success: true, mode: 'vertex' }));
           return;

@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { 
   UserGroupIcon, 
   ClipboardDocumentListIcon, 
   ChartBarIcon,
   PlusIcon,
-  AdjustmentsHorizontalIcon,
   CheckCircleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   DocumentTextIcon,
   ArrowTrendingUpIcon,
-  BellIcon
+  BellIcon,
+  UsersIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 // Types for the manager dashboard
@@ -30,214 +32,102 @@ interface TeamMember {
   currentQuarter: string;
 }
 
-interface ObjectiveTemplate {
-  id: string;
-  title: string;
-  description: string;
-  category: 'performance' | 'development' | 'leadership' | 'innovation';
-  type: 'quantitative' | 'qualitative';
-  defaultWeight: number;
-  suggestedTarget: string;
-  applicableRoles: string[];
-}
-
-interface DepartmentMetrics {
-  department: string;
-  totalEmployees: number;
-  objectivesAssigned: number;
-  completionRate: number;
-  averageScore: number;
-  pendingReviews: number;
-}
-
 export default function ManagerDashboard() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'assign' | 'review' | 'templates'>('overview');
+  const { user, isLoading: authLoading } = useAuth(true, ['MANAGER', 'manager']);
+  const [activeTab, setActiveTab] = useState<'overview' | 'assign' | 'team'>('overview');
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<string>('');
-  const [objectiveTemplates, setObjectiveTemplates] = useState<ObjectiveTemplate[]>([]);
-  const [departmentMetrics, setDepartmentMetrics] = useState<DepartmentMetrics[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  // Mock user - in real implementation, get from auth context
-  const user = {
-    email: "manager@carecloud.com",
-    role: "manager",
-    name: "Sarah Johnson",
-    department: "Customer Success"
-  };
-
+  // Load data when authentication is complete
   useEffect(() => {
-    loadTeamData();
-    loadObjectiveTemplates();
-    loadDepartmentMetrics();
-  }, []);
-
-  const loadTeamData = () => {
-    // In real implementation, fetch from API
-    const mockTeamMembers: TeamMember[] = [
-      {
-        id: "emp001",
-        name: "John Smith",
-        email: "john.smith@carecloud.com",
-        role: "Senior Customer Success Manager",
-        department: "Customer Success",
-        manager: user.email,
-        objectivesCount: 5,
-        completionRate: 85,
-        lastActive: "2025-08-10",
-        status: "active",
-        currentQuarter: "Q3-2025"
-      },
-      {
-        id: "emp002",
-        name: "Emily Davis",
-        email: "emily.davis@carecloud.com",
-        role: "Customer Success Specialist",
-        department: "Customer Success",
-        manager: user.email,
-        objectivesCount: 4,
-        completionRate: 75,
-        lastActive: "2025-08-11",
-        status: "pending_review",
-        currentQuarter: "Q3-2025"
-      },
-      {
-        id: "emp003",
-        name: "Michael Chen",
-        email: "michael.chen@carecloud.com",
-        role: "Junior Customer Success Manager",
-        department: "Customer Success",
-        manager: user.email,
-        objectivesCount: 3,
-        completionRate: 60,
-        lastActive: "2025-08-09",
-        status: "overdue",
-        currentQuarter: "Q3-2025"
+    console.log('useEffect triggered:', { authLoading, user: user?.id });
+    if (authLoading) return;
+    if (!user) return;
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        await loadTeamData();
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
       }
-    ];
-    setTeamMembers(mockTeamMembers);
+    };
+    loadData();
+  }, [authLoading, user]);
+
+  const loadTeamData = async () => {
+    try {
+      console.log('Loading team data for manager:', user?.id);
+      // Fetch employees managed by this manager
+      const response = await fetch(`/api/manager/team?managerId=${user?.id}`);
+      const data = await response.json();
+      console.log('Team data response:', data);
+      
+      if (data.success && data.teamMembers) {
+        console.log(`Found ${data.teamMembers.length} team members`);
+        setTeamMembers(data.teamMembers);
+      } else {
+        console.log('No team members found or API error:', data.error);
+        setTeamMembers([]);
+      }
+    } catch (error) {
+      console.error('Error loading team data:', error);
+      setTeamMembers([]);
+    }
   };
 
-  const loadObjectiveTemplates = () => {
-    const templates: ObjectiveTemplate[] = [
-      {
-        id: "temp001",
-        title: "Customer Satisfaction Improvement",
-        description: "Improve customer satisfaction scores through enhanced service delivery and proactive communication.",
-        category: "performance",
-        type: "quantitative",
-        defaultWeight: 25,
-        suggestedTarget: "90% Customer Satisfaction Score",
-        applicableRoles: ["Customer Success Manager", "Customer Success Specialist"]
-      },
-      {
-        id: "temp002",
-        title: "Revenue Growth Contribution",
-        description: "Contribute to team revenue growth by identifying upsell opportunities and reducing churn.",
-        category: "performance",
-        type: "quantitative",
-        defaultWeight: 30,
-        suggestedTarget: "$150K Additional Revenue",
-        applicableRoles: ["Senior Customer Success Manager", "Customer Success Manager"]
-      },
-      {
-        id: "temp003",
-        title: "Team Leadership Development",
-        description: "Develop leadership skills by mentoring junior team members and leading cross-functional initiatives.",
-        category: "leadership",
-        type: "qualitative",
-        defaultWeight: 20,
-        suggestedTarget: "Mentor 2 junior team members",
-        applicableRoles: ["Senior Customer Success Manager"]
-      },
-      {
-        id: "temp004",
-        title: "Process Innovation Initiative",
-        description: "Identify and implement process improvements that enhance team efficiency and customer experience.",
-        category: "innovation",
-        type: "qualitative",
-        defaultWeight: 15,
-        suggestedTarget: "1 Major Process Improvement",
-        applicableRoles: ["Customer Success Manager", "Senior Customer Success Manager"]
-      },
-      {
-        id: "temp005",
-        title: "Professional Skill Development",
-        description: "Complete relevant certifications and training programs to enhance professional capabilities.",
-        category: "development",
-        type: "qualitative",
-        defaultWeight: 10,
-        suggestedTarget: "Complete 2 Professional Certifications",
-        applicableRoles: ["Customer Success Specialist", "Junior Customer Success Manager"]
-      }
-    ];
-    setObjectiveTemplates(templates);
+  const loadObjectiveTemplates = async () => {
+    // Removed template loading - will use custom creation instead
   };
 
-  const loadDepartmentMetrics = () => {
-    const metrics: DepartmentMetrics[] = [
-      {
-        department: "Customer Success",
-        totalEmployees: 12,
-        objectivesAssigned: 48,
-        completionRate: 73,
-        averageScore: 82,
-        pendingReviews: 8
-      }
-    ];
-    setDepartmentMetrics(metrics);
-  };
-
-  const handleAssignObjectives = async (employeeId: string, selectedTemplates: string[]) => {
+  // Custom objective assignment handler
+  const handleAssignCustomObjective = async (employeeId: string, objectiveData: any) => {
     setIsAssigning(true);
     try {
-      // In real implementation, call API to assign objectives
       const employee = teamMembers.find(member => member.id === employeeId);
-      if (!employee) return;
+      if (!employee) {
+        alert('Employee not found');
+        return;
+      }
 
-      // Create objectives from templates
-      const newObjectives = selectedTemplates.map((templateId, index) => {
-        const template = objectiveTemplates.find(t => t.id === templateId);
-        if (!template) return null;
-
-        return {
-          id: `obj_${employeeId}_${Date.now()}_${index}`,
+      // Call API to assign custom objective
+      const response = await fetch('/api/manager/assign-objectives', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           employeeId: employeeId,
-          title: template.title,
-          description: template.description,
-          category: template.category,
-          type: template.type,
-          weight: template.defaultWeight,
-          target: template.suggestedTarget,
-          assignedBy: user.email,
-          assignedDate: new Date().toISOString(),
-          dueDate: getQuarterEndDate(),
-          status: 'assigned',
-          progress: 0,
-          remarks: '',
-          isLocked: false
-        };
-      }).filter(obj => obj !== null);
+          objectives: [objectiveData],
+          assignedById: user?.id
+        })
+      });
 
-      // Save objectives to localStorage (in real implementation, save to database)
-      const storageKey = `objectives_${employee.email}`;
-      const existingObjectives = JSON.parse(localStorage.getItem(storageKey) || '[]');
-      const updatedObjectives = [...existingObjectives, ...newObjectives];
-      localStorage.setItem(storageKey, JSON.stringify(updatedObjectives));
+      const data = await response.json();
 
-      // Update team member data
-      const updatedTeamMembers = teamMembers.map(member => 
-        member.id === employeeId 
-          ? { ...member, objectivesCount: member.objectivesCount + newObjectives.length, status: 'active' as const }
-          : member
-      );
-      setTeamMembers(updatedTeamMembers);
+      if (data.success) {
+        // Update team member data locally
+        const updatedTeamMembers = teamMembers.map(member => 
+          member.id === employeeId 
+            ? { ...member, objectivesCount: data.updatedEmployee.objectivesCount, status: 'active' as const }
+            : member
+        );
+        setTeamMembers(updatedTeamMembers);
 
-      alert(`Successfully assigned ${newObjectives.length} objectives to ${employee.name}`);
-      setSelectedEmployee('');
+        alert(data.message);
+        setSelectedEmployee('');
+        
+        // Reload team data to get fresh metrics
+        await loadTeamData();
+      } else {
+        alert(data.error || 'Failed to assign objective');
+      }
     } catch (error) {
-      console.error('Error assigning objectives:', error);
-      alert('Failed to assign objectives. Please try again.');
+      console.error('Error assigning objective:', error);
+      alert('Failed to assign objective. Please try again.');
     } finally {
       setIsAssigning(false);
     }
@@ -279,6 +169,27 @@ export default function ManagerDashboard() {
     }
   };
 
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading manager dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Authentication required</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -296,7 +207,7 @@ export default function ManagerDashboard() {
                 <BellIcon className="h-6 w-6 text-gray-400" />
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.department} Manager</p>
+                  <p className="text-xs text-gray-500">{user?.departmentId || 'Manager'}</p>
                 </div>
               </div>
             </div>
@@ -310,9 +221,8 @@ export default function ManagerDashboard() {
           <nav className="-mb-px flex space-x-8" aria-label="Tabs">
             {[
               { id: 'overview', name: 'Team Overview', icon: ChartBarIcon },
-              { id: 'assign', name: 'Assign Objectives', icon: PlusIcon },
-              { id: 'review', name: 'Review & Approve', icon: DocumentTextIcon },
-              { id: 'templates', name: 'Manage Templates', icon: AdjustmentsHorizontalIcon }
+              { id: 'assign', name: 'Create & Assign', icon: PlusIcon },
+              { id: 'team', name: 'Team Management', icon: UsersIcon }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -335,7 +245,7 @@ export default function ManagerDashboard() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Department Metrics */}
+            {/* Four Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
@@ -363,7 +273,7 @@ export default function ManagerDashboard() {
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-500">Avg Completion Rate</p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {Math.round(teamMembers.reduce((sum, member) => sum + member.completionRate, 0) / teamMembers.length)}%
+                      {teamMembers.length > 0 ? Math.round(teamMembers.reduce((sum, member) => sum + member.completionRate, 0) / teamMembers.length) : 0}%
                     </p>
                   </div>
                 </div>
@@ -380,123 +290,110 @@ export default function ManagerDashboard() {
                 </div>
               </div>
             </div>
-
-            {/* Team Members Table */}
+            {/* Team Performance Table */}
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900">Team Performance</h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  {loading ? 'Loading team data...' : `Showing ${teamMembers.length} team members`}
+                </p>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Employee
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Role
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Objectives
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Completion Rate
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Last Active
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {teamMembers.map((member) => (
-                      <tr key={member.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="h-10 w-10 rounded-full bg-[#004E9E] flex items-center justify-center">
-                              <span className="text-sm font-medium text-white">
-                                {member.name.split(' ').map(n => n[0]).join('')}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{member.name}</div>
-                              <div className="text-sm text-gray-500">{member.email}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {member.role}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {member.objectivesCount}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
-                              <div 
-                                className="bg-[#004E9E] h-2 rounded-full" 
-                                style={{ width: `${member.completionRate}%` }}
-                              ></div>
-                            </div>
-                            <span className="text-sm text-gray-900">{member.completionRate}%</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(member.status)}`}>
-                            {getStatusIcon(member.status)}
-                            <span className="ml-1 capitalize">{member.status.replace('_', ' ')}</span>
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {new Date(member.lastActive).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button 
-                            onClick={() => {
-                              setSelectedEmployee(member.id);
-                              setActiveTab('assign');
-                            }}
-                            className="text-[#004E9E] hover:text-[#003875] mr-4"
-                          >
-                            Assign
-                          </button>
-                          <button className="text-[#007BFF] hover:text-[#0056b3]">
-                            Review
-                          </button>
-                        </td>
+                {teamMembers.length > 0 ? (
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Objectives</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Rate</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {teamMembers.map((member) => (
+                        <tr key={member.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="h-10 w-10 rounded-full bg-[#004E9E] flex items-center justify-center">
+                                <span className="text-sm font-medium text-white">
+                                  {member.name.split(' ').map(n => n[0]).join('')}
+                                </span>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{member.name}</div>
+                                <div className="text-sm text-gray-500">{member.email}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{member.role}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{member.objectivesCount}</td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-1 bg-gray-200 rounded-full h-2 mr-2">
+                                <div className="bg-[#004E9E] h-2 rounded-full" style={{ width: `${member.completionRate}%` }}></div>
+                              </div>
+                              <span className="text-sm text-gray-900">{member.completionRate}%</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(member.status)}`}>
+                              {getStatusIcon(member.status)}
+                              <span className="ml-1 capitalize">{member.status.replace('_', ' ')}</span>
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(member.lastActive).toLocaleDateString()}</td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button 
+                              onClick={() => { setSelectedEmployee(member.id); setActiveTab('assign'); }} 
+                              className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white px-3 py-1 rounded-md text-xs hover:shadow-md transition-all mr-3"
+                            >
+                              ✨ Create Objective
+                            </button>
+                            <button className="text-[#007BFF] hover:text-[#0056b3] text-xs">Review</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-center py-12">
+                    <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No team members</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {loading ? 'Loading team data...' : 'No employees are currently assigned to your management.'}
+                    </p>
+                    {!loading && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400">
+                          Debug: User ID: {user?.id || 'Not found'} | Auth Loading: {authLoading ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
 
         {activeTab === 'assign' && (
-          <ObjectiveAssignmentPanel 
+          <CustomObjectiveCreationPanel 
             teamMembers={teamMembers}
-            objectiveTemplates={objectiveTemplates}
             selectedEmployee={selectedEmployee}
             setSelectedEmployee={setSelectedEmployee}
-            onAssignObjectives={handleAssignObjectives}
+            onAssignObjective={handleAssignCustomObjective}
             isAssigning={isAssigning}
           />
         )}
 
-        {activeTab === 'review' && (
-          <ReviewApprovalPanel teamMembers={teamMembers} />
-        )}
-
-        {activeTab === 'templates' && (
-          <TemplateManagementPanel 
-            templates={objectiveTemplates}
-            setTemplates={setObjectiveTemplates}
+        {activeTab === 'team' && (
+          <TeamManagementPanel 
+            teamMembers={teamMembers} 
+            user={user}
+            onRefreshData={loadTeamData}
           />
         )}
       </div>
@@ -504,183 +401,690 @@ export default function ManagerDashboard() {
   );
 }
 
-// Objective Assignment Panel Component
-function ObjectiveAssignmentPanel({ 
+// Custom Objective Creation Panel Component
+function CustomObjectiveCreationPanel({ 
   teamMembers, 
-  objectiveTemplates, 
   selectedEmployee, 
   setSelectedEmployee, 
-  onAssignObjectives, 
+  onAssignObjective, 
   isAssigning 
 }: {
   teamMembers: TeamMember[];
-  objectiveTemplates: ObjectiveTemplate[];
   selectedEmployee: string;
   setSelectedEmployee: (id: string) => void;
-  onAssignObjectives: (employeeId: string, templates: string[]) => void;
+  onAssignObjective: (employeeId: string, objectiveData: any) => void;
   isAssigning: boolean;
 }) {
-  const [selectedTemplates, setSelectedTemplates] = useState<string[]>([]);
-  const [customObjective, setCustomObjective] = useState({
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [objectiveData, setObjectiveData] = useState({
     title: '',
     description: '',
-    weight: 20,
+    category: 'performance',
     target: '',
-    type: 'qualitative' as 'qualitative' | 'quantitative'
+    weight: 20,
+    dueDate: '',
+    quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
+    year: new Date().getFullYear()
   });
 
   const employee = teamMembers.find(member => member.id === selectedEmployee);
-  const applicableTemplates = objectiveTemplates.filter(template => 
-    template.applicableRoles.some(role => 
-      employee?.role.toLowerCase().includes(role.toLowerCase())
-    )
-  );
 
-  const handleTemplateToggle = (templateId: string) => {
-    setSelectedTemplates(prev => 
-      prev.includes(templateId) 
-        ? prev.filter(id => id !== templateId)
-        : [...prev, templateId]
-    );
+  const resetForm = () => {
+    setObjectiveData({
+      title: '',
+      description: '',
+      category: 'performance',
+      target: '',
+      weight: 20,
+      dueDate: '',
+      quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
+      year: new Date().getFullYear()
+    });
   };
 
-  const handleAssign = () => {
-    if (!selectedEmployee || selectedTemplates.length === 0) {
-      alert('Please select an employee and at least one objective template.');
+  const handleCreateAndAssign = () => {
+    if (!selectedEmployee) {
+      alert('Please select an employee first.');
       return;
     }
-    onAssignObjectives(selectedEmployee, selectedTemplates);
-    setSelectedTemplates([]);
+    
+    if (!objectiveData.title || !objectiveData.description || !objectiveData.target || !objectiveData.dueDate) {
+      alert('Please fill in all required fields.');
+      return;
+    }
+
+    const formattedObjective = {
+      title: objectiveData.title,
+      description: objectiveData.description,
+      category: objectiveData.category,
+      target: parseFloat(objectiveData.target),
+      weight: objectiveData.weight / 100, // Convert percentage to decimal
+      dueDate: objectiveData.dueDate,
+      quarter: objectiveData.quarter,
+      year: objectiveData.year
+    };
+
+    onAssignObjective(selectedEmployee, formattedObjective);
+    setShowCreateModal(false);
+    resetForm();
   };
 
   return (
     <div className="space-y-6">
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Assign Objectives to Team Members</h3>
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Create & Assign Custom Objectives</h3>
+            <p className="text-sm text-gray-500 mt-1">Design personalized objectives for your team members</p>
+          </div>
+          <div className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] px-4 py-2 rounded-lg">
+            <span className="text-white text-sm font-medium">✨ Custom Creation</span>
+          </div>
+        </div>
         
         {/* Employee Selection */}
         <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Employee
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Select Team Member
           </label>
-          <select
-            value={selectedEmployee}
-            onChange={(e) => setSelectedEmployee(e.target.value)}
-            className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-          >
-            <option value="">Choose an employee...</option>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {teamMembers.map((member) => (
-              <option key={member.id} value={member.id}>
-                {member.name} - {member.role}
-              </option>
+              <div
+                key={member.id}
+                onClick={() => setSelectedEmployee(member.id)}
+                className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                  selectedEmployee === member.id
+                    ? 'border-[#004E9E] bg-blue-50 shadow-md'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#004E9E] to-[#007BFF] flex items-center justify-center">
+                    <span className="text-sm font-medium text-white">
+                      {member.name.split(' ').map(n => n[0]).join('')}
+                    </span>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{member.name}</h4>
+                    <p className="text-xs text-gray-500">{member.role}</p>
+                    <div className="flex items-center mt-1 space-x-2">
+                      <span className="text-xs text-gray-400">{member.objectivesCount} objectives</span>
+                      <span className="text-xs text-gray-400">•</span>
+                      <span className="text-xs text-gray-400">{member.completionRate}% complete</span>
+                    </div>
+                  </div>
+                  {selectedEmployee === member.id && (
+                    <div className="text-[#004E9E]">
+                      <CheckCircleIcon className="h-5 w-5" />
+                    </div>
+                  )}
+                </div>
+              </div>
             ))}
-          </select>
+          </div>
         </div>
 
-        {/* Template Selection */}
+        {/* Create Objective Button */}
         {employee && (
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Available Objective Templates for {employee.role}
-            </label>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {applicableTemplates.map((template) => (
-                <div
-                  key={template.id}
-                  className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                    selectedTemplates.includes(template.id)
-                      ? 'border-[#004E9E] bg-blue-50'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                  onClick={() => handleTemplateToggle(template.id)}
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-medium text-gray-900">{template.title}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{template.description}</p>
-                      <div className="flex items-center mt-2 space-x-4">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          template.category === 'performance' ? 'bg-green-100 text-green-800' :
-                          template.category === 'development' ? 'bg-blue-100 text-blue-800' :
-                          template.category === 'leadership' ? 'bg-purple-100 text-purple-800' :
-                          'bg-orange-100 text-orange-800'
-                        }`}>
-                          {template.category}
-                        </span>
-                        <span className="text-xs text-gray-500">Weight: {template.defaultWeight}%</span>
-                        <span className="text-xs text-gray-500 capitalize">{template.type}</span>
-                      </div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={selectedTemplates.includes(template.id)}
-                      onChange={() => handleTemplateToggle(template.id)}
-                      className="h-4 w-4 text-[#004E9E] focus:ring-[#004E9E] border-gray-300 rounded"
-                    />
-                  </div>
-                </div>
-              ))}
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="font-medium text-gray-900">Ready to create objective for {employee.name}</h4>
+                <p className="text-sm text-gray-500">Click the button to open the objective creation form</p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all flex items-center space-x-2"
+              >
+                <PlusIcon className="h-5 w-5" />
+                <span>Create Custom Objective</span>
+              </button>
             </div>
           </div>
         )}
-
-        {/* Action Buttons */}
-        {employee && selectedTemplates.length > 0 && (
-          <div className="flex justify-end space-x-4">
-            <button
-              onClick={() => {
-                setSelectedEmployee('');
-                setSelectedTemplates([]);
-              }}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAssign}
-              disabled={isAssigning}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#004E9E] hover:bg-[#003875] disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isAssigning ? 'Assigning...' : `Assign ${selectedTemplates.length} Objective(s)`}
-            </button>
-          </div>
-        )}
       </div>
+
+      {/* Custom Objective Creation Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900">Create Custom Objective</h3>
+                <p className="text-sm text-gray-500 mt-1">for {employee?.name} ({employee?.role})</p>
+              </div>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Column - Basic Information */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 border-b pb-2">Basic Information</h4>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Objective Title *
+                  </label>
+                  <input
+                    type="text"
+                    value={objectiveData.title}
+                    onChange={(e) => setObjectiveData({ ...objectiveData, title: e.target.value })}
+                    placeholder="e.g., Increase Customer Satisfaction"
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    value={objectiveData.description}
+                    onChange={(e) => setObjectiveData({ ...objectiveData, description: e.target.value })}
+                    placeholder="Detailed description of what needs to be achieved..."
+                    rows={4}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select
+                    value={objectiveData.category}
+                    onChange={(e) => setObjectiveData({ ...objectiveData, category: e.target.value })}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                  >
+                    <option value="performance">🎯 Performance</option>
+                    <option value="development">📚 Development</option>
+                    <option value="leadership">👑 Leadership</option>
+                    <option value="innovation">💡 Innovation</option>
+                    <option value="collaboration">🤝 Collaboration</option>
+                    <option value="quality">⭐ Quality</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Right Column - Metrics & Timeline */}
+              <div className="space-y-4">
+                <h4 className="font-medium text-gray-900 border-b pb-2">Metrics & Timeline</h4>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target Value/Score *
+                  </label>
+                  <input
+                    type="number"
+                    value={objectiveData.target}
+                    onChange={(e) => setObjectiveData({ ...objectiveData, target: e.target.value })}
+                    placeholder="e.g., 95 (for 95% satisfaction)"
+                    min="1"
+                    max="1000"
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">The target value the employee should achieve</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Weight (%)
+                  </label>
+                  <input
+                    type="range"
+                    value={objectiveData.weight}
+                    onChange={(e) => setObjectiveData({ ...objectiveData, weight: parseInt(e.target.value) })}
+                    min="5"
+                    max="50"
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>5%</span>
+                    <span className="font-medium text-[#004E9E]">{objectiveData.weight}%</span>
+                    <span>50%</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Weight of this objective in overall performance</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Due Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={objectiveData.dueDate}
+                    onChange={(e) => setObjectiveData({ ...objectiveData, dueDate: e.target.value })}
+                    min={new Date().toISOString().split('T')[0]}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Quarter
+                    </label>
+                    <select
+                      value={objectiveData.quarter}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, quarter: e.target.value })}
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    >
+                      <option value="Q1">Q1</option>
+                      <option value="Q2">Q2</option>
+                      <option value="Q3">Q3</option>
+                      <option value="Q4">Q4</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Year
+                    </label>
+                    <input
+                      type="number"
+                      value={objectiveData.year}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, year: parseInt(e.target.value) })}
+                      min={new Date().getFullYear()}
+                      max={new Date().getFullYear() + 2}
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="mt-8 flex justify-end space-x-4 border-t pt-6">
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  resetForm();
+                }}
+                className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateAndAssign}
+                disabled={isAssigning}
+                className="px-6 py-2 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center space-x-2"
+              >
+                {isAssigning ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Assigning...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Create & Assign Objective</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Review and Approval Panel Component
-function ReviewApprovalPanel({ teamMembers }: { teamMembers: TeamMember[] }) {
-  const pendingReviews = teamMembers.filter(member => member.status === 'pending_review');
+// Objectives Review Panel Component
+function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[]; user: any }) {
+  const [completedObjectives, setCompletedObjectives] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedObjective, setSelectedObjective] = useState<any>(null);
+  const [reviewScore, setReviewScore] = useState<number>(0);
+  const [reviewComments, setReviewComments] = useState<string>('');
+  const [reviewedObjectives, setReviewedObjectives] = useState<any[]>([]);
+  const [aiScoringInProgress, setAiScoringInProgress] = useState<boolean>(false);
+  const [showSubmissionModal, setShowSubmissionModal] = useState<boolean>(false);
+  const [managerSignature, setManagerSignature] = useState<string>('');
+  const [submissionNotes, setSubmissionNotes] = useState<string>('');
+  const [submitting, setSubmitting] = useState<boolean>(false);
+
+  useEffect(() => {
+    loadCompletedObjectives();
+  }, [teamMembers, user]);
+
+  const loadCompletedObjectives = async () => {
+    setLoading(true);
+    try {
+      console.log('Loading completed objectives for manager:', user?.id);
+      const response = await fetch(`/api/manager/completed-objectives?managerId=${user?.id}`);
+      const data = await response.json();
+      console.log('Completed objectives response:', data);
+      
+      if (data.success) {
+        setCompletedObjectives(data.objectives);
+        console.log(`Found ${data.objectives.length} completed objectives to review`);
+      } else {
+        console.error('Failed to load completed objectives:', data.error);
+        setCompletedObjectives([]);
+      }
+    } catch (error) {
+      console.error('Error loading completed objectives:', error);
+      setCompletedObjectives([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateAIScores = async () => {
+    if (completedObjectives.length === 0) {
+      alert('No completed objectives to score');
+      return;
+    }
+
+    setAiScoringInProgress(true);
+    try {
+      const scoredResults = [];
+
+      for (const objective of completedObjectives) {
+        try {
+          console.log(`Generating AI score for: ${objective.title}`);
+          const response = await fetch('/api/manager/ai-score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              objectiveTitle: objective.title,
+              objectiveDescription: objective.description,
+              targetValue: objective.target,
+              currentValue: objective.current,
+              employeeName: objective.user?.name,
+              category: objective.category || 'General'
+            })
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            scoredResults.push({
+              ...objective,
+              aiEvaluation: data.aiEvaluation,
+              finalScore: data.aiEvaluation.score,
+              managerComments: '',
+              readyForReview: true
+            });
+          } else {
+            throw new Error(data.error);
+          }
+        } catch (error) {
+          console.error(`Error scoring objective ${objective.title}:`, error);
+          // Add with fallback score
+          scoredResults.push({
+            ...objective,
+            aiEvaluation: {
+              score: Math.round((objective.current / objective.target) * 100),
+              explanation: 'Fallback scoring based on achievement ratio',
+              strengths: 'Met objective targets',
+              improvements: 'Continue current approach'
+            },
+            finalScore: Math.round((objective.current / objective.target) * 100),
+            managerComments: '',
+            readyForReview: true
+          });
+        }
+      }
+
+      setReviewedObjectives(scoredResults);
+      alert(`✅ AI scoring completed for ${scoredResults.length} objectives!`);
+    } catch (error) {
+      console.error('Error in AI scoring:', error);
+      alert('Error generating AI scores. Please try again.');
+    } finally {
+      setAiScoringInProgress(false);
+    }
+  };
+
+  const updateObjectiveReview = (objectiveId: string, field: string, value: any) => {
+    setReviewedObjectives(prev => 
+      prev.map(obj => 
+        obj.id === objectiveId 
+          ? { ...obj, [field]: value }
+          : obj
+      )
+    );
+  };
+
+  const submitToHR = async () => {
+    if (!managerSignature.trim()) {
+      alert('Digital signature is required');
+      return;
+    }
+
+    const uncompletedReviews = reviewedObjectives.filter(obj => 
+      !obj.managerComments.trim() || !obj.finalScore
+    );
+
+    if (uncompletedReviews.length > 0) {
+      alert(`Please complete reviews for all objectives. ${uncompletedReviews.length} objectives need manager comments.`);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const submissionData = reviewedObjectives.map(obj => ({
+        objectiveId: obj.id,
+        employeeId: obj.userId,
+        employeeName: obj.user?.name,
+        objectiveTitle: obj.title,
+        finalScore: obj.finalScore,
+        aiScore: obj.aiEvaluation?.score,
+        managerComments: obj.managerComments,
+        aiRecommendation: obj.aiEvaluation?.explanation
+      }));
+
+      const response = await fetch('/api/manager/submit-to-hr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          managerId: user?.id,
+          reviewedObjectives: submissionData,
+          managerSignature,
+          submissionNotes
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert(`✅ Successfully submitted ${reviewedObjectives.length} objective reviews to HR!`);
+        setShowSubmissionModal(false);
+        setReviewedObjectives([]);
+        setManagerSignature('');
+        setSubmissionNotes('');
+        loadCompletedObjectives(); // Reload to remove submitted objectives
+      } else {
+        alert(data.error || 'Failed to submit to HR');
+      }
+    } catch (error) {
+      console.error('Error submitting to HR:', error);
+      alert('Error submitting to HR. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReviewSubmit = async (objectiveId: string) => {
+    try {
+      const response = await fetch('/api/manager/review-objective', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objectiveId,
+          score: reviewScore,
+          comments: reviewComments,
+          reviewerId: user?.id
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('Review submitted successfully!');
+        setSelectedObjective(null);
+        setReviewScore(0);
+        setReviewComments('');
+        loadCompletedObjectives();
+      } else {
+        alert(data.error || 'Failed to submit review');
+      }
+    } catch (error) {
+      console.error('Error submitting review:', error);
+      alert('Failed to submit review');
+    }
+  };
 
   return (
     <div className="space-y-6">
+      {/* Header with AI Scoring Button */}
       <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Pending Reviews & Approvals</h3>
-        
-        {pendingReviews.length > 0 ? (
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900">Completed Objectives for Review</h3>
+            <p className="text-sm text-gray-500">
+              {completedObjectives.length} objectives completed by your team members
+            </p>
+          </div>
+          <div className="flex space-x-3">
+            {completedObjectives.length > 0 && reviewedObjectives.length === 0 && (
+              <button
+                onClick={generateAIScores}
+                disabled={aiScoringInProgress}
+                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 flex items-center space-x-2"
+              >
+                {aiScoringInProgress ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Generating AI Scores...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🤖 Generate AI Scores</span>
+                  </>
+                )}
+              </button>
+            )}
+            {reviewedObjectives.length > 0 && (
+              <button
+                onClick={() => setShowSubmissionModal(true)}
+                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center space-x-2"
+              >
+                <span>📤 Submit to HR ({reviewedObjectives.length})</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Show AI Scored Objectives for Review */}
+        {reviewedObjectives.length > 0 ? (
           <div className="space-y-4">
-            {pendingReviews.map((member) => (
-              <div key={member.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h4 className="font-medium text-blue-900 mb-2">🤖 AI Scoring Complete - Please Review & Add Comments</h4>
+              <p className="text-sm text-blue-700">
+                AI has analyzed all objectives. Please review the scores, add your manager comments, and submit to HR.
+              </p>
+            </div>
+
+            {reviewedObjectives.map((objective) => (
+              <div key={objective.id} className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Objective Details */}
                   <div>
-                    <h4 className="font-medium text-gray-900">{member.name}</h4>
-                    <p className="text-sm text-gray-600">{member.role}</p>
-                    <p className="text-sm text-gray-500">
-                      {member.objectivesCount} objectives • {member.completionRate}% completed
-                    </p>
+                    <h4 className="font-medium text-gray-900 mb-2">{objective.title}</h4>
+                    <p className="text-sm text-gray-600 mb-3">{objective.description}</p>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="font-medium text-gray-700">Employee:</span>
+                        <p className="text-gray-600">{objective.user?.name}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Achievement:</span>
+                        <p className="text-gray-600">{objective.current}/{objective.target} ({Math.round((objective.current/objective.target)*100)}%)</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Weight:</span>
+                        <p className="text-gray-600">{objective.weight}%</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Status:</span>
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          {objective.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* AI Evaluation */}
+                    <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded">
+                      <h5 className="font-medium text-purple-900 mb-2">🤖 AI Evaluation</h5>
+                      <div className="text-sm space-y-1">
+                        <p><span className="font-medium">Score:</span> {objective.aiEvaluation?.score}/100</p>
+                        <p><span className="font-medium">Analysis:</span> {objective.aiEvaluation?.explanation}</p>
+                        <p><span className="font-medium">Strengths:</span> {objective.aiEvaluation?.strengths}</p>
+                        <p><span className="font-medium">Improvements:</span> {objective.aiEvaluation?.improvements}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="px-3 py-1 bg-[#004E9E] text-white rounded text-sm hover:bg-[#003875]">
-                      Review Objectives
-                    </button>
-                    <button className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700">
-                      Approve
-                    </button>
-                    <button className="px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700">
-                      Request Changes
-                    </button>
+
+                  {/* Manager Review */}
+                  <div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Final Score (0-100)</label>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          value={objective.finalScore}
+                          onChange={(e) => updateObjectiveReview(objective.id, 'finalScore', Number(e.target.value))}
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">AI suggested: {objective.aiEvaluation?.score}</p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Manager Comments *</label>
+                        <textarea
+                          value={objective.managerComments}
+                          onChange={(e) => updateObjectiveReview(objective.id, 'managerComments', e.target.value)}
+                          rows={4}
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                          placeholder="Add your manager review comments..."
+                          required
+                        />
+                      </div>
+
+                      <div className="flex items-center space-x-2">
+                        <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                        <span className="text-sm text-gray-700">Ready for HR submission</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : completedObjectives.length > 0 ? (
+          /* Original Completed Objectives Display */
+          <div className="space-y-4">
+            {completedObjectives.map((objective) => (
+              <div key={objective.id} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{objective.title}</h4>
+                    <p className="text-sm text-gray-600">{objective.description}</p>
+                    <div className="mt-2 flex items-center space-x-4">
+                      <span className="text-sm text-gray-500">Employee: {objective.user?.name}</span>
+                      <span className="text-sm text-gray-500">Target: {objective.target}</span>
+                      <span className="text-sm text-gray-500">Current: {objective.current}</span>
+                      <span className="text-sm text-gray-500">Weight: {objective.weight}%</span>
+                    </div>
+                    <div className="mt-2">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        {objective.status}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -688,188 +1092,318 @@ function ReviewApprovalPanel({ teamMembers }: { teamMembers: TeamMember[] }) {
           </div>
         ) : (
           <div className="text-center py-8">
-            <CheckCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No pending reviews</h3>
-            <p className="mt-1 text-sm text-gray-500">All team members are up to date with their objectives.</p>
+            <DocumentTextIcon className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No objectives to review</h3>
+            <p className="mt-1 text-sm text-gray-500">No completed objectives from your team members.</p>
           </div>
         )}
       </div>
+
+      {/* HR Submission Modal */}
+      {showSubmissionModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Submit to HR - Digital Signature Required</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-2">Review Summary</h4>
+                  <p className="text-sm text-blue-700">
+                    You are about to submit {reviewedObjectives.length} objective reviews to HR for final approval.
+                  </p>
+                  <ul className="text-sm text-blue-700 mt-2 space-y-1">
+                    {reviewedObjectives.map(obj => (
+                      <li key={obj.id}>• {obj.user?.name}: {obj.title} (Score: {obj.finalScore})</li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Digital Signature * <span className="text-red-500">(Type your full name)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={managerSignature}
+                    onChange={(e) => setManagerSignature(e.target.value)}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    placeholder="Type your full name as digital signature"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Submission Notes (Optional)</label>
+                  <textarea
+                    value={submissionNotes}
+                    onChange={(e) => setSubmissionNotes(e.target.value)}
+                    rows={3}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    placeholder="Add any additional notes for HR..."
+                  />
+                </div>
+                
+                <div className="flex space-x-2 pt-4">
+                  <button
+                    onClick={() => setShowSubmissionModal(false)}
+                    disabled={submitting}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitToHR}
+                    disabled={submitting || !managerSignature.trim()}
+                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Submitting...</span>
+                      </>
+                    ) : (
+                      <span>📤 Submit to HR</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-// Template Management Panel Component
-function TemplateManagementPanel({ 
-  templates, 
-  setTemplates 
+// Team Management Panel Component
+function TeamManagementPanel({ 
+  teamMembers, 
+  user, 
+  onRefreshData 
 }: { 
-  templates: ObjectiveTemplate[]; 
-  setTemplates: (templates: ObjectiveTemplate[]) => void; 
+  teamMembers: TeamMember[]; 
+  user: any; 
+  onRefreshData: () => void; 
 }) {
-  const [isCreating, setIsCreating] = useState(false);
-  const [newTemplate, setNewTemplate] = useState<Partial<ObjectiveTemplate>>({
-    title: '',
-    description: '',
-    category: 'performance',
-    type: 'qualitative',
-    defaultWeight: 20,
-    suggestedTarget: '',
-    applicableRoles: []
-  });
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [memberObjectives, setMemberObjectives] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleCreateTemplate = () => {
-    if (!newTemplate.title || !newTemplate.description) {
-      alert('Please fill in all required fields.');
-      return;
+  const loadMemberObjectives = async (memberId: string) => {
+    setLoading(true);
+    try {
+      console.log('Loading objectives for member:', memberId);
+      const response = await fetch(`/api/manager/member-objectives?employeeId=${memberId}`);
+      const data = await response.json();
+      console.log('Member objectives response:', data);
+      
+      if (data.success) {
+        setMemberObjectives(data.objectives);
+        console.log(`Loaded ${data.objectives.length} objectives for member`);
+      } else {
+        console.error('Failed to load member objectives:', data.error);
+        setMemberObjectives([]);
+      }
+    } catch (error) {
+      console.error('Error loading member objectives:', error);
+      setMemberObjectives([]);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    const template: ObjectiveTemplate = {
-      id: `temp${Date.now()}`,
-      title: newTemplate.title!,
-      description: newTemplate.description!,
-      category: newTemplate.category as any,
-      type: newTemplate.type as any,
-      defaultWeight: newTemplate.defaultWeight!,
-      suggestedTarget: newTemplate.suggestedTarget!,
-      applicableRoles: newTemplate.applicableRoles!
-    };
+  const handleMemberSelect = (member: TeamMember) => {
+    setSelectedMember(member);
+    loadMemberObjectives(member.id);
+  };
 
-    setTemplates([...templates, template]);
-    setNewTemplate({
-      title: '',
-      description: '',
-      category: 'performance',
-      type: 'qualitative',
-      defaultWeight: 20,
-      suggestedTarget: '',
-      applicableRoles: []
-    });
-    setIsCreating(false);
+  const handleObjectiveAction = async (objectiveId: string, action: string) => {
+    try {
+      const response = await fetch('/api/manager/objective-action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objectiveId,
+          action,
+          managerId: user?.id
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert(`Objective ${action} successful!`);
+        if (selectedMember) {
+          loadMemberObjectives(selectedMember.id);
+        }
+        onRefreshData();
+      } else {
+        alert(data.error || `Failed to ${action} objective`);
+      }
+    } catch (error) {
+      console.error(`Error ${action} objective:`, error);
+      alert(`Failed to ${action} objective`);
+    }
   };
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Objective Templates</h3>
-          <button
-            onClick={() => setIsCreating(true)}
-            className="px-4 py-2 bg-[#004E9E] text-white rounded-md hover:bg-[#003875] flex items-center space-x-2"
-          >
-            <PlusIcon className="h-4 w-4" />
-            <span>Create Template</span>
-          </button>
-        </div>
-
-        {isCreating && (
-          <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
-            <h4 className="font-medium text-gray-900 mb-4">Create New Template</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
-                <input
-                  type="text"
-                  value={newTemplate.title}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, title: e.target.value })}
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={newTemplate.category}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, category: e.target.value as any })}
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                >
-                  <option value="performance">Performance</option>
-                  <option value="development">Development</option>
-                  <option value="leadership">Leadership</option>
-                  <option value="innovation">Innovation</option>
-                </select>
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                <textarea
-                  value={newTemplate.description}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, description: e.target.value })}
-                  rows={3}
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                <select
-                  value={newTemplate.type}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, type: e.target.value as any })}
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                >
-                  <option value="qualitative">Qualitative</option>
-                  <option value="quantitative">Quantitative</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Default Weight (%)</label>
-                <input
-                  type="number"
-                  min="5"
-                  max="50"
-                  value={newTemplate.defaultWeight}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, defaultWeight: parseInt(e.target.value) })}
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Suggested Target</label>
-                <input
-                  type="text"
-                  value={newTemplate.suggestedTarget}
-                  onChange={(e) => setNewTemplate({ ...newTemplate, suggestedTarget: e.target.value })}
-                  className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                />
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Team Members List */}
+        <div className="lg:col-span-1">
+          <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-[#004E9E] to-[#007BFF]">
+              <h3 className="text-lg font-semibold text-white">Team Members</h3>
+              <p className="text-blue-100 text-sm mt-1">Select a member to view objectives</p>
             </div>
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                onClick={() => setIsCreating(false)}
-                className="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateTemplate}
-                className="px-3 py-1 bg-[#004E9E] text-white rounded text-sm hover:bg-[#003875]"
-              >
-                Create
-              </button>
+            <div className="divide-y divide-gray-200">
+              {teamMembers.map((member) => (
+                <div 
+                  key={member.id}
+                  onClick={() => handleMemberSelect(member)}
+                  className={`p-4 cursor-pointer hover:bg-gray-50 transition-all ${
+                    selectedMember?.id === member.id ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-[#004E9E] shadow-md' : ''
+                  }`}
+                >
+                  <div className="flex items-center">
+                    <div className="h-10 w-10 rounded-full bg-[#004E9E] flex items-center justify-center">
+                      <span className="text-sm font-medium text-white">
+                        {member.name.split(' ').map(n => n[0]).join('')}
+                      </span>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                      <p className="text-xs text-gray-500">{member.role}</p>
+                      <p className="text-xs text-gray-500">{member.objectivesCount} objectives</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-        )}
+        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {templates.map((template) => (
-            <div key={template.id} className="border border-gray-200 rounded-lg p-4">
-              <div className="flex items-start justify-between mb-2">
-                <h4 className="font-medium text-gray-900">{template.title}</h4>
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  template.category === 'performance' ? 'bg-green-100 text-green-800' :
-                  template.category === 'development' ? 'bg-blue-100 text-blue-800' :
-                  template.category === 'leadership' ? 'bg-purple-100 text-purple-800' :
-                  'bg-orange-100 text-orange-800'
-                }`}>
-                  {template.category}
-                </span>
+        {/* Member Details & Objectives */}
+        <div className="lg:col-span-2">
+          {selectedMember ? (
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200">
+              <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-blue-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900">{selectedMember.name}</h3>
+                    <p className="text-sm text-gray-500">{selectedMember.role} • {selectedMember.email}</p>
+                  </div>
+                  <div className="text-right">
+                    <div className="bg-white rounded-lg px-4 py-2 shadow-sm border">
+                      <p className="text-sm font-medium text-gray-900">{selectedMember.objectivesCount} Objectives</p>
+                      <p className="text-sm text-[#004E9E] font-medium">{selectedMember.completionRate}% Complete</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className="text-sm text-gray-600 mb-3">{template.description}</p>
-              <div className="space-y-1 text-xs text-gray-500">
-                <p>Weight: {template.defaultWeight}%</p>
-                <p>Type: {template.type}</p>
-                <p>Target: {template.suggestedTarget}</p>
-                <p>Roles: {template.applicableRoles.join(', ')}</p>
+              
+              <div className="p-6">
+                {loading ? (
+                  <div className="animate-pulse">Loading objectives...</div>
+                ) : memberObjectives.length > 0 ? (
+                  <div className="space-y-4">
+                    {memberObjectives.map((objective) => (
+                      <div key={objective.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-medium text-gray-900">{objective.title}</h4>
+                            <p className="text-sm text-gray-600 mt-1">{objective.description}</p>
+                            <div className="mt-2 flex items-center space-x-4">
+                              <span className="text-xs text-gray-500">Target: {objective.target}</span>
+                              <span className="text-xs text-gray-500">Current: {objective.current || 0}</span>
+                              <span className="text-xs text-gray-500">Weight: {objective.weight}%</span>
+                              <span className="text-xs text-gray-500">Due: {new Date(objective.dueDate).toLocaleDateString()}</span>
+                            </div>
+                            <div className="mt-2">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                objective.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
+                                objective.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
+                                objective.status === 'ACTIVE' ? 'bg-blue-100 text-blue-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {objective.status}
+                              </span>
+                            </div>
+                            
+                            {/* Progress Bar */}
+                            <div className="mt-3">
+                              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+                                <span>Progress</span>
+                                <span>{Math.round((objective.current / objective.target) * 100 || 0)}%</span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-[#004E9E] h-2 rounded-full" 
+                                  style={{ width: `${Math.min(100, (objective.current / objective.target) * 100 || 0)}%` }}
+                                ></div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="ml-4 flex flex-col space-y-2">
+                            {objective.status === 'COMPLETED' && (
+                              <button
+                                onClick={() => handleObjectiveAction(objective.id, 'approve')}
+                                className="px-3 py-1 bg-gradient-to-r from-green-500 to-green-600 text-white rounded text-xs hover:shadow-md transition-all"
+                              >
+                                ✅ Approve
+                              </button>
+                            )}
+                            {objective.status !== 'COMPLETED' && (
+                              <button
+                                onClick={() => handleObjectiveAction(objective.id, 'remind')}
+                                className="px-3 py-1 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded text-xs hover:shadow-md transition-all"
+                              >
+                                🔔 Remind
+                              </button>
+                            )}
+                            <button
+                              onClick={() => handleObjectiveAction(objective.id, 'edit')}
+                              className="px-3 py-1 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded text-xs hover:shadow-md transition-all"
+                            >
+                              ✏️ Edit
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <ClipboardDocumentListIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No objectives assigned</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {loading ? 'Loading objectives...' : 'This team member has no objectives assigned yet.'}
+                    </p>
+                    {!loading && (
+                      <div className="mt-4">
+                        <p className="text-xs text-gray-400">
+                          Debug: Employee ID: {selectedMember?.id} | API Loading: {loading ? 'Yes' : 'No'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          ))}
+          ) : (
+            <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
+              <div className="text-center py-8">
+                <UsersIcon className="mx-auto h-12 w-12 text-gray-400" />
+                <h3 className="mt-2 text-sm font-medium text-gray-900">Select a team member</h3>
+                <p className="mt-1 text-sm text-gray-500">Choose a team member from the list to view their objectives and tasks.</p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+

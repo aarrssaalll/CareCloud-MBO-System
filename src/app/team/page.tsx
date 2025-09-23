@@ -14,7 +14,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 interface TeamMember {
-  id: number;
+  id: string;
   name: string;
   email: string;
   role: string;
@@ -32,62 +32,166 @@ interface TeamMember {
 export default function TeamPage() {
   const [user, setUser] = useState<any>(null);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
+    const userData = localStorage.getItem("mbo_user");
     if (!userData) {
       router.push("/login");
       return;
     }
-    setUser(JSON.parse(userData));
+    const currentUser = JSON.parse(userData);
+    setUser(currentUser);
+    
+    // Load team data for this manager
+    loadTeamData(currentUser.id);
   }, [router]);
+
+  const loadTeamData = async (managerId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      console.log('Loading team data for manager:', managerId);
+      
+      // Fetch employees managed by this manager
+      const response = await fetch(`/api/manager/team?managerId=${managerId}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('Raw API response:', data);
+      
+      if (data.success && data.teamMembers) {
+        console.log(`Found ${data.teamMembers.length} team members`);
+        
+        // Use a Set to track unique member IDs and prevent duplicates
+        const uniqueMembers = new Map();
+        
+        // Transform the data to match our interface and calculate performance
+        for (const member of data.teamMembers) {
+          // Skip if we've already processed this member
+          if (uniqueMembers.has(member.id)) {
+            console.warn(`Duplicate member found: ${member.name} (${member.id})`);
+            continue;
+          }
+          
+          try {
+            console.log(`Processing member: ${member.name} (ID: ${member.id}) - Dept: ${member.department}`);
+            
+            // Get objectives for this member
+            const objResponse = await fetch(`/api/mbo/objectives?userId=${member.id}`);
+            
+            if (!objResponse.ok) {
+              console.warn(`Failed to load objectives for ${member.name}`);
+              uniqueMembers.set(member.id, {
+                id: member.id,
+                name: member.name,
+                email: member.email,
+                role: member.title || member.role || 'Employee',
+                department: member.department || 'Unknown Department',
+                performance: 0,
+                objectives: { total: 0, completed: 0, onTrack: 0, atRisk: 0 },
+                lastUpdate: new Date().toISOString().split('T')[0]
+              });
+              continue;
+            }
+            
+            const objResult = await objResponse.json();
+            const objectives = objResult.success ? objResult.data : [];
+            
+            // Calculate performance and objective stats
+            let totalScore = 0;
+            let totalWeight = 0;
+            let completedCount = 0;
+            let onTrackCount = 0;
+            let atRiskCount = 0;
+            
+            objectives.forEach((obj: any) => {
+              const progress = obj.target > 0 ? (obj.current / obj.target) * 100 : 0;
+              const weight = obj.weight || 1;
+              totalScore += Math.min(progress, 100) * weight;
+              totalWeight += weight;
+              
+              if (obj.status === 'COMPLETED' || progress >= 100) {
+                completedCount++;
+              } else if (progress >= 70) {
+                onTrackCount++;
+              } else {
+                atRiskCount++;
+              }
+            });
+            
+            const avgPerformance = totalWeight > 0 ? totalScore / totalWeight : 0;
+            
+            uniqueMembers.set(member.id, {
+              id: member.id,
+              name: member.name,
+              email: member.email,
+              role: member.title || member.role || 'Employee',
+              department: member.department || 'Unknown Department',
+              performance: Math.round(avgPerformance),
+              objectives: {
+                total: objectives.length,
+                completed: completedCount,
+                onTrack: onTrackCount,
+                atRisk: atRiskCount
+              },
+              lastUpdate: new Date().toISOString().split('T')[0]
+            });
+          } catch (memberError) {
+            console.error(`Error processing member ${member.name}:`, memberError);
+            uniqueMembers.set(member.id, {
+              id: member.id,
+              name: member.name,
+              email: member.email,
+              role: member.title || member.role || 'Employee',
+              department: member.department || 'Unknown Department',
+              performance: 0,
+              objectives: { total: 0, completed: 0, onTrack: 0, atRisk: 0 },
+              lastUpdate: new Date().toISOString().split('T')[0]
+            });
+          }
+        }
+        
+        const transformedMembers = Array.from(uniqueMembers.values());
+        console.log(`Final team members count: ${transformedMembers.length}`);
+        transformedMembers.forEach(member => {
+          console.log(`- ${member.name} (${member.department}) - Performance: ${member.performance}%`);
+        });
+        
+        setTeamMembers(transformedMembers);
+      } else {
+        console.log('No team members found or API error:', data.error);
+        setTeamMembers([]);
+        setError(data.error || 'No team members found');
+      }
+    } catch (error) {
+      console.error('Error loading team data:', error);
+      setTeamMembers([]);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load team data';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (!user) return <div>Loading...</div>;
 
-  // Sample team data
-  const teamMembers: TeamMember[] = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah.johnson@carecloud.com",
-      role: "Senior Developer",
-      department: "Engineering",
-      performance: 92,
-      objectives: { total: 5, completed: 4, onTrack: 1, atRisk: 0 },
-      lastUpdate: "2024-01-15",
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      email: "michael.chen@carecloud.com",
-      role: "Product Manager",
-      department: "Product",
-      performance: 88,
-      objectives: { total: 6, completed: 3, onTrack: 2, atRisk: 1 },
-      lastUpdate: "2024-01-14",
-    },
-    {
-      id: 3,
-      name: "Emily Rodriguez",
-      email: "emily.rodriguez@carecloud.com",
-      role: "UX Designer",
-      department: "Design",
-      performance: 85,
-      objectives: { total: 4, completed: 2, onTrack: 2, atRisk: 0 },
-      lastUpdate: "2024-01-16",
-    },
-    {
-      id: 4,
-      name: "David Thompson",
-      email: "david.thompson@carecloud.com",
-      role: "Sales Representative",
-      department: "Sales",
-      performance: 78,
-      objectives: { total: 7, completed: 2, onTrack: 3, atRisk: 2 },
-      lastUpdate: "2024-01-13",
-    },
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your team...</p>
+        </div>
+      </div>
+    );
+  }
 
   const getPerformanceColor = (score: number) => {
     if (score >= 90) return "text-green-600 bg-green-100";
@@ -133,7 +237,9 @@ export default function TeamPage() {
               </div>
               <div className="ml-4">
                 <p className="text-2xl font-bold text-text-dark">
-                  {Math.round(teamMembers.reduce((acc, m) => acc + m.performance, 0) / teamMembers.length)}%
+                  {teamMembers.length > 0 
+                    ? Math.round(teamMembers.reduce((acc, m) => acc + m.performance, 0) / teamMembers.length)
+                    : 0}%
                 </p>
                 <p className="text-text-light text-sm">Avg Performance</p>
               </div>
@@ -200,7 +306,23 @@ export default function TeamPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {teamMembers.map((member) => {
+                {teamMembers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <UsersIcon className="h-12 w-12 text-gray-300 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Team Members</h3>
+                        <p className="text-gray-500 text-sm">
+                          {error ? error : "You don't have any employees assigned to your management yet."}
+                        </p>
+                        <p className="text-gray-400 text-xs mt-2">
+                          Manager ID: {user?.id} | Role: {user?.role}
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  teamMembers.map((member) => {
                   const status = getObjectiveStatus(member);
                   const StatusIcon = status.icon;
                   
@@ -259,7 +381,8 @@ export default function TeamPage() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>

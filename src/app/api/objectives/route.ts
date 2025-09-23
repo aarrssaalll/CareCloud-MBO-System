@@ -70,9 +70,11 @@ export async function GET(request: Request) {
     })
 
     // Calculate progress for each objective
-    const objectivesWithProgress = objectives.map((objective: MboObjective) => ({
+    const objectivesWithProgress = objectives.map((objective) => ({
       ...objective,
-      progress: Math.round((objective.current / objective.target) * 100)
+      progress: objective.target > 0 && objective.current != null 
+        ? Math.round((objective.current / objective.target) * 100) 
+        : 0
     }))
 
     const result = { 
@@ -163,7 +165,15 @@ export async function PUT(request: Request) {
 
     const updateData: any = {}
     if (current !== undefined) updateData.current = parseFloat(current)
-    if (status) updateData.status = status
+    if (status) {
+      updateData.status = status
+      // Set completion timestamp when objective is completed
+      if (status === 'COMPLETED') {
+        updateData.completedAt = new Date()
+        updateData.workflowStatus = 'COMPLETED' // Move to completed workflow stage
+        console.log(`📋 Objective ${id} completed by employee at ${updateData.completedAt}`)
+      }
+    }
     updateData.updatedAt = new Date()
 
     const objective = await prisma.mboObjective.update({
@@ -183,7 +193,9 @@ export async function PUT(request: Request) {
 
     return NextResponse.json({ 
       objective,
-      message: 'Objective updated successfully' 
+      message: status === 'COMPLETED' 
+        ? 'Objective marked as completed. Now read-only until manager review.' 
+        : 'Objective updated successfully' 
     })
   } catch (error) {
     console.error('Error updating objective:', error)

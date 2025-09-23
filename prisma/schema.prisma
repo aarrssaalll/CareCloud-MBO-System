@@ -7,164 +7,198 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// MBO System Models - Using prefixed table names to avoid conflicts
-
-model MboUser {
-  id          String   @id @default(cuid())
-  employeeId  String?  @unique
-  email       String   @unique
-  firstName   String?
-  lastName    String?
-  name        String   // Full name for compatibility
-  role        String   // EMPLOYEE, MANAGER, HR, SENIOR_MANAGEMENT
-  title       String?
-  phone       String?
-  hireDate    DateTime?
-  salary      Float?
-  status      String   @default("ACTIVE") // ACTIVE, INACTIVE, TERMINATED
-  permissions String?  // JSON array of permissions
-  profileImage String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  // Organizational hierarchy
-  departmentId String?
-  department   MboDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  teamId       String?
-  team         MboTeam?       @relation(fields: [teamId], references: [id], onDelete: SetNull, onUpdate: NoAction)
-  managerId    String?
-  manager      MboUser?       @relation("ManagerEmployee", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  directReports MboUser[]     @relation("ManagerEmployee")
-  
-  objectives       MboObjective[]
-  reviews          MboReview[]
-  bonuses          MboBonus[]
-  objectiveReviews MboObjectiveReview[] @relation("ReviewerRelation")
-  assignedObjectives MboObjective[] @relation("AssignedBy")
-  approvals        MboApproval[]
-  
-  @@map("mbo_users")
-}
-
-model MboObjective {
-  id          String        @id @default(cuid())
-  title       String
-  description String
-  category    String
-  target      Float
-  current     Float
-  weight      Float         @default(1.0)
-  status      String        @default("ACTIVE") // ACTIVE, COMPLETED, ON_HOLD, CANCELLED
-  dueDate     DateTime
-  quarter     String
-  year        Int
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  
-  userId      String
-  user        MboUser       @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  assignedById String?
-  assignedBy   MboUser?     @relation("AssignedBy", fields: [assignedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  reviews     MboObjectiveReview[]
-  
-  @@map("mbo_objectives")
-}
-
-model MboObjectiveReview {
-  id           String   @id @default(cuid())
-  score        Float
-  comments     String?
-  reviewDate   DateTime @default(now())
-  
-  objectiveId  String
-  objective    MboObjective @relation(fields: [objectiveId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  reviewerId   String
-  reviewer     MboUser   @relation("ReviewerRelation", fields: [reviewerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  @@map("mbo_objective_reviews")
-}
-
-model MboReview {
-  id              String      @id @default(cuid())
-  quarter         String
-  year            Int
-  overallScore    Float
-  comments        String?
-  status          String      @default("DRAFT") // DRAFT, SUBMITTED, APPROVED, REJECTED
-  submittedAt     DateTime?
-  approvedAt      DateTime?
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  
-  employeeId      String
-  employee        MboUser     @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  @@map("mbo_reviews")
-}
-
-model MboBonus {
-  id            String   @id @default(cuid())
-  quarter       String
-  year          Int
-  baseAmount    Float
-  performanceMultiplier Float
-  finalAmount   Float
-  status        String   @default("CALCULATED") // CALCULATED, APPROVED, PAID, REJECTED
-  calculatedAt  DateTime @default(now())
-  paidAt        DateTime?
-  
-  employeeId    String
-  employee      MboUser  @relation(fields: [employeeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
-  @@map("mbo_bonuses")
-}
-
 model MboDepartment {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  description String?
+  id          String    @id @default(cuid()) @db.NVarChar(36)
+  name        String    @db.NVarChar(255)
+  description String?   @db.NVarChar(Max)
   budget      Float?
-  managerId   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  users       MboUser[]
+  managerId   String?   @db.NVarChar(36)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   teams       MboTeam[]
-  
+  users       MboUser[]
+  manager     MboUser?  @relation("DepartmentManager", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
   @@map("mbo_departments")
 }
 
 model MboTeam {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  leaderId     String?
-  departmentId String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-  
-  department   MboDepartment @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id           String        @id @default(cuid()) @db.NVarChar(36)
+  name         String        @db.NVarChar(255)
+  description  String?       @db.NVarChar(Max)
+  departmentId String        @db.NVarChar(36)
+  leaderId     String?       @db.NVarChar(36)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  department   MboDepartment @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  leader       MboUser?      @relation("TeamLeader", fields: [leaderId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users        MboUser[]
-  
+
   @@map("mbo_teams")
 }
 
+model MboUser {
+  id                    String               @id @default(cuid()) @db.NVarChar(36)
+  employeeId            String?              @unique @db.NVarChar(50)
+  email                 String               @unique @db.NVarChar(255)
+  firstName             String?              @db.NVarChar(255)
+  lastName              String?              @db.NVarChar(255)
+  name                  String               @db.NVarChar(255)
+  role                  String               @db.NVarChar(50)
+  title                 String?              @db.NVarChar(255)
+  phone                 String?              @db.NVarChar(50)
+  hireDate              DateTime?
+  salary                Float?
+  bonusAmount           Float?               @default(0)
+  password              String?              @db.NVarChar(255)
+  departmentId          String?              @db.NVarChar(36)
+  teamId                String?              @db.NVarChar(36)
+  managerId             String?              @db.NVarChar(36)
+  permissions           String?              @db.NVarChar(Max)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  
+  // Relations
+  department            MboDepartment?       @relation(fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  team                  MboTeam?             @relation(fields: [teamId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  manager               MboUser?             @relation("UserManager", fields: [managerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  
+  // Reverse relations
+  managedUsers          MboUser[]            @relation("UserManager")
+  managedDepartments    MboDepartment[]      @relation("DepartmentManager")
+  ledTeams              MboTeam[]            @relation("TeamLeader")
+  objectives            MboObjective[]       @relation("UserObjectives")
+  assignedObjectives    MboObjective[]       @relation("AssignedByUser")
+  bonuses               MboBonus[]
+  objectiveReviews      MboObjectiveReview[] @relation("ReviewerRelation")
+  reviews               MboReview[]
+  approvals             MboApproval[]
+  notifications         MboNotification[]
+
+  @@map("mbo_users")
+}
+
+model MboObjective {
+  id           String               @id @default(cuid()) @db.NVarChar(36)
+  title        String               @db.NVarChar(255)
+  description  String?              @db.NVarChar(Max)
+  category     String?              @db.NVarChar(100)
+  target       Float
+  current      Float?               @default(0)
+  weight       Float?               @default(1.0)
+  status       String?              @default("DRAFT") @db.NVarChar(50)  // DRAFT, ACTIVE, COMPLETED, AI_SCORED, REVIEWED, SUBMITTED_TO_HR, HR_APPROVED
+  dueDate      DateTime
+  quarter      String               @db.NVarChar(10)
+  year         Int
+  submittedAt  DateTime?
+  completedAt  DateTime?
+  submittedToManagerAt DateTime?
+  managerReviewedAt    DateTime?
+  submittedToHrAt      DateTime?
+  hrApprovedAt         DateTime?
+  employeeRemarks      String?      @db.NVarChar(Max)
+  managerFeedback      String?      @db.NVarChar(Max)
+  hrNotes              String?      @db.NVarChar(Max)
+  aiScoreMetadata      String?      @db.NVarChar(Max)
+  digitalSignature     String?      @db.NVarChar(Max)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  userId       String               @db.NVarChar(36)
+  assignedById String?              @db.NVarChar(36)
+  
+  reviews      MboObjectiveReview[]
+  user         MboUser              @relation("UserObjectives", fields: [userId], references: [id], onDelete: Cascade)
+  assignedBy   MboUser?             @relation("AssignedByUser", fields: [assignedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([userId])
+  @@map("mbo_objectives")
+}
+
+model MboObjectiveReview {
+  id          String       @id @default(cuid()) @db.NVarChar(36)
+  score       Float
+  comments    String?      @db.NVarChar(Max)
+  reviewDate  DateTime?    @default(now())
+  reviewType  String?      @default("MANAGER") @db.NVarChar(50) // MANAGER, HR, FINAL
+  aiScore     Float?
+  aiComments  String?      @db.NVarChar(Max)
+  manualOverride Boolean?   @default(false)
+  objectiveId String       @db.NVarChar(36)
+  reviewerId  String       @db.NVarChar(36)
+  objective   MboObjective @relation(fields: [objectiveId], references: [id], onDelete: Cascade)
+  reviewer    MboUser      @relation("ReviewerRelation", fields: [reviewerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([objectiveId])
+  @@index([reviewerId])
+  @@map("mbo_objective_reviews")
+}
+
+model MboReview {
+  id           String    @id @default(cuid()) @db.NVarChar(36)
+  quarter      String    @db.NVarChar(10)
+  year         Int
+  overallScore Float?
+  comments     String?   @db.NVarChar(Max)
+  status       String?   @default("DRAFT") @db.NVarChar(50)
+  submittedAt  DateTime?
+  approvedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  employeeId   String    @db.NVarChar(36)
+  employee     MboUser   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("mbo_reviews")
+}
+
+model MboBonus {
+  id                    String    @id @default(cuid()) @db.NVarChar(36)
+  quarter               String    @db.NVarChar(10)
+  year                  Int
+  baseAmount            Float
+  performanceMultiplier Float
+  finalAmount           Float
+  status                String?   @default("CALCULATED") @db.NVarChar(50)
+  calculatedAt          DateTime? @default(now())
+  paidAt                DateTime?
+  employeeId            String    @db.NVarChar(36)
+  employee              MboUser   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@map("mbo_bonuses")
+}
+
 model MboApproval {
-  id          String   @id @default(cuid())
-  type        String   // REVIEW, BONUS, OBJECTIVE
-  entityId    String   // ID of the entity being approved
-  status      String   @default("PENDING") // PENDING, APPROVED, REJECTED
-  comments    String?
+  id          String    @id @default(cuid()) @db.NVarChar(36)
+  type        String    @db.NVarChar(50)
+  entityId    String    @db.NVarChar(36)
+  status      String    @default("PENDING") @db.NVarChar(50)
+  comments    String?   @db.NVarChar(Max)
+  approverId  String    @db.NVarChar(36)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
   approvedAt  DateTime?
-  rejectedAt  DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  
-  approverId  String
-  approver    MboUser  @relation(fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  
+  approver    MboUser   @relation(fields: [approverId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([approverId])
+  @@index([entityId])
   @@map("mbo_approvals")
+}
+
+model MboNotification {
+  id        String   @id @default(cuid()) @db.NVarChar(36)
+  type      String   @db.NVarChar(50) // 'info', 'warning', 'success', 'error'
+  title     String   @db.NVarChar(255)
+  message   String   @db.NVarChar(Max)
+  read      Boolean  @default(false)
+  actionRequired Boolean @default(false)
+  entityId  String?  @db.NVarChar(36) // Related objective, review, etc.
+  entityType String? @db.NVarChar(50) // 'objective', 'review', 'bonus'
+  createdAt DateTime @default(now())
+  userId    String   @db.NVarChar(36)
+  user      MboUser  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([read])
+  @@map("mbo_notifications")
 }

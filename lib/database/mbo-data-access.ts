@@ -1,4 +1,5 @@
 import { getDbConnection } from './mbo-connection';
+import { PrismaClient } from '@prisma/client';
 import sql from 'mssql';
 
 export interface MboUser {
@@ -397,67 +398,76 @@ export class MboDataAccess {
   }
 
   // Approval operations
-  async getPendingApprovals(approverId: string): Promise<MboApproval[]> {
-    if (!this.pool) await this.initialize();
-
-    const result = await this.pool!.request()
-      .input('approverId', sql.NVarChar, approverId)
-      .query(`
-        SELECT * FROM mbo_approvals
-        WHERE approverId = @approverId AND status = 'PENDING'
-        ORDER BY createdAt DESC
-      `);
-
-    return result.recordset;
+  async getPendingApprovals(approverId: string): Promise<any[]> {
+    const prisma = new PrismaClient();
+    
+    try {
+      const approvals = await prisma.mboApproval.findMany({
+        where: { 
+          approverId: approverId,
+          status: 'PENDING'
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      await prisma.$disconnect();
+      return approvals;
+    } catch (error) {
+      await prisma.$disconnect();
+      throw error;
+    }
   }
 
-  async createApproval(approval: Omit<MboApproval, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
-    if (!this.pool) await this.initialize();
-
-    const id = this.generateId();
-
-    await this.pool!.request()
-      .input('id', sql.NVarChar, id)
-      .input('type', sql.NVarChar, approval.type)
-      .input('entityId', sql.NVarChar, approval.entityId)
-      .input('status', sql.NVarChar, approval.status)
-      .input('comments', sql.NVarChar, approval.comments)
-      .input('approverId', sql.NVarChar, approval.approverId)
-      .query(`
-        INSERT INTO mbo_approvals (
-          id, type, entityId, status, comments, approverId, createdAt, updatedAt
-        )
-        VALUES (
-          @id, @type, @entityId, @status, @comments, @approverId, GETDATE(), GETDATE()
-        )
-      `);
-
-    return id;
+  async createApproval(approval: Omit<any, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const prisma = new PrismaClient();
+    
+    try {
+      const result = await prisma.mboApproval.create({
+        data: {
+          type: approval.type,
+          entityId: approval.entityId,
+          status: approval.status || 'PENDING',
+          comments: approval.comments,
+          approverId: approval.approverId
+        }
+      });
+      
+      await prisma.$disconnect();
+      return result.id;
+    } catch (error) {
+      await prisma.$disconnect();
+      throw error;
+    }
   }
 
   async updateApprovalStatus(approvalId: string, status: string, comments?: string): Promise<void> {
-    if (!this.pool) await this.initialize();
-
-    const now = new Date();
-    const statusField = status === 'APPROVED' ? 'approvedAt' : status === 'REJECTED' ? 'rejectedAt' : null;
-
-    let query = `
-      UPDATE mbo_approvals 
-      SET status = @status, comments = @comments, updatedAt = @now
-    `;
-
-    if (statusField) {
-      query += `, ${statusField} = @now`;
+    const prisma = new PrismaClient();
+    
+    try {
+      const updateData: any = {
+        status,
+        comments,
+        updatedAt: new Date()
+      };
+      
+      if (status === 'APPROVED') {
+        updateData.approvedAt = new Date();
+      } else if (status === 'REJECTED') {
+        updateData.rejectedAt = new Date();
+      }
+      
+      await prisma.mboApproval.update({
+        where: { id: approvalId },
+        data: updateData
+      });
+      
+      await prisma.$disconnect();
+    } catch (error) {
+      await prisma.$disconnect();
+      throw error;
     }
-
-    query += ` WHERE id = @approvalId`;
-
-    await this.pool!.request()
-      .input('approvalId', sql.NVarChar, approvalId)
-      .input('status', sql.NVarChar, status)
-      .input('comments', sql.NVarChar, comments)
-      .input('now', sql.DateTime2, now)
-      .query(query);
   }
 
   // Analytics operations

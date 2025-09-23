@@ -29,14 +29,33 @@ function mockResponse(objective?: Objective, remarks?: string) {
 export async function POST(req: NextRequest) {
   const debug = req.nextUrl.searchParams.get('debug') === '1';
   const forceMock = req.nextUrl.searchParams.get('forceMock') === '1' || process.env.AI_PROVIDER === 'mock';
-  const body = await req.json().catch(() => ({} as any));
+  
+  let body: any = {};
+  try {
+    body = await req.json();
+  } catch (error) {
+    return NextResponse.json({ 
+      error: 'Invalid JSON in request body',
+      ...mockResponse() 
+    }, { status: 400 });
+  }
+  
   const { objective, remarks } = body as { objective?: Objective; remarks?: string };
+
+  // Validate required input
+  if (!objective || !objective.title) {
+    return NextResponse.json({ 
+      error: 'Missing required objective data',
+      ...mockResponse() 
+    }, { status: 400 });
+  }
 
   const apiKey = process.env.GEMINI_API_KEY; // Google Generative AI (API key based)
   const gcpCreds = process.env.GOOGLE_APPLICATION_CREDENTIALS; // Vertex AI (service account file path)
   const gcpProject = process.env.GCP_PROJECT_ID || process.env.GOOGLE_CLOUD_PROJECT;
   const location = process.env.GCP_LOCATION || 'us-central1';
-  const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+  // Use a fixed Gemini model for all requests (GEMINI_MODEL env var is ignored)
+  const model = 'gemini-2.5-flash';
 
   // Helper: produce prompt string
   const title = objective?.title || 'Objective';
@@ -52,8 +71,10 @@ export async function POST(req: NextRequest) {
       if (debug) console.warn('[gemini] forceMock enabled');
       return NextResponse.json(mockResponse(objective, remarks));
     }
-    // Option A: Google Generative AI with API key
-    if (apiKey) {
+
+    // Priority 1: Google Generative AI with API key (Direct API approach)
+    if (apiKey && apiKey !== 'your-gemini-api-key-here' && apiKey.length > 10) {
+      if (debug) console.log('[gemini] Using API key method');
       const { GoogleGenerativeAI } = await import('@google/generative-ai');
       const genAI = new GoogleGenerativeAI(apiKey);
       const modelClient = genAI.getGenerativeModel({ model });
@@ -64,6 +85,8 @@ export async function POST(req: NextRequest) {
         }],
       });
       const text = result.response?.text?.() || '';
+      if (debug) console.log('[gemini] Raw API key response:', text);
+      
       let parsed: any = null;
       try { parsed = JSON.parse(text); } catch {
         const match = text.match(/\{[\s\S]*\}/);
@@ -84,8 +107,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(response);
     }
 
-    // Option B: Vertex AI with service account (ADC)
+    // Fallback: Vertex AI with service account (ADC) 
     if (gcpCreds && gcpProject) {
+      if (debug) console.log('[gemini] Falling back to Vertex AI with service account');
       const { VertexAI } = await import('@google-cloud/vertexai');
       const vertex = new VertexAI({ project: gcpProject, location });
       const modelClient = vertex.getGenerativeModel({ model });
@@ -99,6 +123,8 @@ export async function POST(req: NextRequest) {
       });
       const candidates = (result as any)?.response?.candidates || [];
       const text = candidates[0]?.content?.parts?.[0]?.text || '';
+      if (debug) console.log('[gemini] Raw Vertex AI response:', text);
+      
       let parsed: any = null;
       try { parsed = JSON.parse(text); } catch {
         const match = text.match(/\{[\s\S]*\}/);
@@ -115,11 +141,11 @@ export async function POST(req: NextRequest) {
         recommendations: parsed.recommendations.map((r: any) => String(r)).slice(0, 6),
         source: 'gemini-vertex',
       };
-      if (debug) console.log('[gemini] Success via Vertex', response);
+      if (debug) console.log('[gemini] Success via Vertex AI', response);
       return NextResponse.json(response);
     }
 
-    if (debug) console.warn('[gemini] No credentials found (GEMINI_API_KEY or GOOGLE_APPLICATION_CREDENTIALS/GCP_PROJECT_ID). Using mock');
+    if (debug) console.warn('[gemini] No valid credentials found. Using mock');
     return NextResponse.json(mockResponse(objective, remarks));
   } catch (error: any) {
     if (debug) console.error('[gemini] Error:', error?.message || error);

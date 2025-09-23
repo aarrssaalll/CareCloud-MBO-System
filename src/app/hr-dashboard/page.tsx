@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 import {
   UsersIcon,
   DocumentTextIcon,
@@ -41,61 +42,224 @@ interface Department {
 }
 
 export default function HRDashboard() {
-  const [user, setUser] = useState<any>(null);
+  const { user, isLoading: authLoading } = useAuth(true, ['HR', 'hr']);
   const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [organizationMetrics, setOrganizationMetrics] = useState<any[]>([]);
+  const [recentEmployees, setRecentEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [workflowMetrics, setWorkflowMetrics] = useState({
+    pendingEnrollments: 0,
+    organizationCoverage: 0,
+    avgTeamSize: 0
+  });
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (!userData) {
-      router.push("/login");
-      return;
-    }
+    if (authLoading) return;
+    if (!user) return;
     
-    const parsedUser = JSON.parse(userData);
-    if (parsedUser.role !== "hr") {
-      router.push("/dashboard");
-      return;
-    }
-    
-    setUser(parsedUser);
-  }, [router]);
+    loadHRData();
+  }, [authLoading, user]);
 
-  // HR Organization Management Metrics
-  const organizationMetrics = [
-    {
-      title: "Total Workforce",
-      value: "247",
-      change: "+12 this month",
-      icon: UsersIcon,
-      color: "from-blue-500 to-blue-600",
-      description: "Active employees across all departments"
-    },
-    {
-      title: "Departments",
-      value: "8",
-      change: "+1 new dept",
-      icon: BuildingOfficeIcon,
-      color: "from-green-500 to-green-600",
-      description: "Active business units"
-    },
-    {
-      title: "Management Positions",
-      value: "42",
-      change: "17% of workforce",
-      icon: UserGroupIcon,
-      color: "from-purple-500 to-purple-600",
-      description: "Managers and senior management"
-    },
-    {
-      title: "HR Workflows",
-      value: "15",
-      change: "3 pending approval",
-      icon: ClipboardDocumentListIcon,
-      color: "from-amber-500 to-amber-600",
-      description: "Active HR processes"
+  const loadHRData = async () => {
+    setLoading(true);
+    try {
+      await Promise.all([
+        loadOrganizationMetrics(),
+        loadRecentEmployees(),
+        loadDepartments(),
+        loadWorkflowMetrics()
+      ]);
+    } catch (error) {
+      console.error('Error loading HR data:', error);
+      setError('Failed to load HR data');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const loadOrganizationMetrics = async () => {
+    try {
+      console.log('🔍 Loading organization metrics...');
+      
+      // Get all users
+      const usersResponse = await fetch('/api/mbo/data?type=users');
+      const usersResult = await usersResponse.json();
+      const users = usersResult.success ? usersResult.data : [];
+      
+      // Get all departments
+      const deptResponse = await fetch('/api/mbo/data?type=departments');
+      const deptResult = await deptResponse.json();
+      const departments = deptResult.success ? deptResult.data : [];
+      
+      // Calculate pending enrollments for HR Workflows
+      const pendingEnrollments = users.filter((user: any) => !user.departmentId).length;
+      
+      // Calculate metrics
+      const totalWorkforce = users.length;
+      const managementCount = users.filter((user: any) => 
+        user.role === 'MANAGER' || user.role === 'SENIOR_MANAGEMENT'
+      ).length;
+      
+      const metrics = [
+        {
+          title: "Total Workforce",
+          value: totalWorkforce > 0 ? totalWorkforce.toString() : "-",
+          change: totalWorkforce > 0 ? `${totalWorkforce} employees` : "No employees",
+          icon: UsersIcon,
+          color: "from-blue-500 to-blue-600",
+          description: "Active employees across all departments"
+        },
+        {
+          title: "Departments",
+          value: departments.length > 0 ? departments.length.toString() : "-",
+          change: departments.length > 0 ? `${departments.length} business units` : "No departments",
+          icon: BuildingOfficeIcon,
+          color: "from-green-500 to-green-600",
+          description: "Active business units"
+        },
+        {
+          title: "Management Positions",
+          value: managementCount > 0 ? managementCount.toString() : "-",
+          change: totalWorkforce > 0 ? `${Math.round((managementCount / totalWorkforce) * 100)}% of workforce` : "0%",
+          icon: UserGroupIcon,
+          color: "from-purple-500 to-purple-600",
+          description: "Managers and senior management"
+        },
+        {
+          title: "HR Workflows",
+          value: pendingEnrollments.toString(),
+          change: pendingEnrollments > 0 ? `${pendingEnrollments} pending` : "All complete",
+          icon: ClipboardDocumentListIcon,
+          color: "from-amber-500 to-amber-600",
+          description: "Active HR processes"
+        }
+      ];
+      
+      setOrganizationMetrics(metrics);
+      console.log('✅ Organization metrics loaded');
+    } catch (error) {
+      console.error('❌ Error loading organization metrics:', error);
+      // Set fallback metrics
+      setOrganizationMetrics([]);
+    }
+  };
+
+  const loadRecentEmployees = async () => {
+    try {
+      console.log('🔍 Loading recent employees...');
+      
+      const usersResponse = await fetch('/api/mbo/data?type=users');
+      const usersResult = await usersResponse.json();
+      const users = usersResult.success ? usersResult.data : [];
+      
+      // Get departments for mapping
+      const deptResponse = await fetch('/api/mbo/data?type=departments');
+      const deptResult = await deptResponse.json();
+      const departments = deptResult.success ? deptResult.data : [];
+      
+      // Transform users to Employee interface and get recent ones
+      const employees: Employee[] = users.slice(-3).map((user: any) => {
+        const department = departments.find((dept: any) => dept.id === user.departmentId);
+        return {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          department: department?.name || 'Unknown Department',
+          role: user.title || user.role,
+          employeeType: user.role === 'SENIOR_MANAGEMENT' ? 'Senior Manager' : 
+                       user.role === 'MANAGER' ? 'Manager' : 'Employee',
+          reportsTo: user.managerId ? `Manager ID: ${user.managerId}` : 'No direct manager',
+          joinDate: user.hireDate ? new Date(user.hireDate).toLocaleDateString() : 'Unknown',
+          status: 'Active' as const,
+          salary: user.salary ? `$${user.salary.toLocaleString()}` : 'Not specified'
+        };
+      });
+      
+      setRecentEmployees(employees);
+      console.log('✅ Recent employees loaded');
+    } catch (error) {
+      console.error('❌ Error loading recent employees:', error);
+      setRecentEmployees([]);
+    }
+  };
+
+  const loadDepartments = async () => {
+    try {
+      console.log('🔍 Loading departments...');
+      
+      const deptResponse = await fetch('/api/mbo/data?type=departments');
+      const deptResult = await deptResponse.json();
+      const departments = deptResult.success ? deptResult.data : [];
+      
+      const usersResponse = await fetch('/api/mbo/data?type=users');
+      const usersResult = await usersResponse.json();
+      const users = usersResult.success ? usersResult.data : [];
+      
+      // Transform departments with employee counts
+      const deptData: Department[] = departments.map((dept: any) => {
+        const deptUsers = users.filter((user: any) => user.departmentId === dept.id);
+        const manager = users.find((user: any) => user.id === dept.managerId);
+        
+        return {
+          id: dept.id,
+          name: dept.name,
+          managerId: dept.managerId || '',
+          managerName: manager ? manager.name : 'No manager assigned',
+          employeeCount: deptUsers.length,
+          budget: dept.budget ? `$${dept.budget.toLocaleString()}` : 'Not specified'
+        };
+      });
+      
+      setDepartments(deptData);
+      console.log('✅ Departments loaded');
+    } catch (error) {
+      console.error('❌ Error loading departments:', error);
+      setDepartments([]);
+    }
+  };
+
+  const loadWorkflowMetrics = async () => {
+    try {
+      console.log('🔍 Loading workflow metrics...');
+      
+      const usersResponse = await fetch('/api/mbo/data?type=users');
+      const usersResult = await usersResponse.json();
+      const users = usersResult.success ? usersResult.data : [];
+      
+      const deptResponse = await fetch('/api/mbo/data?type=departments');
+      const deptResult = await deptResponse.json();
+      const departments = deptResult.success ? deptResult.data : [];
+      
+      // Calculate pending enrollments (users without department assignment)
+      const pendingEnrollments = users.filter((user: any) => !user.departmentId).length;
+      
+      // Calculate organization coverage (users with departments / total users)
+      const organizationCoverage = users.length > 0 ? 
+        ((users.length - pendingEnrollments) / users.length) * 100 : 0;
+      
+      // Calculate average team size
+      const totalUsersWithDept = users.filter((user: any) => user.departmentId).length;
+      const avgTeamSize = departments.length > 0 ? totalUsersWithDept / departments.length : 0;
+      
+      setWorkflowMetrics({
+        pendingEnrollments,
+        organizationCoverage: Math.round(organizationCoverage),
+        avgTeamSize: Math.round(avgTeamSize * 10) / 10 // Round to 1 decimal place
+      });
+      
+      console.log('✅ Workflow metrics loaded');
+    } catch (error) {
+      console.error('❌ Error loading workflow metrics:', error);
+      setWorkflowMetrics({
+        pendingEnrollments: 0,
+        organizationCoverage: 0,
+        avgTeamSize: 0
+      });
+    }
+  };
 
   const hrActions = [
     {
@@ -142,79 +306,6 @@ export default function HRDashboard() {
     }
   ];
 
-  const recentEmployees: Employee[] = [
-    {
-      id: "emp_1",
-      name: "Sarah Wilson",
-      email: "sarah.wilson@carecloud.com",
-      department: "Engineering",
-      role: "Senior Developer",
-      employeeType: "Employee",
-      reportsTo: "John Tech (Engineering Manager)",
-      joinDate: "2024-12-01",
-      status: "Active",
-      salary: "$95,000"
-    },
-    {
-      id: "emp_2", 
-      name: "Michael Brown",
-      email: "michael.brown@carecloud.com",
-      department: "Sales",
-      role: "Sales Manager",
-      employeeType: "Manager",
-      reportsTo: "David Sales (Sales Director)",
-      joinDate: "2024-12-05",
-      status: "Active",
-      salary: "$110,000"
-    },
-    {
-      id: "emp_3",
-      name: "Lisa Chen",
-      email: "lisa.chen@carecloud.com", 
-      department: "Product",
-      role: "Product Analyst",
-      employeeType: "Employee",
-      reportsTo: "Anna Product (Product Manager)",
-      joinDate: "2024-12-08",
-      status: "Active",
-      salary: "$80,000"
-    }
-  ];
-
-  const departments: Department[] = [
-    {
-      id: "dept_1",
-      name: "Engineering",
-      managerId: "mgr_1",
-      managerName: "John Tech",
-      employeeCount: 85,
-      budget: "$8.5M"
-    },
-    {
-      id: "dept_2",
-      name: "Sales & Marketing",
-      managerId: "mgr_2", 
-      managerName: "David Sales",
-      employeeCount: 42,
-      budget: "$4.2M"
-    },
-    {
-      id: "dept_3",
-      name: "Product Management",
-      managerId: "mgr_3",
-      managerName: "Anna Product", 
-      employeeCount: 28,
-      budget: "$3.1M"
-    },
-    {
-      id: "dept_4",
-      name: "Operations",
-      managerId: "mgr_4",
-      managerName: "Steve Ops",
-      employeeCount: 35,
-      budget: "$2.8M"
-    }
-  ];
   if (!user) return <div>Loading...</div>;
 
   return (
@@ -340,15 +431,21 @@ export default function HRDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">HR Workflow Status</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">12</div>
+                <div className="text-2xl font-bold text-blue-600">
+                  {workflowMetrics.pendingEnrollments}
+                </div>
                 <div className="text-sm text-blue-800">Pending Enrollments</div>
               </div>
               <div className="text-center p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">95%</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {workflowMetrics.organizationCoverage}%
+                </div>
                 <div className="text-sm text-green-800">Organization Coverage</div>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">8.5</div>
+                <div className="text-2xl font-bold text-purple-600">
+                  {workflowMetrics.avgTeamSize}
+                </div>
                 <div className="text-sm text-purple-800">Avg Team Size</div>
               </div>
             </div>

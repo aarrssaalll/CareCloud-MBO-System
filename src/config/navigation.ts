@@ -4,7 +4,6 @@ import {
   ClipboardDocumentListIcon,
   ChartBarIcon,
   UserGroupIcon,
-  TrophyIcon,
   DocumentTextIcon,
   AcademicCapIcon,
   BriefcaseIcon,
@@ -12,6 +11,8 @@ import {
   BuildingOfficeIcon,
   CheckCircleIcon,
   Cog8ToothIcon,
+  DocumentCheckIcon,
+  InboxIcon,
 } from '@heroicons/react/24/outline';
 
 export type AppRole = 'employee' | 'manager' | 'hr' | 'senior-management';
@@ -24,11 +25,13 @@ export interface NavigationItem {
 }
 
 export const NAV_ITEMS: NavigationItem[] = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, roles: ['employee', 'manager', 'hr', 'senior-management'] },
-  { name: 'Objectives', href: '/objectives', icon: ClipboardDocumentListIcon, roles: ['employee', 'manager', 'hr'] },
+  { name: 'Dashboard', href: '/emp-dashboard', icon: HomeIcon, roles: ['employee', 'manager', 'hr', 'senior-management'] },
+  { name: 'Objectives', href: '/objectives', icon: ClipboardDocumentListIcon, roles: ['employee', 'manager'] },
+  { name: 'Incoming Reviews', href: '/hr/incoming-objectives', icon: InboxIcon, roles: ['hr'] },
+  { name: 'All Objectives', href: '/hr/objectives', icon: DocumentTextIcon, roles: ['hr'] },
   { name: 'Performance Review', href: '/performance', icon: ChartBarIcon, roles: ['employee', 'manager', 'hr'] },
   { name: 'Team Management', href: '/team', icon: UserGroupIcon, roles: ['manager', 'hr'] },
-  { name: 'Score Reviews', href: '/score-reviews', icon: TrophyIcon, roles: ['manager', 'hr'] },
+  { name: 'Manager Review', href: '/manager-review', icon: DocumentCheckIcon, roles: ['manager'] },
   { name: 'Manager Reports', href: '/manager-reports', icon: DocumentTextIcon, roles: ['manager', 'hr'] },
   { name: 'Bonus Structure', href: '/bonus-structure', icon: AcademicCapIcon, roles: ['hr'] },
   { name: 'HR Reports', href: '/hr-reports', icon: BriefcaseIcon, roles: ['hr'] },
@@ -44,4 +47,16 @@ export function filterNavByRole(role?: string) {
   if (!role) return [] as NavigationItem[];
   const normalized = role.toLowerCase().replace(/_/g, '-') as AppRole;
   return NAV_ITEMS.filter(item => item.roles.includes(normalized));
+}
+
+// Helper function to normalize roles for consistency
+export function normalizeRole(role: string): AppRole {
+  return role.toLowerCase().replace(/_/g, '-') as AppRole;
+}
+
+// Helper function to check if user has required role
+export function hasRequiredRole(userRole: string, allowedRoles: string[]): boolean {
+  const normalizedUserRole = normalizeRole(userRole);
+  const normalizedAllowedRoles = allowedRoles.map(r => normalizeRole(r));
+  return normalizedAllowedRoles.includes(normalizedUserRole);
 }

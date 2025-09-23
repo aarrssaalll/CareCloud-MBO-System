@@ -8,7 +8,7 @@ export default function LoginPage() {
   const [formData, setFormData] = useState({
     email: "",
     password: "",
-    role: "employee"
+    role: "EMPLOYEE"
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -20,55 +20,61 @@ export default function LoginPage() {
     
     try {
       // Try database authentication first
+      console.log('Attempting database authentication...');
       const response = await fetch('/api/mbo/auth', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
+        body: JSON.stringify({ 
+          email: formData.email, 
+          password: formData.password,
+          role: formData.role 
+        }),
       });
 
+      console.log('Auth response status:', response.status);
       const result = await response.json();
+      console.log('Auth result:', result);
       
       if (result.success) {
+        console.log('Database authentication successful!');
         // Store user info in localStorage for session management
-        localStorage.setItem('mbo_current_user', JSON.stringify(result.user));
+        localStorage.setItem('mbo_user', JSON.stringify(result.user));
+        // Backward compatibility - also store in 'user' key for older pages
+        localStorage.setItem('user', JSON.stringify(result.user));
         
-        // Redirect to live dashboard
-        router.push('/dashboard-live');
+        // Role-based dashboard redirection
+        switch (result.user.role) {
+          case 'SENIOR_MANAGEMENT':
+            router.push('/system-dashboard');
+            break;
+          case 'HR':
+            router.push('/hr-dashboard');
+            break;
+          case 'MANAGER':
+            router.push('/manager-dashboard');
+            break;
+          case 'EMPLOYEE':
+          default:
+            router.push('/emp-dashboard');
+            break;
+        }
+        return;
+      } else {
+        // Database auth failed, show specific error
+        alert(`Database authentication failed: ${result.message}`);
+        setIsLoading(false);
         return;
       }
     } catch (error) {
       console.error('Database auth error:', error);
+      alert('Database authentication error. Please check if the server is running.');
+      setIsLoading(false);
+      return;
     }
 
-    // Fallback to demo authentication
-    const demoCredentials = {
-      "employee@carecloud.com": { role: "employee", name: "John Doe" },
-      "manager@carecloud.com": { role: "manager", name: "Jane Smith" },
-      "hr@carecloud.com": { role: "hr", name: "Mike Johnson" },
-      "exec@carecloud.com": { role: "senior-management", name: "Sarah Wilson" }
-    };
-
-    // Simulate loading time
-    setTimeout(() => {
-      if (formData.email in demoCredentials && formData.password === "demo123") {
-        const userInfo = demoCredentials[formData.email as keyof typeof demoCredentials];
-        
-        // Store user info in localStorage for demo purposes
-        localStorage.setItem("user", JSON.stringify({
-          email: formData.email,
-          role: userInfo.role,
-          name: userInfo.name
-        }));
-
-        // Redirect to original dashboard
-        router.push("/dashboard");
-      } else {
-        alert("Invalid credentials. Please try database users or demo credentials provided below.");
-        setIsLoading(false);
-      }
-    }, 1000);
+    // This code should never be reached now
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -118,7 +124,7 @@ export default function LoginPage() {
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                Password <span className="text-gray-400 text-xs">(Optional)</span>
               </label>
               <div className="relative">
                 <input
@@ -126,11 +132,10 @@ export default function LoginPage() {
                   name="password"
                   type={showPassword ? "text" : "password"}
                   autoComplete="current-password"
-                  required
                   value={formData.password}
                   onChange={handleChange}
                   className="block w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                  placeholder="Enter your password"
+                  placeholder="Leave empty if not required"
                 />
                 <button
                   type="button"
@@ -157,10 +162,10 @@ export default function LoginPage() {
                 onChange={handleChange}
                 className="block w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               >
-                <option value="employee">Employee</option>
-                <option value="manager">Manager</option>
-                <option value="hr">HR</option>
-                <option value="senior-management">Senior Management</option>
+                <option value="EMPLOYEE">Employee</option>
+                <option value="MANAGER">Manager</option>
+                <option value="HR">HR</option>
+                <option value="SENIOR_MANAGEMENT">Senior Management</option>
               </select>
             </div>
 
@@ -204,57 +209,36 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Demo Credentials */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-800 mb-3">Demo Credentials</h3>
-            <div className="grid grid-cols-2 gap-3 text-xs text-gray-600">
-              <div>
-                <p className="font-medium text-gray-700">Employee</p>
-                <p>employee@carecloud.com</p>
+          {/* Live Database Users */}
+          <div className="mt-6">
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="text-sm font-medium text-blue-800 mb-3">Live Database Users</h3>
+              <div className="space-y-3 text-sm text-blue-600">
+                <div>
+                  <p className="font-medium">crystal.williams@carecloud.com</p>
+                  <p className="text-blue-500">Operations President</p>
+                </div>
+                <div>
+                  <p className="font-medium">hadi.chaudhary@carecloud.com</p>
+                  <p className="text-blue-500">IT & AI President</p>
+                </div>
+                <div>
+                  <p className="font-medium">sarah.johnson@carecloud.com</p>
+                  <p className="text-blue-500">IT Department Manager</p>
+                </div>
+                <div>
+                  <p className="font-medium">alex.chen@carecloud.com</p>
+                  <p className="text-blue-500">AI Team Lead</p>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-gray-700">Manager</p>
-                <p>manager@carecloud.com</p>
+              <div className="mt-3 text-center">
+                <button
+                  onClick={() => router.push('/emp-dashboard')}
+                  className="text-sm text-blue-600 hover:text-blue-800 underline"
+                >
+                  Quick Access to Employee Dashboard
+                </button>
               </div>
-              <div>
-                <p className="font-medium text-gray-700">HR</p>
-                <p>hr@carecloud.com</p>
-              </div>
-              <div>
-                <p className="font-medium text-gray-700">Executive</p>
-                <p>exec@carecloud.com</p>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2 text-center">Password: <span className="font-medium">demo123</span> for all accounts</p>
-          </div>
-
-          {/* Database Users */}
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h3 className="text-sm font-medium text-blue-800 mb-3">Live Database Users</h3>
-            <div className="grid grid-cols-1 gap-2 text-xs text-blue-600">
-              <div>
-                <p className="font-medium">crystal.williams@company.com</p>
-                <p className="text-blue-500">Operations President</p>
-              </div>
-              <div>
-                <p className="font-medium">hadi.chaudhary@company.com</p>
-                <p className="text-blue-500">IT President</p>
-              </div>
-              <div>
-                <p className="font-medium">emily.davis@company.com</p>
-                <p className="text-blue-500">Employee</p>
-              </div>
-            </div>
-            <p className="text-xs text-blue-500 mt-2 text-center">
-              No password required - uses database authentication
-            </p>
-            <div className="mt-2 text-center">
-              <button
-                onClick={() => router.push('/dashboard-live')}
-                className="text-xs text-blue-600 hover:text-blue-800 underline"
-              >
-                Quick Access to Live Dashboard
-              </button>
             </div>
           </div>
         </div>
