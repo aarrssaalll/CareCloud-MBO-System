@@ -43,6 +43,7 @@ interface CompletedObjective {
   reviews: any[];
   aiScore?: number;
   isProcessing?: boolean;
+  employeeRemarks?: string;
 }
 
 export default function ManagerObjectivesPage() {
@@ -96,7 +97,8 @@ export default function ManagerObjectivesPage() {
           target: objective.target,
           current: objective.current,
           weight: objective.weight,
-          employeeName: objective.user.name
+          employeeName: objective.user.name,
+          employeeRemarks: objective.employeeRemarks || ''
         })
       });
 
@@ -204,15 +206,25 @@ export default function ManagerObjectivesPage() {
           <div className="py-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Objectives - AI Scoring</h1>
-                <p className="mt-1 text-sm text-gray-500">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#333333] to-[#666666] bg-clip-text text-transparent mb-2">
+                  Objectives – AI Scoring
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
                   Generate AI scores for completed objectives and move them to review page
                 </p>
               </div>
               <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">Manager</p>
+                {/* User Profile */}
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-sm text-gray-500">{user.title || 'Manager'}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
+                    <span className="text-white font-medium">
+                      {user.firstName ? user.firstName[0] : ''}{user.lastName ? user.lastName[0] : ''}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

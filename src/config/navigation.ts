@@ -30,7 +30,7 @@ export const NAV_ITEMS: NavigationItem[] = [
   { name: 'Incoming Reviews', href: '/hr/incoming-objectives', icon: InboxIcon, roles: ['hr'] },
   { name: 'All Objectives', href: '/hr/objectives', icon: DocumentTextIcon, roles: ['hr'] },
   { name: 'Performance Review', href: '/performance', icon: ChartBarIcon, roles: ['employee', 'manager', 'hr'] },
-  { name: 'Team Management', href: '/team', icon: UserGroupIcon, roles: ['manager', 'hr'] },
+  // { name: 'Team Management', href: '/team', icon: UserGroupIcon, roles: ['manager', 'hr'] },
   { name: 'Manager Review', href: '/manager-review', icon: DocumentCheckIcon, roles: ['manager'] },
   { name: 'Manager Reports', href: '/manager-reports', icon: DocumentTextIcon, roles: ['manager', 'hr'] },
   { name: 'Bonus Structure', href: '/bonus-structure', icon: AcademicCapIcon, roles: ['hr'] },

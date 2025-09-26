@@ -101,7 +101,7 @@ class ObjectiveAssignmentAPI {
           dueDate: bulkData.dueDate,
           quarter: bulkData.quarter
         });
-        results.push({ employeeId, ...result });
+        results.push({ employeeId, objectives: result.objectives ?? [], success: result.success });
       }
 
       return { success: true, results };

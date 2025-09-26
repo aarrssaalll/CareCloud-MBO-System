@@ -39,7 +39,7 @@ interface User {
   managerId?: string;
   departmentName?: string;
   teamName?: string;
-  managerName?: string;
+	managerName?: string;
 }
 
 interface Objective {
@@ -135,7 +135,7 @@ export default function DashboardPage() {
         const bonusResponse = await fetch(`/api/mbo/bonus?userId=${currentUser.id}`);
         const bonusData = await bonusResponse.json();
         if (bonusData && bonusData.amount) {
-          setBonusAmount(`$${bonusData.amount.toLocaleString()}`);
+          setBonusAmount(`$${Math.round(bonusData.amount)}`);
         }
 
         setLoading(false);
@@ -269,7 +269,7 @@ export default function DashboardPage() {
         trend: bonusAmount !== '--' ? 'up' : 'neutral',
         icon: CurrencyDollarIcon,
         color: 'from-yellow-500 to-orange-600',
-        progress: bonusAmount !== '--' ? Math.min(85, Math.max(0, parseFloat(bonusAmount.replace(/[$,]/g, '')) / 100)) : 0,
+        progress: bonusAmount !== '--' ? Math.min(85, Math.max(0, Math.round(parseFloat(bonusAmount.replace(/[$,]/g, '')) / 100))) : 0,
       },
     ];
   }, [objectives]);
@@ -342,7 +342,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Enhanced Header Section */}
+      {/* Unified Header Section */}
       <div className="bg-white/95 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between py-6">
@@ -365,13 +365,11 @@ export default function DashboardPage() {
                 <div className="text-2xl font-bold">{performanceScore}</div>
                 <div className="text-sm text-green-100">Performance</div>
               </div>
-
               {/* Bonus Card */}
               <div className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
                 <div className="text-2xl font-bold">{bonusAmount}</div>
                 <div className="text-sm text-blue-100">Current Bonus</div>
               </div>
-
               {/* User Profile */}
               <div className="flex items-center space-x-3">
                 <div className="text-right">
@@ -389,6 +387,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+      {/* Page Heading and Description removed for cleaner dashboard */}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* KPI Cards */}
@@ -569,37 +568,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Quick Actions
-                </h2>
-              </div>
-              <div className="p-6 space-y-3">
-                <button
-                  onClick={() => router.push('/mbo-test')}
-                  className="w-full flex items-center justify-center px-4 py-2 bg-[#004E9E] text-white rounded-lg hover:bg-[#003875] transition-colors"
-                >
-                  <SparklesIcon className="h-4 w-4 mr-2" />
-                  Test Database System
-                </button>
-                <button
-                  onClick={() => router.push('/employee/objectives')}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <TrophyIcon className="h-4 w-4 mr-2" />
-                  View All Objectives
-                </button>
-                <button
-                  onClick={() => router.push('/performance')}
-                  className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  <ChartBarIcon className="h-4 w-4 mr-2" />
-                  Performance Analytics
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       </div>

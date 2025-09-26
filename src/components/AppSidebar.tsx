@@ -13,9 +13,31 @@ export default function AppSidebar() {
   const items = useMemo(() => {
     if (!user) return [];
     const userRole = user.role?.toLowerCase().replace('_', '-') || 'employee';
-    const list = filterNavByRole(userRole);
+    let list = filterNavByRole(userRole);
     // Remove Profile from sidebar; accessible via top bar only
-    return list.filter(i => i.name !== 'Profile' && i.href !== '/profile');
+    list = list.filter(i => i.name !== 'Profile' && i.href !== '/profile');
+    if (userRole === 'manager') {
+      // Custom order and names for manager
+      const customOrder = [
+        { name: 'Dashboard' },
+        { name: 'Review Objectives', original: 'Objectives' },
+        { name: 'Final Reviews', original: 'Manager Review' },
+        { name: 'Team Management' },
+        { name: 'Performance Review' },
+        { name: 'Manager Reports' }
+      ];
+      // Map and rename
+      const mapped = customOrder.map(order => {
+        const match = list.find(i => i.name === (order.original || order.name));
+        if (!match) return null;
+        return {
+          ...match,
+          name: order.name
+        };
+      }).filter(Boolean);
+      return mapped;
+    }
+    return list;
   }, [user?.role]);
 
   if (isLoading) {
@@ -69,9 +91,22 @@ export default function AppSidebar() {
         {/* Primary Navigation */}
         <nav aria-label="Primary" className="space-y-1">
           {items.map(item => {
+            if (!item) return null;
             const Icon = item.icon as any;
-            const active = pathname === item.href;
-            
+            let active = false;
+            // Enhanced active logic for manager module
+            if (userRole === 'manager') {
+              if (item.name === 'Dashboard' && pathname.startsWith('/manager-dashboard')) active = true;
+              if (item.name === 'Review Objectives' && (pathname.startsWith('/manager/objectives') || pathname === '/objectives')) active = true;
+              if (item.name === 'Final Reviews' && pathname.startsWith('/manager-review')) active = true;
+              if (item.name === 'Manager Reports' && pathname.startsWith('/manager-reports')) active = true;
+              if (item.name === 'Performance Review' && pathname.startsWith('/performance')) active = true;
+              if (item.name === 'Team Management' && pathname.startsWith('/team')) active = true;
+            } else if (item.name === 'Objectives' && (pathname === '/objectives' || pathname === '/employee/objectives')) {
+              active = true;
+            } else {
+              active = pathname === item.href;
+            }
             // Determine the correct route based on role and page
             const getRouteForItem = (itemName: string, userRole: string) => {
               switch (itemName) {
@@ -80,7 +115,8 @@ export default function AppSidebar() {
                   if (userRole === 'hr') return '/hr-dashboard';
                   if (userRole === 'manager') return '/manager-dashboard';
                   return '/emp-dashboard';
-                case 'Objectives':
+                case 'Review Objectives':
+                  if (userRole === 'manager') return '/manager/objectives';
                   return '/objectives';
                 case 'Incoming Reviews':
                   return '/hr/incoming-objectives';
@@ -90,6 +126,8 @@ export default function AppSidebar() {
                   return '/performance';
                 case 'Team Management':
                   return '/team';
+                case 'Final Reviews':
+                  return '/manager-review';
                 case 'Manager Review':
                   return '/manager-review';
                 case 'Manager Reports':
@@ -114,10 +152,9 @@ export default function AppSidebar() {
             };
 
             const targetRoute = getRouteForItem(item.name, userRole);
-            
             return (
               <Link key={item.name} href={targetRoute}
-                className={`group flex items-center gap-3 px-3 py-3 rounded-xl border transition-all duration-200 ${active ? 'bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white border-transparent shadow-md' : 'bg-white hover:bg-blue-50/60 text-gray-700 border-gray-100 hover:border-blue-200'}`}>
+                className={`group flex items-center gap-3 px-3 py-3 rounded-xl border transition-all duration-200 ${active ? 'bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white border-transparent shadow-md' : 'bg-white hover:bg-blue-50/60 text-gray-700 border-gray-100 hover:border-blue-200'}`}> 
                 <div className={`p-2 rounded-lg ${active ? 'bg-white/20' : 'bg-gray-100 group-hover:bg-blue-100'}`}>
                   <Icon className={`w-5 h-5 ${active ? 'text-white' : 'text-gray-600 group-hover:text-[#004E9E]'}`} />
                 </div>
@@ -125,11 +162,12 @@ export default function AppSidebar() {
                   <div className={`font-medium ${active ? 'text-white' : 'text-gray-900 group-hover:text-[#004E9E]'}`}>{item.name}</div>
                   <div className={`text-xs ${active ? 'text-blue-100' : 'text-gray-500'}`}>
                     {item.name === 'Dashboard' && 'Overview and analytics'}
-                    {item.name === 'Objectives' && 'Track your goals'}
+                    {item.name === 'Review Objectives' && 'Track your goals'}
                     {item.name === 'Incoming Reviews' && 'Review manager submissions'}
                     {item.name === 'All Objectives' && 'Organization-wide view'}
                     {item.name === 'Performance Review' && 'Trends and reviews'}
                     {item.name === 'Team Management' && 'Manage your team'}
+                    {item.name === 'Final Reviews' && 'Final scoring & HR submission'}
                     {item.name === 'Manager Review' && 'Final scoring & HR submission'}
                     {item.name === 'Manager Reports' && 'Team reports'}
                     {item.name === 'Bonus Structure' && 'Configure bonus'}

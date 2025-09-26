@@ -49,7 +49,8 @@ model MboUser {
   phone                 String?              @db.NVarChar(50)
   hireDate              DateTime?
   salary                Float?
-  bonusAmount           Float?               @default(0)
+  bonusAmount           Float?               @default(0) // Cumulative total of all bonuses received over time
+  allocatedBonusAmount  Float?               @default(0) // Annual bonus allocation based on hierarchy (1000-5000)
   password              String?              @db.NVarChar(255)
   departmentId          String?              @db.NVarChar(36)
   teamId                String?              @db.NVarChar(36)

@@ -51,7 +51,8 @@ export async function GET(request: Request) {
       needsAiScoring: obj.status === 'COMPLETED',
       needsFinalReview: obj.status === 'AI_SCORED',
       transferredAt: obj.submittedToManagerAt,
-      workflowStage: obj.status
+      workflowStage: obj.status,
+      employeeRemarks: obj.employeeRemarks || ''
     }));
 
     return NextResponse.json({

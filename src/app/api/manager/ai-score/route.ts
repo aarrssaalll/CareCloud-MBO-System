@@ -10,7 +10,8 @@ export async function POST(request: Request) {
       target, 
       current, 
       weight, 
-      employeeName 
+      employeeName, 
+      employeeRemarks 
     } = await request.json();
 
     if (!objectiveId || !title || !description || target === undefined || current === undefined) {
@@ -76,7 +77,7 @@ export async function POST(request: Request) {
             current: current,
             target: target
           },
-          remarks: `Employee: ${employeeName}, Weight: ${weight}%, Achievement: ${completionPercentage}%`
+          remarks: `Employee: ${employeeName}, Weight: ${weight}%, Achievement: ${completionPercentage}%, Employee Remarks: ${employeeRemarks || ''}`
         }),
       });
 

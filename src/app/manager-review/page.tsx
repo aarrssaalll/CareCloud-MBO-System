@@ -148,7 +148,6 @@ export default function ManagerReviewPage() {
       [objectiveId]: newScore
     }));
   };
-
   const handleJustification = (objectiveId: string, justification: string) => {
     setJustifications(prev => ({
       ...prev,
@@ -327,6 +326,7 @@ export default function ManagerReviewPage() {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading AI-scored objectives...</p>
         </div>
+        
       </div>
     );
   }
@@ -343,48 +343,42 @@ export default function ManagerReviewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation */}
-        <div className="mb-4">
-          <nav className="flex" aria-label="Breadcrumb">
-            <ol className="flex items-center space-x-4">
-              <li>
-                <div className="flex">
-                  <a href="/manager-dashboard" className="text-gray-400 hover:text-gray-500">
-                    Manager Dashboard
-                  </a>
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#333333] to-[#666666] bg-clip-text text-transparent mb-2">
+                  Review & Approval
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Review AI-scored objectives, override scores if needed, and submit to HR
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                {/* User Profile */}
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-sm text-gray-500">{user?.title || 'Manager'}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
+                    <span className="text-white font-medium">
+                      {user?.firstName ? user.firstName[0] : ''}{user?.lastName ? user.lastName[0] : ''}
+                    </span>
+                  </div>
                 </div>
-              </li>
-              <li>
-                <div className="flex items-center">
-                  <svg className="flex-shrink-0 h-5 w-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <a href="/manager/objectives" className="ml-4 text-gray-400 hover:text-gray-500">
-                    AI Scoring
-                  </a>
-                </div>
-              </li>
-              <li>
-                <div className="flex items-center">
-                  <svg className="flex-shrink-0 h-5 w-5 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                  </svg>
-                  <span className="ml-4 text-sm font-medium text-gray-500">Review & Approval</span>
-                </div>
-              </li>
-            </ol>
-          </nav>
+              </div>
+            </div>
+          </div>
         </div>
+      </div>
 
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Manager Review - Final Scoring & Approval</h1>
-          <p className="mt-2 text-gray-600">Review AI-scored objectives, override scores if needed, and submit to HR</p>
-        </div>
-
-        {/* Summary Statistics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* Summary Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center">
               <DocumentCheckIcon className="h-8 w-8 text-blue-500" />
@@ -425,9 +419,9 @@ export default function ManagerReviewPage() {
           </div>
         </div>
 
-        {/* Bulk Actions */}
-        {selectedObjectives.size > 0 && (
-          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
+          {/* Bulk Actions */}
+          {selectedObjectives.size > 0 && (
+            <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 mb-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-medium text-gray-900">Batch Submission</h3>
@@ -449,8 +443,8 @@ export default function ManagerReviewPage() {
           </div>
         )}
 
-        {/* Objectives List */}
-        <div className="space-y-6">
+          {/* Objectives List */}
+          <div className="space-y-6">
           {objectives.length > 0 ? (
             objectives.map((objective) => (
               <div key={objective.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -668,8 +662,8 @@ export default function ManagerReviewPage() {
           )}
         </div>
 
-        {/* Submission Modal */}
-        {showSubmissionModal && (
+          {/* Submission Modal */}
+          {showSubmissionModal && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
               <div className="mt-3">
@@ -734,8 +728,8 @@ export default function ManagerReviewPage() {
           </div>
         )}
 
-        {/* Individual Submission Modal */}
-        {showIndividualModal && selectedIndividualObjective && (
+          {/* Individual Submission Modal */}
+          {showIndividualModal && selectedIndividualObjective && (
           <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
             <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
               <div className="mt-3">
@@ -826,8 +820,9 @@ export default function ManagerReviewPage() {
               </div>
             </div>
           </div>
+
         )}
-      </main>
+        </div>
     </div>
   );
 }

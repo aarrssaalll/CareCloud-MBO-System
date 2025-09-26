@@ -23,7 +23,7 @@ async function main() {
   await prisma.mboObjective.deleteMany();
   await prisma.mboBonus.deleteMany();
   await prisma.mboReview.deleteMany();
-  await prisma.mboUser.deleteMany();
+  await prisma.mboUser.deleteMany(); // Delete users first (they reference teams/departments)
   await prisma.mboTeam.deleteMany();
   await prisma.mboDepartment.deleteMany();
 
@@ -140,7 +140,8 @@ async function main() {
       phone: '+1-555-0101',
       hireDate: new Date('2020-01-15'),
       salary: 350000.00,
-      bonusAmount: 50000.00,
+      bonusAmount: 0, // Cumulative total of bonuses received
+      allocatedBonusAmount: 5000, // Senior management allocation
       password: await bcrypt.hash('password123', 10),
       departmentId: operationsDepartment.id,
       permissions: JSON.stringify(['ALL', 'OVERRIDE_SCORES', 'FINAL_APPROVAL']),
@@ -159,7 +160,8 @@ async function main() {
       phone: '+1-555-0102',
       hireDate: new Date('2019-03-01'),
       salary: 360000.00,
-      bonusAmount: 55000.00,
+      bonusAmount: 0, // Cumulative total of bonuses received
+      allocatedBonusAmount: 5000, // Senior management allocation
       password: await bcrypt.hash('password123', 10),
       departmentId: itDepartment.id,
       permissions: JSON.stringify(['ALL', 'OVERRIDE_SCORES', 'FINAL_APPROVAL']),
@@ -178,7 +180,8 @@ async function main() {
       phone: '+1-555-0103',
       hireDate: new Date('2020-06-01'),
       salary: 280000.00,
-      bonusAmount: 40000.00,
+      bonusAmount: 0, // Cumulative total of bonuses received
+      allocatedBonusAmount: 5000, // Senior management allocation
       password: await bcrypt.hash('password123', 10),
       departmentId: salesDepartment.id,
       permissions: JSON.stringify(['ALL', 'OVERRIDE_SCORES', 'FINAL_APPROVAL']),
@@ -200,7 +203,8 @@ async function main() {
       phone: '+1-555-0104',
       hireDate: new Date('2021-05-10'),
       salary: 180000.00,
-      bonusAmount: 25000.00,
+      bonusAmount: 0, // Cumulative total of bonuses received
+      allocatedBonusAmount: 3000, // Department manager allocation
       password: await bcrypt.hash('password123', 10),
       departmentId: itDepartment.id,
       managerId: hadiChaudhary.id,
@@ -220,7 +224,8 @@ async function main() {
       phone: '+1-555-0105',
       hireDate: new Date('2020-08-20'),
       salary: 175000.00,
-      bonusAmount: 23000.00,
+      bonusAmount: 0, // Cumulative total of bonuses received
+      allocatedBonusAmount: 3000, // Department manager allocation
       password: await bcrypt.hash('password123', 10),
       departmentId: operationsDepartment.id,
       managerId: crystalWilliams.id,
@@ -240,7 +245,8 @@ async function main() {
       phone: '+1-555-0106',
       hireDate: new Date('2021-02-15'),
       salary: 165000.00,
-      bonusAmount: 22000.00,
+      bonusAmount: 0, // Cumulative total of bonuses received
+      allocatedBonusAmount: 3000, // Department manager allocation
       password: await bcrypt.hash('password123', 10),
       departmentId: salesDepartment.id,
       managerId: salesVP.id,

@@ -198,16 +198,30 @@ export default function ManagerDashboard() {
           <div className="py-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">Manager Dashboard</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Manage your team's objectives and performance for Q3 2025
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#333333] to-[#666666] bg-clip-text text-transparent mb-2">
+                  Good morning, {user.firstName}
+                </h1>
+                <p className="text-[#666666]">
+                  {new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
                 </p>
               </div>
               <div className="flex items-center space-x-4">
-                <BellIcon className="h-6 w-6 text-gray-400" />
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user?.departmentId || 'Manager'}</p>
+                {/* User Profile */}
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-sm text-gray-500">{user.title || 'Manager'}</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
+                    <span className="text-white font-medium">
+                      {user.firstName ? user.firstName[0] : ''}{user.lastName ? user.lastName[0] : ''}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -415,6 +429,7 @@ function CustomObjectiveCreationPanel({
   onAssignObjective: (employeeId: string, objectiveData: any) => void;
   isAssigning: boolean;
 }) {
+
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [objectiveData, setObjectiveData] = useState({
     title: '',
@@ -426,8 +441,50 @@ function CustomObjectiveCreationPanel({
     quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
     year: new Date().getFullYear()
   });
+  const [existingWeights, setExistingWeights] = useState<number>(0);
+  const [maxWeight, setMaxWeight] = useState<number>(100);
+  const [loadingWeights, setLoadingWeights] = useState<boolean>(false);
 
   const employee = teamMembers.find(member => member.id === selectedEmployee);
+
+  // Fetch existing objectives' weights for the selected employee/quarter/year
+  useEffect(() => {
+    const fetchExistingWeights = async () => {
+      if (!employee || !objectiveData.quarter || !objectiveData.year) {
+        setExistingWeights(0);
+        setMaxWeight(100);
+        return;
+      }
+      setLoadingWeights(true);
+      try {
+        const res = await fetch(`/api/mbo/objectives?userId=${employee.id}&quarter=${objectiveData.quarter}&year=${objectiveData.year}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.data)) {
+          const sum = data.data.reduce((acc: number, obj: any) => acc + ((obj.weight || 0) * 100), 0); // weight is decimal, convert to %
+          setExistingWeights(sum);
+          setMaxWeight(Math.max(0, 100 - sum));
+        } else {
+          setExistingWeights(0);
+          setMaxWeight(100);
+        }
+      } catch (e) {
+        setExistingWeights(0);
+        setMaxWeight(100);
+      } finally {
+        setLoadingWeights(false);
+      }
+    };
+    if (showCreateModal && employee) {
+      fetchExistingWeights();
+    }
+  }, [showCreateModal, employee, objectiveData.quarter, objectiveData.year]);
+
+  // Clamp weight if it exceeds maxWeight
+  useEffect(() => {
+    if (objectiveData.weight > maxWeight) {
+      setObjectiveData((prev) => ({ ...prev, weight: maxWeight }));
+    }
+  }, [maxWeight]);
 
   const resetForm = () => {
     setObjectiveData({
@@ -547,7 +604,7 @@ function CustomObjectiveCreationPanel({
       {/* Custom Objective Creation Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-8 border w-11/12 max-w-5xl shadow-2xl rounded-xl bg-white">
             <div className="flex items-center justify-between mb-6">
               <div>
                 <h3 className="text-xl font-semibold text-gray-900">Create Custom Objective</h3>
@@ -640,15 +697,20 @@ function CustomObjectiveCreationPanel({
                     value={objectiveData.weight}
                     onChange={(e) => setObjectiveData({ ...objectiveData, weight: parseInt(e.target.value) })}
                     min="5"
-                    max="50"
+                    max={maxWeight}
+                    disabled={maxWeight === 0 || loadingWeights}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>5%</span>
                     <span className="font-medium text-[#004E9E]">{objectiveData.weight}%</span>
-                    <span>50%</span>
+                    <span>{maxWeight}% max</span>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">Weight of this objective in overall performance</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {loadingWeights ? 'Checking available weight...' :
+                      maxWeight === 0 ? 'No weight left for this quarter.' :
+                      `You can assign up to ${maxWeight}% more for this quarter. (${existingWeights}% already assigned)`}
+                  </p>
                 </div>
 
                 <div>

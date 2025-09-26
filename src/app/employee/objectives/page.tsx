@@ -196,25 +196,13 @@ export default function EmployeeObjectivesPage() {
   const totalCount = objectives.length;
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+  <div className="min-h-screen bg-gray-50">
+      {/* Unified Header Section */}
+      <div className="bg-white/95 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">My Objectives</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Track your progress and update your objective achievements
-                </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.role}</p>
-                </div>
-              </div>
-            </div>
+          <div className="flex flex-col py-6">
+            <h1 className="text-3xl font-bold text-[#333333] mb-1">My Objectives</h1>
+            <p className="text-gray-500 text-base max-w-2xl">Track your progress and update your objective achievements for each quarter.</p>
           </div>
         </div>
       </div>
@@ -232,7 +220,7 @@ export default function EmployeeObjectivesPage() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">📋 Total Objectives</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate"> Total Objectives</dt>
                     <dd className="text-2xl font-bold text-gray-900">{totalCount}</dd>
                   </dl>
                 </div>
@@ -250,7 +238,7 @@ export default function EmployeeObjectivesPage() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">⏳ Active</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate"> Active</dt>
                     <dd className="text-2xl font-bold text-blue-600">{activeObjectives.length}</dd>
                   </dl>
                 </div>
@@ -268,7 +256,7 @@ export default function EmployeeObjectivesPage() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">✅ Completed</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate"> Completed</dt>
                     <dd className="text-2xl font-bold text-green-600">{completedObjectives.length}</dd>
                   </dl>
                 </div>
@@ -286,7 +274,7 @@ export default function EmployeeObjectivesPage() {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">⚠️ Overdue</dt>
+                    <dt className="text-sm font-medium text-gray-500 truncate"> Overdue</dt>
                     <dd className="text-2xl font-bold text-red-600">{overdueObjectives.length}</dd>
                   </dl>
                 </div>
@@ -300,7 +288,7 @@ export default function EmployeeObjectivesPage() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-semibold text-gray-900 flex items-center space-x-2">
-                <span>🎯</span>
+                <span></span>
                 <span>Current Objectives</span>
               </h2>
               <p className="text-sm text-gray-500 mt-1">
@@ -328,13 +316,13 @@ export default function EmployeeObjectivesPage() {
                           objective.status === 'ASSIGNED' ? 'bg-yellow-100 text-yellow-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {objective.status === 'ASSIGNED' ? '📋 Assigned' :
-                           objective.status === 'IN_PROGRESS' ? '⏳ In Progress' :
-                           objective.status === 'COMPLETED' ? '✅ Completed' : objective.status}
+                          {objective.status === 'ASSIGNED' ? ' Assigned' :
+                           objective.status === 'IN_PROGRESS' ? ' In Progress' :
+                           objective.status === 'COMPLETED' ? ' Completed' : objective.status}
                         </span>
                         {isOverdue(objective.dueDate) && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            ⚠️ Overdue
+                             Overdue
                           </span>
                         )}
                       </div>
@@ -344,21 +332,21 @@ export default function EmployeeObjectivesPage() {
                       <div className="mt-3 flex items-center space-x-6 text-xs text-gray-500">
                         {objective.category && (
                           <span className="flex items-center space-x-1">
-                            <span>🎯</span>
+                            <span></span>
                             <span className="capitalize">{objective.category}</span>
                           </span>
                         )}
                         <span className="flex items-center space-x-1">
-                          <span>📅</span>
+                          <span></span>
                           <span>Due: {new Date(objective.dueDate).toLocaleDateString()}</span>
                         </span>
                         <span className="flex items-center space-x-1">
-                          <span>⚖️</span>
+                          <span></span>
                           <span>Weight: {Math.round(objective.weight * 100)}%</span>
                         </span>
                         {objective.assignedBy && (
                           <span className="flex items-center space-x-1">
-                            <span>👤</span>
+                            <span></span>
                             <span>By: {objective.assignedBy.name}</span>
                           </span>
                         )}
@@ -384,11 +372,11 @@ export default function EmployeeObjectivesPage() {
                     </div>
                     <div className="flex justify-between text-xs text-gray-500 mt-2">
                       <span className="flex items-center space-x-1">
-                        <span>📊</span>
+                        <span></span>
                         <span>Current: <strong>{objective.current || 0}</strong></span>
                       </span>
                       <span className="flex items-center space-x-1">
-                        <span>🎯</span>
+                        <span></span>
                         <span>Target: <strong>{objective.target}</strong></span>
                       </span>
                     </div>
@@ -404,13 +392,17 @@ export default function EmployeeObjectivesPage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            📊 Current Progress
+                             Current Progress
                           </label>
                           <input
                             type="number"
+                            min={0}
+                            max={objective.target}
                             value={objective.current || 0}
                             onChange={(e) => {
-                              const newCurrent = parseInt(e.target.value) || 0;
+                              let newCurrent = parseInt(e.target.value) || 0;
+                              if (newCurrent < 0) newCurrent = 0;
+                              if (newCurrent > objective.target) newCurrent = objective.target;
                               setObjectives(prev => prev.map(obj => 
                                 obj.id === objective.id ? { ...obj, current: newCurrent } : obj
                               ));
@@ -419,19 +411,6 @@ export default function EmployeeObjectivesPage() {
                             placeholder={`Enter value (max: ${objective.target})`}
                           />
                           <p className="text-xs text-gray-500">Target: {objective.target}</p>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="block text-sm font-medium text-gray-700">
-                            📝 Update Notes
-                          </label>
-                          <textarea
-                            value={updateNotes}
-                            onChange={(e) => setUpdateNotes(e.target.value)}
-                            placeholder="Describe your progress, challenges, or achievements..."
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors"
-                            rows={3}
-                          />
-                          <p className="text-xs text-gray-500">Add context to help your manager understand your progress</p>
                         </div>
                       </div>
                       <div className="mt-6 flex justify-end space-x-3">
@@ -447,8 +426,9 @@ export default function EmployeeObjectivesPage() {
                         <button
                           onClick={() => handleUpdate(objective.id)}
                           className="px-5 py-2.5 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center space-x-2"
+                          disabled={objective.current < 0 || objective.current > objective.target}
                         >
-                          <span>💾</span>
+                          <span></span>
                           <span>Save Update</span>
                         </button>
                       </div>
@@ -525,7 +505,7 @@ export default function EmployeeObjectivesPage() {
             <div className="space-y-6">
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-200">
                 <div className="flex items-center space-x-2 mb-2">
-                  <span>ℹ️</span>
+                  <span>ℹ</span>
                   <span className="text-sm font-medium text-blue-900">Submission Guidelines</span>
                 </div>
                 <p className="text-sm text-blue-700">
@@ -535,7 +515,7 @@ export default function EmployeeObjectivesPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  📝 Final Comments *
+                   Final Comments *
                 </label>
                 <textarea
                   value={finalComments}
@@ -551,7 +531,7 @@ export default function EmployeeObjectivesPage() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ✍️ Digital Signature *
+                   Digital Signature *
                 </label>
                 <input
                   type="text"
@@ -578,7 +558,7 @@ export default function EmployeeObjectivesPage() {
                 disabled={!finalComments.trim() || !digitalSignature.trim()}
                 className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center space-x-2"
               >
-                <span>🚀</span>
+                <span></span>
                 <span>Submit for Review</span>
               </button>
             </div>
