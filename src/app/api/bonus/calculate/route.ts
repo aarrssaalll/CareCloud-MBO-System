@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 export async function POST(request: NextRequest) {
   try {
-    const { employeeId, quarter, year } = await request.json();
+    const { employeeId, quarter, year, useEnhancedCalculation = false } = await request.json();
 
     if (!employeeId || !quarter || !year) {
       return NextResponse.json(
@@ -13,6 +13,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Enhanced calculation is now available via /api/bonus/enhanced endpoint
 
     // Get employee with allocated bonus amount
     const employee = await prisma.mboUser.findUnique({

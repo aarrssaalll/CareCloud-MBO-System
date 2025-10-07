@@ -41,6 +41,15 @@ interface Department {
   budget: string;
 }
 
+interface HRAction {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  href: string;
+  color: string;
+  enabled: boolean;
+}
+
 export default function HRDashboard() {
   const { user, isLoading: authLoading } = useAuth(true, ['HR', 'hr']);
   const [activeTab, setActiveTab] = useState("overview");
@@ -267,49 +276,48 @@ export default function HRDashboard() {
       description: "Onboard new employees and manage enrollments",
       icon: UsersIcon,
       href: "/employee-enrollment",
-      color: "bg-blue-500 hover:bg-blue-600"
+      color: "bg-blue-500 hover:bg-blue-600",
+      enabled: true
     },
     {
       title: "Organization Chart",
       description: "Manage reporting relationships and hierarchy",
       icon: UserGroupIcon,
-      href: "/org-chart",
-      color: "bg-green-500 hover:bg-green-600"
+      href: "#",
+      color: "bg-purple-500 hover:bg-purple-600",
+      enabled: false
     },
     {
       title: "Department Management",
       description: "Create and manage business units",
       icon: BuildingOfficeIcon,
-      href: "/departments",
-      color: "bg-purple-500 hover:bg-purple-600"
+      href: "#",
+      color: "bg-green-500 hover:bg-green-600",
+      enabled: false
     },
     {
       title: "Bonus Approvals",
       description: "Review and approve employee bonuses",
       icon: BanknotesIcon,
-      href: "/hr/bonus-approvals",
-      color: "bg-emerald-500 hover:bg-emerald-600"
+      href: "#",
+      color: "bg-yellow-500 hover:bg-yellow-600",
+      enabled: false
     },
     {
       title: "Bonus Structure",
       description: "Configure compensation and bonus tiers",
       icon: BanknotesIcon,
       href: "/bonus-structure",
-      color: "bg-teal-500 hover:bg-teal-600"
+      color: "bg-teal-500 hover:bg-teal-600",
+      enabled: true
     },
     {
       title: "System Settings",
       description: "Configure MBO system parameters",
       icon: Cog6ToothIcon,
       href: "/settings",
-      color: "bg-gray-500 hover:bg-gray-600"
-    },
-    {
-      title: "HR Analytics",
-      description: "Generate workforce and performance reports",
-      icon: ChartBarIcon,
-      href: "/hr-reports",
-      color: "bg-indigo-500 hover:bg-indigo-600"
+      color: "bg-gray-500 hover:bg-gray-600",
+      enabled: true
     }
   ];
 
@@ -352,6 +360,22 @@ export default function HRDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {hrActions.map((action, index) => {
               const IconComponent = action.icon;
+              
+              if (!action.enabled) {
+                // Disabled action - no click functionality, same appearance
+                return (
+                  <div
+                    key={index}
+                    className={`${action.color} text-white p-6 rounded-xl shadow-sm cursor-not-allowed`}
+                  >
+                    <IconComponent className="w-8 h-8 mb-3" />
+                    <h3 className="font-semibold mb-2">{action.title}</h3>
+                    <p className="text-sm opacity-90">{action.description}</p>
+                  </div>
+                );
+              }
+              
+              // Enabled action - clickable
               return (
                 <a
                   key={index}
@@ -407,9 +431,9 @@ export default function HRDashboard() {
             <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Department Structure</h3>
-                <a href="/departments" className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                  Manage Departments
-                </a>
+                <span className="text-gray-400 text-sm font-medium cursor-not-allowed">
+                  Manage Departments (Coming Soon)
+                </span>
               </div>
             </div>
             <div className="p-6">

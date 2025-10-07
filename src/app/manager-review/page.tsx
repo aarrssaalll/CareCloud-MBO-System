@@ -494,7 +494,7 @@ export default function ManagerReviewPage() {
                         </div>
                         <div>
                           <p className="text-xs font-medium text-gray-500">Weight</p>
-                          <p className="text-sm font-semibold text-gray-900">{objective.weight}%</p>
+                          <p className="text-sm font-semibold text-gray-900">{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
                         </div>
                       </div>
                     </div>
@@ -508,8 +508,10 @@ export default function ManagerReviewPage() {
                         <SparklesIcon className="h-4 w-4 text-blue-600" />
                         <span className="text-sm font-medium text-blue-600">AI Score</span>
                       </div>
-                      <p className="text-xl font-bold text-blue-700">{objective.aiEvaluation.score}</p>
-                      <p className="text-xs text-blue-600">/ {objective.weight}</p>
+                      <p className="text-xl font-bold text-blue-700">
+                        {objective.aiEvaluation.score < 1 ? Math.round(objective.aiEvaluation.score * 100) : objective.aiEvaluation.score}%
+                      </p>
+                      <p className="text-xs text-blue-600">/ {objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
                     </div>
 
                     {/* Override Score */}
@@ -519,8 +521,8 @@ export default function ManagerReviewPage() {
                           <PencilSquareIcon className="h-4 w-4 text-orange-600" />
                           <span className="text-sm font-medium text-orange-600">Override</span>
                         </div>
-                        <p className="text-xl font-bold text-orange-700">{overrideScores[objective.id]}</p>
-                        <p className="text-xs text-orange-600">/ {objective.weight}</p>
+                        <p className="text-xl font-bold text-orange-700">{overrideScores[objective.id]}%</p>
+                        <p className="text-xs text-orange-600">/ {objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
                       </div>
                     )}
 
@@ -530,8 +532,10 @@ export default function ManagerReviewPage() {
                         <CheckCircleIcon className="h-4 w-4 text-green-600" />
                         <span className="text-sm font-medium text-green-600">Final Score</span>
                       </div>
-                      <p className="text-xl font-bold text-green-700">{getFinalScore(objective)}</p>
-                      <p className="text-xs text-green-600">/ {objective.weight}</p>
+                      <p className="text-xl font-bold text-green-700">
+                        {getFinalScore(objective) < 1 ? Math.round(getFinalScore(objective) * 100) : getFinalScore(objective)}%
+                      </p>
+                      <p className="text-xs text-green-600">/ {objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
                     </div>
                   </div>
                 </div>
@@ -622,7 +626,7 @@ export default function ManagerReviewPage() {
                     
                     <div className="flex items-center space-x-4">
                       <div className="text-sm text-gray-500">
-                        AI Score: {objective.aiEvaluation.score} → Final: {getFinalScore(objective)}
+                        AI Score: {objective.aiEvaluation.score < 1 ? Math.round(objective.aiEvaluation.score * 100) : objective.aiEvaluation.score}% → Final: {getFinalScore(objective) < 1 ? Math.round(getFinalScore(objective) * 100) : getFinalScore(objective)}%
                       </div>
                       
                       {/* Individual Submit Button */}
@@ -746,11 +750,11 @@ export default function ManagerReviewPage() {
                         <strong>Objective:</strong> {selectedIndividualObjective.title}
                       </p>
                       <p className="text-sm text-blue-700">
-                        <strong>Final Score:</strong> {getFinalScore(selectedIndividualObjective)} / {selectedIndividualObjective.weight}
+                        <strong>Final Score:</strong> {getFinalScore(selectedIndividualObjective) < 1 ? Math.round(getFinalScore(selectedIndividualObjective) * 100) : getFinalScore(selectedIndividualObjective)}% / {selectedIndividualObjective.weight < 1 ? Math.round(selectedIndividualObjective.weight * 100) : selectedIndividualObjective.weight}%
                       </p>
                       <p className="text-sm text-blue-700">
-                        <strong>AI Score:</strong> {selectedIndividualObjective.aiEvaluation.score} → 
-                        <strong> Manager Score:</strong> {getFinalScore(selectedIndividualObjective)}
+                        <strong>AI Score:</strong> {selectedIndividualObjective.aiEvaluation.score < 1 ? Math.round(selectedIndividualObjective.aiEvaluation.score * 100) : selectedIndividualObjective.aiEvaluation.score}% → 
+                        <strong> Manager Score:</strong> {getFinalScore(selectedIndividualObjective) < 1 ? Math.round(getFinalScore(selectedIndividualObjective) * 100) : getFinalScore(selectedIndividualObjective)}%
                         {overrideScores[selectedIndividualObjective.id] !== undefined && (
                           <span className="text-orange-600"> (Override Applied)</span>
                         )}

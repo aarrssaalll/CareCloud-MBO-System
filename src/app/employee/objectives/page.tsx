@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { MicrophoneIcon } from "@heroicons/react/24/outline";
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -29,6 +30,7 @@ interface Objective {
   updatedAt: string;
   category?: string;
   employeeRemarks?: string;
+  managerFeedback?: string;
   assignedBy?: {
     id: string;
     name: string;
@@ -41,7 +43,7 @@ interface Objective {
 export default function EmployeeObjectivesPage() {
   console.log('🚀 EmployeeObjectivesPage component mounting...');
   
-  const { user, isLoading: authLoading } = useAuth(true, ['EMPLOYEE', 'MANAGER', 'employee', 'manager']);
+  const { user, isLoading: authLoading } = useAuth(true, ['EMPLOYEE', 'MANAGER', 'SENIOR_MANAGEMENT', 'employee', 'manager', 'senior-management']);
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -50,6 +52,196 @@ export default function EmployeeObjectivesPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitObjectiveId, setSubmitObjectiveId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  // Voice-to-text handlers
+  const checkMicrophonePermission = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop()); // Clean up
+      return true;
+    } catch (error) {
+      console.error('Microphone permission error:', error);
+      return false;
+    }
+  };
+
+  const handleVoiceInput = async () => {
+    // Check if we're running on HTTPS or localhost
+    const isSecureContext = window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+    if (!isSecureContext) {
+      alert("Speech recognition requires HTTPS or localhost. Please use a secure connection.");
+      return;
+    }
+
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari with the latest version.");
+      return;
+    }
+
+    if (listening) {
+      // Stop current recognition
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setListening(false);
+      return;
+    }
+
+    // Check microphone permission first
+    const hasPermission = await checkMicrophonePermission();
+    if (!hasPermission) {
+      alert("Microphone access is required. Please:\n1. Click the microphone icon in your browser's address bar\n2. Select 'Allow' for microphone access\n3. Refresh the page and try again");
+      return;
+    }
+
+    // Clean up any existing recognition
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+    recognition.interimResults = true; // Show interim results
+    recognition.continuous = true; // Keep listening
+    recognition.maxAlternatives = 1;
+    
+    let hasDetectedSpeech = false;
+
+    recognition.onresult = (event: any) => {
+      hasDetectedSpeech = true;
+      
+      let finalTranscript = '';
+      let interimTranscript = '';
+
+      // Only process NEW results from resultIndex onwards (this prevents duplicates)
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          finalTranscript += transcript;
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      console.log('New final transcript:', finalTranscript);
+      console.log('Interim transcript:', interimTranscript);
+
+      // Only update with final results to prevent duplicates
+      if (finalTranscript.trim()) {
+        setFinalComments(prev => {
+          const currentValue = prev || '';
+          const separator = currentValue && !currentValue.endsWith(' ') ? ' ' : '';
+          const newValue = currentValue + separator + finalTranscript.trim() + ' ';
+          console.log('Updating finalComments from:', currentValue, 'to:', newValue);
+          return newValue;
+        });
+      }
+    };
+
+    recognition.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setListening(true);
+    };
+
+    recognition.onend = () => {
+      console.log('🎤 Speech recognition ended');
+      
+      // Only restart if user is still in listening mode
+      if (listening && recognitionRef.current) {
+        // Small delay before restarting to prevent rapid restarts
+        setTimeout(() => {
+          if (listening && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+              console.log('🎤 Restarting recognition automatically');
+            } catch (error) {
+              console.log('Failed to restart recognition:', error);
+              setListening(false);
+              recognitionRef.current = null;
+            }
+          }
+        }, 100);
+      } else {
+        // User manually stopped it or recognition was cleared
+        setListening(false);
+        recognitionRef.current = null;
+      }
+    };
+
+    recognition.onerror = (event: any) => {
+      // Handle errors silently for common issues
+      switch (event.error) {
+        case 'no-speech':
+          // Don't log or show anything - this is normal
+          return;
+        case 'aborted':
+          // User stopped recording - don't show error
+          return;
+        case 'audio-capture':
+          alert('Microphone access denied. Please check your browser permissions and try again.');
+          break;
+        case 'not-allowed':
+          alert('Microphone access is not allowed. Please:\n1. Click the microphone icon in your browser address bar\n2. Select "Allow"\n3. Refresh the page');
+          break;
+        case 'network':
+          alert('Network error occurred. Please check your internet connection.');
+          break;
+        case 'service-not-allowed':
+          alert('Speech recognition service is not allowed. Please check if you are using HTTPS.');
+          break;
+        default:
+          console.error(`Speech recognition error: ${event.error}`);
+          alert(`Speech recognition error: ${event.error}. Please try again or contact support.`);
+      }
+      
+      setListening(false);
+      recognitionRef.current = null;
+    };
+
+    recognition.onspeechstart = () => {
+      console.log('🎤 Speech detected');
+      hasDetectedSpeech = true;
+    };
+
+    recognition.onspeechend = () => {
+      console.log('🎤 Speech ended');
+      // Don't auto-stop - let user control when to stop
+    };
+
+    recognition.onaudiostart = () => {
+      console.log('🎤 Audio input started');
+    };
+
+    recognition.onaudioend = () => {
+      console.log('🎤 Audio input ended');
+    };
+
+    recognition.onsoundstart = () => {
+      console.log('🎤 Sound detected');
+    };
+
+    recognition.onsoundend = () => {
+      console.log('🎤 Sound ended');
+    };
+
+    recognitionRef.current = recognition;
+    
+    try {
+      console.log('🎤 Starting speech recognition...');
+      recognition.start();
+    } catch (error) {
+      console.error('Failed to start speech recognition:', error);
+      setListening(false);
+      recognitionRef.current = null;
+      alert('Failed to start speech recognition. Please refresh the page and try again.');
+    }
+  };
   const [digitalSignature, setDigitalSignature] = useState('');
 
   // Helper functions
@@ -160,6 +352,16 @@ export default function EmployeeObjectivesPage() {
     if (!user) return;
     loadObjectives();
   }, [authLoading, user]);
+
+  // Cleanup speech recognition on unmount
+  useEffect(() => {
+    return () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+        recognitionRef.current = null;
+      }
+    };
+  }, []);
 
   if (authLoading || loading) {
     return (
@@ -382,6 +584,24 @@ export default function EmployeeObjectivesPage() {
                     </div>
                   </div>
 
+                  {/* Manager Feedback Section */}
+                  {objective.managerFeedback && (
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-start space-x-2">
+                        <ExclamationTriangleIcon className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-red-900 mb-1">Manager Feedback</h4>
+                          <p className="text-sm text-red-800">{objective.managerFeedback}</p>
+                          {objective.managerFeedback.startsWith('REJECTED:') && (
+                            <div className="mt-2 text-xs text-red-700">
+                              ⚠️ This objective has been rejected. Please review the feedback and make necessary improvements before resubmitting.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Enhanced Edit Form */}
                   {editingObjective === objective.id && (
                     <div className="mt-5 p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
@@ -390,27 +610,69 @@ export default function EmployeeObjectivesPage() {
                         <h4 className="text-lg font-medium text-gray-900">Update Progress</h4>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="space-y-2">
+                        <div className="space-y-4">
                           <label className="block text-sm font-medium text-gray-700">
                              Current Progress
                           </label>
-                          <input
-                            type="number"
-                            min={0}
-                            max={objective.target}
-                            value={objective.current || 0}
-                            onChange={(e) => {
-                              let newCurrent = parseInt(e.target.value) || 0;
-                              if (newCurrent < 0) newCurrent = 0;
-                              if (newCurrent > objective.target) newCurrent = objective.target;
-                              setObjectives(prev => prev.map(obj => 
-                                obj.id === objective.id ? { ...obj, current: newCurrent } : obj
-                              ));
-                            }}
-                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors"
-                            placeholder={`Enter value (max: ${objective.target})`}
-                          />
-                          <p className="text-xs text-gray-500">Target: {objective.target}</p>
+                          
+                          {/* Professional Score Input with Buttons */}
+                          <div className="bg-white rounded-lg border border-gray-300 p-4">
+                            <div className="flex items-center justify-between mb-3">
+                              <span className="text-sm text-gray-600">Current Value</span>
+                              <span className="text-lg font-bold text-[#004E9E]">{objective.current || 0}</span>
+                            </div>
+                            
+                            <div className="flex items-center space-x-2 mb-4">
+                              <button
+                                onClick={() => {
+                                  const newCurrent = Math.max(0, (objective.current || 0) - 1);
+                                  setObjectives(prev => prev.map(obj => 
+                                    obj.id === objective.id ? { ...obj, current: newCurrent } : obj
+                                  ));
+                                }}
+                                disabled={(objective.current || 0) <= 0}
+                                className="w-10 h-10 rounded-lg bg-red-100 hover:bg-red-200 disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                              >
+                                <span className="text-red-600 font-bold text-lg">−</span>
+                              </button>
+                              
+                              <div className="flex-1 relative">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={objective.target}
+                                  value={objective.current || 0}
+                                  onChange={(e) => {
+                                    let newCurrent = parseInt(e.target.value) || 0;
+                                    if (newCurrent < 0) newCurrent = 0;
+                                    if (newCurrent > objective.target) newCurrent = objective.target;
+                                    setObjectives(prev => prev.map(obj => 
+                                      obj.id === objective.id ? { ...obj, current: newCurrent } : obj
+                                    ));
+                                  }}
+                                  className="w-full text-center text-lg font-semibold rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-1 transition-colors py-2"
+                                />
+                              </div>
+                              
+                              <button
+                                onClick={() => {
+                                  const newCurrent = Math.min(objective.target, (objective.current || 0) + 1);
+                                  setObjectives(prev => prev.map(obj => 
+                                    obj.id === objective.id ? { ...obj, current: newCurrent } : obj
+                                  ));
+                                }}
+                                disabled={(objective.current || 0) >= objective.target}
+                                className="w-10 h-10 rounded-lg bg-green-100 hover:bg-green-200 disabled:bg-gray-100 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
+                              >
+                                <span className="text-green-600 font-bold text-lg">+</span>
+                              </button>
+                            </div>
+                            
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>Target: {objective.target}</span>
+                              <span>Progress: {Math.round(((objective.current || 0) / objective.target) * 100)}%</span>
+                            </div>
+                          </div>
                         </div>
                       </div>
                       <div className="mt-6 flex justify-end space-x-3">
@@ -514,19 +776,47 @@ export default function EmployeeObjectivesPage() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                   Final Comments *
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+                  Final Comments *
+                  <button
+                    type="button"
+                    onClick={handleVoiceInput}
+                    className={`ml-3 p-2 rounded-full border transition-all duration-200 ${
+                      listening
+                        ? "bg-red-500 text-white border-red-500 shadow-lg"
+                        : "bg-[#004E9E] text-white border-[#004E9E] hover:bg-[#003d7a] hover:shadow-md"
+                    }`}
+                    aria-label={listening ? "Stop voice input" : "Start voice input"}
+                    title={listening ? "Click to stop recording" : "Click to start voice input"}
+                  >
+                    <MicrophoneIcon className={`h-4 w-4 ${listening ? "animate-pulse" : ""}`} />
+                  </button>
+                  <span className={`ml-2 text-xs font-medium transition-colors ${
+                    listening ? "text-red-600" : "text-gray-500"
+                  }`}>
+                    {listening ? "🔴 Recording..." : "Voice input available"}
+                  </span>
                 </label>
                 <textarea
                   value={finalComments}
                   onChange={(e) => setFinalComments(e.target.value)}
                   placeholder="Describe your accomplishments, challenges overcome, and key outcomes achieved..."
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors"
+                  className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors ${
+                    listening ? "ring-2 ring-red-500 border-red-500" : ""
+                  }`}
                   rows={5}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Provide detailed information to help your manager understand your achievements
+                  {listening ? (
+                    <span className="text-red-600 font-medium">
+                      🎤 Speech is being converted to text...
+                    </span>
+                  ) : (
+                    "Provide detailed information to help your manager understand your achievements"
+                  )}
                 </p>
+              </div>
               </div>
               
               <div>

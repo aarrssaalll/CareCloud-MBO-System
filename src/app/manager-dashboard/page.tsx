@@ -14,7 +14,8 @@ import {
   ArrowTrendingUpIcon,
   BellIcon,
   UsersIcon,
-  XMarkIcon
+  XMarkIcon,
+  PencilSquareIcon
 } from '@heroicons/react/24/outline';
 
 // Types for the manager dashboard
@@ -27,8 +28,14 @@ interface TeamMember {
   manager: string;
   objectivesCount: number;
   completionRate: number;
-  lastActive: string;
   status: 'active' | 'pending_review' | 'overdue' | 'completed';
+  detailedStatus: string;
+  statusCounts: {
+    completed: number;
+    inProgress: number;
+    overdue: number;
+    pendingReview: number;
+  };
   currentQuarter: string;
 }
 
@@ -117,13 +124,24 @@ export default function ManagerDashboard() {
         );
         setTeamMembers(updatedTeamMembers);
 
-        alert(data.message);
+        alert(data.message || 'Objective assigned successfully!');
         setSelectedEmployee('');
         
         // Reload team data to get fresh metrics
         await loadTeamData();
       } else {
-        alert(data.error || 'Failed to assign objective');
+        // Handle weight validation errors specially
+        if (data.details && data.details.quarter) {
+          const details = data.details;
+          alert(`Weight Allocation Error for ${details.quarter}:\n\n` +
+                `Current Allocated: ${details.currentAllocated}%\n` +
+                `Available: ${details.available}%\n` +
+                `Requested: ${details.requestedTotal}%\n` +
+                `Exceeds by: ${details.exceedsBy}%\n\n` +
+                `Please reduce the weight or assign to a different quarter.`);
+        } else {
+          alert(data.error || 'Failed to assign objective');
+        }
       }
     } catch (error) {
       console.error('Error assigning objective:', error);
@@ -322,7 +340,6 @@ export default function ManagerDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Objectives</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Completion Rate</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Active</th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                       </tr>
                     </thead>
@@ -353,12 +370,16 @@ export default function ManagerDashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(member.status)}`}>
-                              {getStatusIcon(member.status)}
-                              <span className="ml-1 capitalize">{member.status.replace('_', ' ')}</span>
-                            </span>
+                            <div className="space-y-1">
+                              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(member.status)}`}>
+                                {getStatusIcon(member.status)}
+                                <span className="ml-1 capitalize">{member.status.replace('_', ' ')}</span>
+                              </span>
+                              <div className="text-xs text-gray-500">
+                                {member.detailedStatus}
+                              </div>
+                            </div>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(member.lastActive).toLocaleDateString()}</td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <button 
                               onClick={() => { setSelectedEmployee(member.id); setActiveTab('assign'); }} 
@@ -441,50 +462,56 @@ function CustomObjectiveCreationPanel({
     quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
     year: new Date().getFullYear()
   });
-  const [existingWeights, setExistingWeights] = useState<number>(0);
-  const [maxWeight, setMaxWeight] = useState<number>(100);
+  const [quarterlyWeights, setQuarterlyWeights] = useState<any>(null);
   const [loadingWeights, setLoadingWeights] = useState<boolean>(false);
 
   const employee = teamMembers.find(member => member.id === selectedEmployee);
 
-  // Fetch existing objectives' weights for the selected employee/quarter/year
+  // Fetch quarterly weight allocations for the selected employee
   useEffect(() => {
-    const fetchExistingWeights = async () => {
-      if (!employee || !objectiveData.quarter || !objectiveData.year) {
-        setExistingWeights(0);
-        setMaxWeight(100);
+    const fetchQuarterlyWeights = async () => {
+      if (!employee) {
+        setQuarterlyWeights(null);
         return;
       }
       setLoadingWeights(true);
       try {
-        const res = await fetch(`/api/mbo/objectives?userId=${employee.id}&quarter=${objectiveData.quarter}&year=${objectiveData.year}`);
+        const res = await fetch(`/api/manager/quarterly-weights?employeeId=${employee.id}&year=${objectiveData.year}`);
         const data = await res.json();
-        if (data.success && Array.isArray(data.data)) {
-          const sum = data.data.reduce((acc: number, obj: any) => acc + ((obj.weight || 0) * 100), 0); // weight is decimal, convert to %
-          setExistingWeights(sum);
-          setMaxWeight(Math.max(0, 100 - sum));
+        if (data.success) {
+          setQuarterlyWeights(data.quarterlyWeights);
         } else {
-          setExistingWeights(0);
-          setMaxWeight(100);
+          setQuarterlyWeights(null);
         }
       } catch (e) {
-        setExistingWeights(0);
-        setMaxWeight(100);
+        console.error('Error fetching quarterly weights:', e);
+        setQuarterlyWeights(null);
       } finally {
         setLoadingWeights(false);
       }
     };
     if (showCreateModal && employee) {
-      fetchExistingWeights();
+      fetchQuarterlyWeights();
     }
-  }, [showCreateModal, employee, objectiveData.quarter, objectiveData.year]);
+  }, [showCreateModal, employee, objectiveData.year]);
 
-  // Clamp weight if it exceeds maxWeight
-  useEffect(() => {
-    if (objectiveData.weight > maxWeight) {
-      setObjectiveData((prev) => ({ ...prev, weight: maxWeight }));
+  // Get current quarter's weight info
+  const getCurrentQuarterInfo = () => {
+    if (!quarterlyWeights || !objectiveData.quarter) {
+      return { allocated: 0, available: 100 };
     }
-  }, [maxWeight]);
+    return quarterlyWeights[objectiveData.quarter] || { allocated: 0, available: 100 };
+  };
+
+  const currentQuarterInfo = getCurrentQuarterInfo();
+
+  // Clamp weight if it exceeds available weight
+  useEffect(() => {
+    const available = currentQuarterInfo.available;
+    if (objectiveData.weight > available) {
+      setObjectiveData((prev) => ({ ...prev, weight: Math.max(5, available) }));
+    }
+  }, [currentQuarterInfo.available, objectiveData.weight]);
 
   const resetForm = () => {
     setObjectiveData({
@@ -507,6 +534,12 @@ function CustomObjectiveCreationPanel({
     
     if (!objectiveData.title || !objectiveData.description || !objectiveData.target || !objectiveData.dueDate) {
       alert('Please fill in all required fields.');
+      return;
+    }
+
+    // Check weight availability
+    if (objectiveData.weight > currentQuarterInfo.available) {
+      alert(`Not enough weight available for ${objectiveData.quarter}. Available: ${currentQuarterInfo.available}%, Requested: ${objectiveData.weight}%`);
       return;
     }
 
@@ -690,27 +723,49 @@ function CustomObjectiveCreationPanel({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Weight (%)
+                    Weight (%) - {objectiveData.quarter} {objectiveData.year}
                   </label>
                   <input
                     type="range"
                     value={objectiveData.weight}
                     onChange={(e) => setObjectiveData({ ...objectiveData, weight: parseInt(e.target.value) })}
                     min="5"
-                    max={maxWeight}
-                    disabled={maxWeight === 0 || loadingWeights}
+                    max={Math.max(5, currentQuarterInfo.available)}
+                    disabled={currentQuarterInfo.available === 0 || loadingWeights}
                     className="w-full"
                   />
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>5%</span>
                     <span className="font-medium text-[#004E9E]">{objectiveData.weight}%</span>
-                    <span>{maxWeight}% max</span>
+                    <span>{currentQuarterInfo.available}% max</span>
                   </div>
                   <p className="text-xs text-gray-500 mt-1">
                     {loadingWeights ? 'Checking available weight...' :
-                      maxWeight === 0 ? 'No weight left for this quarter.' :
-                      `You can assign up to ${maxWeight}% more for this quarter. (${existingWeights}% already assigned)`}
+                      currentQuarterInfo.available === 0 ? 'No weight left for this quarter.' :
+                      `You can assign up to ${currentQuarterInfo.available}% more for ${objectiveData.quarter}. (${currentQuarterInfo.allocated}% already assigned)`}
                   </p>
+                  
+                  {/* Quarterly Weight Overview */}
+                  {quarterlyWeights && !loadingWeights && (
+                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                      <h5 className="text-xs font-medium text-gray-700 mb-2">Weight Allocation Overview - {objectiveData.year}</h5>
+                      <div className="grid grid-cols-4 gap-2">
+                        {Object.entries(quarterlyWeights).map(([quarter, info]: [string, any]) => (
+                          <div key={quarter} className="text-center">
+                            <div className={`text-xs font-medium ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-600'}`}>
+                              {quarter}
+                            </div>
+                            <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-500'}`}>
+                              {info.allocated}% used
+                            </div>
+                            <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-400'}`}>
+                              {info.available}% left
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -807,6 +862,12 @@ function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[
   const [managerSignature, setManagerSignature] = useState<string>('');
   const [submissionNotes, setSubmissionNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
+  
+  // Rejection Modal States
+  const [showRejectionModal, setShowRejectionModal] = useState<boolean>(false);
+  const [rejectionObjective, setRejectionObjective] = useState<any>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
+  const [rejecting, setRejecting] = useState<boolean>(false);
 
   useEffect(() => {
     loadCompletedObjectives();
@@ -969,6 +1030,67 @@ function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[
     }
   };
 
+  // Handler for approving objective for AI scoring (existing functionality)
+  const handleApproveForAI = async (objectiveId: string) => {
+    // This just triggers the AI scoring directly - we can use the existing generateAIScores function
+    // but for a single objective. For now, let's use the batch approach.
+    const objectiveToScore = completedObjectives.find(obj => obj.id === objectiveId);
+    if (objectiveToScore) {
+      // Add to the list and trigger AI scoring
+      await generateAIScores();
+    }
+  };
+
+  // Handler for rejecting objectives
+  const handleRejectObjective = (objectiveId: string, title: string, employeeName: string) => {
+    const objective = completedObjectives.find(obj => obj.id === objectiveId);
+    setRejectionObjective({
+      id: objectiveId,
+      title,
+      employeeName,
+      ...objective
+    });
+    setShowRejectionModal(true);
+    setRejectionReason('');
+  };
+
+  // Submit rejection
+  const submitRejection = async () => {
+    if (!rejectionReason.trim()) {
+      alert('Please provide a reason for rejection');
+      return;
+    }
+
+    setRejecting(true);
+    try {
+      const response = await fetch('/api/manager/reject-objective', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objectiveId: rejectionObjective.id,
+          managerId: user?.id,
+          rejectionReason: rejectionReason.trim()
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert(`✅ Objective "${rejectionObjective.title}" has been rejected and sent back to ${rejectionObjective.employeeName}`);
+        setShowRejectionModal(false);
+        setRejectionObjective(null);
+        setRejectionReason('');
+        loadCompletedObjectives(); // Reload to remove rejected objective
+      } else {
+        alert(data.error || 'Failed to reject objective');
+      }
+    } catch (error) {
+      console.error('Error rejecting objective:', error);
+      alert('Error rejecting objective. Please try again.');
+    } finally {
+      setRejecting(false);
+    }
+  };
+
   const handleReviewSubmit = async (objectiveId: string) => {
     try {
       const response = await fetch('/api/manager/review-objective', {
@@ -1102,7 +1224,7 @@ function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[
                           onChange={(e) => updateObjectiveReview(objective.id, 'finalScore', Number(e.target.value))}
                           className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
                         />
-                        <p className="text-xs text-gray-500 mt-1">AI suggested: {objective.aiEvaluation?.score}</p>
+                        <p className="text-xs text-gray-500 mt-1">AI suggested: {objective.aiEvaluation?.score < 1 ? Math.round(objective.aiEvaluation.score * 100) : objective.aiEvaluation.score}%</p>
                       </div>
                       
                       <div>
@@ -1128,24 +1250,99 @@ function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[
             ))}
           </div>
         ) : completedObjectives.length > 0 ? (
-          /* Original Completed Objectives Display */
+          /* Enhanced Completed Objectives Display with Rejection Option */
           <div className="space-y-4">
+            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+              <h4 className="font-medium text-orange-900 mb-2">📋 Objectives Pending Your Review</h4>
+              <p className="text-sm text-orange-700">
+                Review employee-submitted objectives below. You can approve them for AI scoring or reject them back to the employee.
+              </p>
+            </div>
+            
             {completedObjectives.map((objective) => (
-              <div key={objective.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <h4 className="font-medium text-gray-900">{objective.title}</h4>
-                    <p className="text-sm text-gray-600">{objective.description}</p>
-                    <div className="mt-2 flex items-center space-x-4">
-                      <span className="text-sm text-gray-500">Employee: {objective.user?.name}</span>
-                      <span className="text-sm text-gray-500">Target: {objective.target}</span>
-                      <span className="text-sm text-gray-500">Current: {objective.current}</span>
-                      <span className="text-sm text-gray-500">Weight: {objective.weight}%</span>
-                    </div>
-                    <div className="mt-2">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <div key={objective.id} className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Objective Details */}
+                  <div>
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-gray-900 text-lg">{objective.title}</h4>
+                        <p className="text-sm text-gray-600 mt-1">{objective.description}</p>
+                      </div>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                         {objective.status}
                       </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4 text-sm mb-4">
+                      <div>
+                        <span className="font-medium text-gray-700">Employee:</span>
+                        <p className="text-gray-600">{objective.user?.name}</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Achievement:</span>
+                        <p className="text-gray-600">{objective.current}/{objective.target} ({Math.round((objective.current/objective.target)*100)}%)</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Weight:</span>
+                        <p className="text-gray-600">{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
+                      </div>
+                      <div>
+                        <span className="font-medium text-gray-700">Due Date:</span>
+                        <p className="text-gray-600">{new Date(objective.dueDate).toLocaleDateString()}</p>
+                      </div>
+                    </div>
+
+                    {/* Employee Final Description/Remarks */}
+                    {objective.employeeRemarks && (
+                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h5 className="font-medium text-blue-900 mb-2">👤 Employee Final Description</h5>
+                        <p className="text-sm text-blue-800">{objective.employeeRemarks}</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manager Actions */}
+                  <div className="space-y-4">
+                    <div className="bg-white rounded-lg p-4 border">
+                      <h5 className="font-medium text-gray-900 mb-3">Manager Actions</h5>
+                      
+                      <div className="space-y-3">
+                        <button
+                          onClick={() => handleApproveForAI(objective.id)}
+                          className="w-full px-4 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center space-x-2 transition-colors"
+                        >
+                          <span>✅ Approve for AI Scoring</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleRejectObjective(objective.id, objective.title, objective.user?.name)}
+                          className="w-full px-4 py-3 bg-red-600 text-white rounded-md hover:bg-red-700 flex items-center justify-center space-x-2 transition-colors"
+                        >
+                          <span>❌ Reject & Send Back</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Quick Stats */}
+                    <div className="bg-white rounded-lg p-4 border">
+                      <h5 className="font-medium text-gray-900 mb-2">Quick Stats</h5>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Progress:</span>
+                          <span className="font-medium">{Math.round((objective.current/objective.target)*100)}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Quarter:</span>
+                          <span className="font-medium">{objective.quarter} {objective.year}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">Submitted:</span>
+                          <span className="font-medium">
+                            {objective.submittedToManagerAt ? new Date(objective.submittedToManagerAt).toLocaleDateString() : 'N/A'}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1176,7 +1373,7 @@ function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[
                   </p>
                   <ul className="text-sm text-blue-700 mt-2 space-y-1">
                     {reviewedObjectives.map(obj => (
-                      <li key={obj.id}>• {obj.user?.name}: {obj.title} (Score: {obj.finalScore})</li>
+                      <li key={obj.id}>• {obj.user?.name}: {obj.title} (Score: {obj.finalScore < 1 ? Math.round(obj.finalScore * 100) : obj.finalScore}%)</li>
                     ))}
                   </ul>
                 </div>
@@ -1234,6 +1431,77 @@ function ObjectivesReviewPanel({ teamMembers, user }: { teamMembers: TeamMember[
           </div>
         </div>
       )}
+
+      {/* Rejection Modal */}
+      {showRejectionModal && rejectionObjective && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">❌ Reject Objective</h3>
+              
+              <div className="space-y-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <h4 className="font-medium text-red-900 mb-2">Objective Details</h4>
+                  <p className="text-sm text-red-700">
+                    <strong>Title:</strong> {rejectionObjective.title}
+                  </p>
+                  <p className="text-sm text-red-700">
+                    <strong>Employee:</strong> {rejectionObjective.employeeName}
+                  </p>
+                  <p className="text-sm text-red-700 mt-2">
+                    This objective will be sent back to the employee for revision.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for Rejection * <span className="text-red-500">(Required)</span>
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={4}
+                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-red-500 focus:border-red-500"
+                    placeholder="Please provide specific feedback on why this objective is being rejected and what the employee should improve..."
+                    required
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Be specific and constructive. This feedback will help the employee improve their objective.
+                  </p>
+                </div>
+                
+                <div className="flex space-x-2 pt-4">
+                  <button
+                    onClick={() => {
+                      setShowRejectionModal(false);
+                      setRejectionObjective(null);
+                      setRejectionReason('');
+                    }}
+                    disabled={rejecting}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitRejection}
+                    disabled={rejecting || !rejectionReason.trim()}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center justify-center space-x-2"
+                  >
+                    {rejecting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Rejecting...</span>
+                      </>
+                    ) : (
+                      <span>❌ Reject Objective</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -1251,6 +1519,14 @@ function TeamManagementPanel({
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [memberObjectives, setMemberObjectives] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [editingObjective, setEditingObjective] = useState<any | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    target: '',
+    dueDate: '',
+    weight: ''
+  });
 
   const loadMemberObjectives = async (memberId: string) => {
     setLoading(true);
@@ -1306,6 +1582,61 @@ function TeamManagementPanel({
       console.error(`Error ${action} objective:`, error);
       alert(`Failed to ${action} objective`);
     }
+  };
+
+  const handleEditClick = (objective: any) => {
+    setEditingObjective(objective);
+    setEditForm({
+      title: objective.title,
+      description: objective.description,
+      target: objective.target.toString(),
+      dueDate: objective.dueDate ? new Date(objective.dueDate).toISOString().split('T')[0] : '',
+      weight: (objective.weight * 100).toString()
+    });
+  };
+
+  const handleEditSave = async () => {
+    try {
+      const response = await fetch('/api/manager/edit-objective', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          objectiveId: editingObjective.id,
+          managerId: user?.id,
+          title: editForm.title,
+          description: editForm.description,
+          target: parseInt(editForm.target),
+          dueDate: editForm.dueDate,
+          weight: parseFloat(editForm.weight) / 100
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        alert('Objective updated successfully!');
+        setEditingObjective(null);
+        if (selectedMember) {
+          loadMemberObjectives(selectedMember.id);
+        }
+        onRefreshData();
+      } else {
+        alert(data.error || 'Failed to update objective');
+      }
+    } catch (error) {
+      console.error('Error updating objective:', error);
+      alert('Failed to update objective');
+    }
+  };
+
+  const handleEditCancel = () => {
+    setEditingObjective(null);
+    setEditForm({
+      title: '',
+      description: '',
+      target: '',
+      dueDate: '',
+      weight: ''
+    });
   };
 
   return (
@@ -1424,12 +1755,14 @@ function TeamManagementPanel({
                                 🔔 Remind
                               </button>
                             )}
-                            <button
-                              onClick={() => handleObjectiveAction(objective.id, 'edit')}
-                              className="px-3 py-1 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded text-xs hover:shadow-md transition-all"
-                            >
-                              ✏️ Edit
-                            </button>
+                            {(objective.status === 'IN_PROGRESS' || objective.status === 'ASSIGNED' || objective.status === 'ACTIVE') && (
+                              <button
+                                onClick={() => handleEditClick(objective)}
+                                className="px-3 py-1 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded text-xs hover:shadow-md transition-all"
+                              >
+                                ✏️ Edit
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -1464,6 +1797,118 @@ function TeamManagementPanel({
           )}
         </div>
       </div>
+
+      {/* Edit Objective Modal */}
+      {editingObjective && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-6 border w-11/12 md:w-1/2 max-w-2xl shadow-xl rounded-xl bg-white">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <PencilSquareIcon className="h-6 w-6 text-[#004E9E]" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Edit Objective</h3>
+                  <p className="text-sm text-gray-500 mt-1">Update objective details for {selectedMember?.name}</p>
+                </div>
+              </div>
+              <button
+                onClick={handleEditCancel}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Title *
+                </label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-1 transition-colors"
+                  placeholder="Enter objective title"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={4}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-1 transition-colors"
+                  placeholder="Enter objective description"
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Target *
+                  </label>
+                  <input
+                    type="number"
+                    value={editForm.target}
+                    onChange={(e) => setEditForm({ ...editForm, target: e.target.value })}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-1 transition-colors"
+                    placeholder="Target value"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Weight (%) *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="100"
+                    value={editForm.weight}
+                    onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-1 transition-colors"
+                    placeholder="Weight %"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Due Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={editForm.dueDate}
+                    onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-1 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-8 flex justify-end space-x-4 pt-6 border-t border-gray-200">
+              <button
+                onClick={handleEditCancel}
+                className="px-6 py-2.5 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={!editForm.title.trim() || !editForm.description.trim() || !editForm.target || !editForm.weight || !editForm.dueDate}
+                className="px-6 py-2.5 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-lg hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium flex items-center space-x-2"
+              >
+                <span>💾</span>
+                <span>Save Changes</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

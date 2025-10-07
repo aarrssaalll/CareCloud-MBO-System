@@ -415,7 +415,7 @@ export default function HRPendingApprovalsPage() {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500">Weight</p>
-                        <p className="text-sm font-semibold text-gray-900">{objective.weight}%</p>
+                        <p className="text-sm font-semibold text-gray-900">{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
                       </div>
                     </div>
                   </div>
@@ -428,7 +428,7 @@ export default function HRPendingApprovalsPage() {
                       <SparklesIcon className="h-4 w-4 text-blue-600" />
                       <span className="text-sm font-medium text-blue-600">AI Score</span>
                     </div>
-                    <p className="text-lg font-bold text-blue-700">{objective.aiScore}</p>
+                    <p className="text-lg font-bold text-blue-700">{objective.aiScore < 1 ? Math.round(objective.aiScore * 100) : objective.aiScore}%</p>
                   </div>
                   {/* Manager Score */}
                   <div className="bg-green-50 border border-green-200 rounded-lg p-3">
@@ -436,7 +436,7 @@ export default function HRPendingApprovalsPage() {
                       <StarIcon className="h-4 w-4 text-green-600" />
                       <span className="text-sm font-medium text-green-600">Manager Score</span>
                     </div>
-                    <p className="text-lg font-bold text-green-700">{objective.managerScore}</p>
+                    <p className="text-lg font-bold text-green-700">{objective.managerScore < 1 ? Math.round(objective.managerScore * 100) : objective.managerScore}%</p>
                   </div>
                   <button
                     onClick={() => setViewingObjective(objective)}
@@ -507,7 +507,7 @@ export default function HRPendingApprovalsPage() {
                     <div className="bg-gray-50 p-4 rounded">
                       <p><strong>Target:</strong> {viewingObjective.target}</p>
                       <p><strong>Achieved:</strong> {viewingObjective.current}</p>
-                      <p><strong>Weight:</strong> {viewingObjective.weight}%</p>
+                      <p><strong>Weight:</strong> {viewingObjective.weight < 1 ? Math.round(viewingObjective.weight * 100) : viewingObjective.weight}%</p>
                       <p><strong>Completion:</strong> {getCompletionPercentage(viewingObjective)}%</p>
                     </div>
                   </div>
@@ -517,12 +517,12 @@ export default function HRPendingApprovalsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-blue-50 p-4 rounded border border-blue-200">
                       <p className="font-medium text-blue-600">AI Analysis</p>
-                      <p className="text-lg font-bold text-blue-700">Score: {viewingObjective.aiScore}</p>
+                      <p className="text-lg font-bold text-blue-700">Score: {viewingObjective.aiScore < 1 ? Math.round(viewingObjective.aiScore * 100) : viewingObjective.aiScore}%</p>
                       <p className="text-sm text-blue-600 mt-2">{viewingObjective.aiComments}</p>
                     </div>
                     <div className="bg-green-50 p-4 rounded border border-green-200">
                       <p className="font-medium text-green-600">Manager Review</p>
-                      <p className="text-lg font-bold text-green-700">Score: {viewingObjective.managerScore}</p>
+                      <p className="text-lg font-bold text-green-700">Score: {viewingObjective.managerScore < 1 ? Math.round(viewingObjective.managerScore * 100) : viewingObjective.managerScore}%</p>
                       <p className="text-sm text-green-600 mt-1">By: {viewingObjective.managerName}</p>
                     </div>
                   </div>

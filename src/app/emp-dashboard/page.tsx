@@ -97,6 +97,23 @@ export default function DashboardPage() {
   const totalObjectives = objectives.length;
   const completedObjectives = objectives.filter(obj => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
   const activeCount = objectives.filter(obj => obj.status !== 'COMPLETED' && obj.status !== 'BONUS_APPROVED').length;
+  
+  // Calculate overall completion rate based on actual progress (not just completed objectives)
+  const overallCompletionRate = useMemo(() => {
+    if (objectives.length === 0) return 0;
+    
+    let totalWeightedProgress = 0;
+    let totalWeight = 0;
+    
+    objectives.forEach((obj) => {
+      const progress = obj.target > 0 ? Math.min((obj.current / obj.target) * 100, 100) : 0;
+      const weight = obj.weight || 1;
+      totalWeightedProgress += progress * weight;
+      totalWeight += weight;
+    });
+    
+    return totalWeight > 0 ? totalWeightedProgress / totalWeight : 0;
+  }, [objectives]);
   const [performanceData, setPerformanceData] = useState<PerformanceData[]>([]);
   const [performanceScore, setPerformanceScore] = useState('--');
   const [bonusAmount, setBonusAmount] = useState('--');
@@ -131,11 +148,17 @@ export default function DashboardPage() {
         const performanceData = await performanceResponse.json();
         setPerformanceData(performanceData);
 
-        // Fetch bonus data
-        const bonusResponse = await fetch(`/api/mbo/bonus?userId=${currentUser.id}`);
+        // Fetch latest quarterly bonus data
+        const currentQuarter = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
+        const currentYear = new Date().getFullYear();
+        
+        const bonusResponse = await fetch(`/api/bonus/quarterly?employeeId=${currentUser.id}&quarter=${currentQuarter}&year=${currentYear}`);
         const bonusData = await bonusResponse.json();
-        if (bonusData && bonusData.amount) {
-          setBonusAmount(`$${Math.round(bonusData.amount)}`);
+        
+        if (bonusData.success && bonusData.bonus && bonusData.bonus.finalAmount > 0) {
+          setBonusAmount(`$${Math.round(bonusData.bonus.finalAmount).toLocaleString()}`);
+        } else {
+          setBonusAmount('$0');
         }
 
         setLoading(false);
@@ -222,26 +245,16 @@ export default function DashboardPage() {
       (obj) => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED'
     ).length;
     
-    // Calculate weighted performance score
-    let totalWeightedScore = 0;
-    let totalWeight = 0;
-    
-    objectives.forEach((obj) => {
-      const progress = obj.target > 0 ? (obj.current / obj.target) * 100 : 0;
-      const weight = obj.weight || 1; // Default weight to 1 if not specified
-      totalWeightedScore += Math.min(progress, 100) * weight;
-      totalWeight += weight;
-    });
-    
-    const weightedAverageScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
+    // Use the corrected overall completion rate
+    const weightedAverageScore = overallCompletionRate;
     
     // Update performance score state for header display
     if (weightedAverageScore > 0) {
       setPerformanceScore(`${Math.round(weightedAverageScore)}%`);
     }
 
-    const completionRate =
-      totalObjectives > 0 ? (completedObjectives / totalObjectives) * 100 : 0;
+    // Calculate actual completion rate (completed objectives / total objectives)
+    const objectivesCompletionRate = totalObjectives > 0 ? (completedObjectives / totalObjectives) * 100 : 0;
 
     return [
       {
@@ -260,16 +273,17 @@ export default function DashboardPage() {
         trend: 'up',
         icon: TrophyIcon,
         color: 'from-green-500 to-green-600',
-        progress: completionRate,
+        progress: objectivesCompletionRate,
       },
       {
         title: 'Quarterly Bonus',
-        value: bonusAmount || 'TBD',
-        change: bonusAmount !== '--' ? 8.3 : 0,
-        trend: bonusAmount !== '--' ? 'up' : 'neutral',
+        value: bonusAmount || '$0',
+        change: bonusAmount !== '--' && bonusAmount !== '$0' ? 8.3 : 0,
+        trend: bonusAmount !== '--' && bonusAmount !== '$0' ? 'up' : 'neutral',
         icon: CurrencyDollarIcon,
         color: 'from-yellow-500 to-orange-600',
-        progress: bonusAmount !== '--' ? Math.min(85, Math.max(0, Math.round(parseFloat(bonusAmount.replace(/[$,]/g, '')) / 100))) : 0,
+        progress: bonusAmount !== '--' && bonusAmount !== '$0' ? 
+          Math.min(100, Math.max(0, (parseFloat(bonusAmount.replace(/[$,]/g, '')) / 5000) * 100)) : 0, // Assuming max bonus around $5000
       },
     ];
   }, [objectives]);

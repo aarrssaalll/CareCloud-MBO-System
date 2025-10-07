@@ -30,7 +30,53 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create objectives in the database
+    // Validate weight allocation for each quarter before creating objectives
+    const year = new Date().getFullYear();
+    const weightValidations = new Map();
+
+    // Check current weight allocation for each quarter
+    for (const objective of objectives) {
+      const quarter = objective.quarter || `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
+      const requestedWeight = parseFloat(objective.weight) || 0.2; // Default 20%
+
+      if (!weightValidations.has(quarter)) {
+        // Get current weight allocation for this quarter
+        const currentObjectives = await prisma.mboObjective.findMany({
+          where: {
+            userId: employeeId,
+            quarter: quarter,
+            year: year
+          },
+          select: {
+            weight: true
+          }
+        });
+
+        const currentAllocated = currentObjectives.reduce((sum, obj) => sum + (obj.weight || 0), 0);
+        weightValidations.set(quarter, { currentAllocated, requestedTotal: 0 });
+      }
+
+      const validation = weightValidations.get(quarter);
+      validation.requestedTotal += requestedWeight;
+
+      // Check if total would exceed 100% (1.0)
+      if (validation.currentAllocated + validation.requestedTotal > 1.0) {
+        const available = Math.max(0, 1.0 - validation.currentAllocated);
+        return NextResponse.json({
+          success: false,
+          error: `Weight allocation would exceed 100% for ${quarter}`,
+          details: {
+            quarter,
+            currentAllocated: Math.round(validation.currentAllocated * 100),
+            requestedTotal: Math.round(validation.requestedTotal * 100),
+            available: Math.round(available * 100),
+            exceedsBy: Math.round((validation.currentAllocated + validation.requestedTotal - 1.0) * 100)
+          }
+        }, { status: 400 });
+      }
+    }
+
+    // Create objectives in the database (weight validation passed)
     const createdObjectives = await Promise.all(
       objectives.map(async (objective: any) => {
         return await prisma.mboObjective.create({
@@ -40,11 +86,11 @@ export async function POST(request: Request) {
             category: objective.category || 'performance',
             target: parseFloat(objective.target) || 100.0,
             current: 0,
-            weight: parseFloat(objective.weight) || 1.0,
+            weight: parseFloat(objective.weight) || 0.2, // Default 20%
             status: 'ASSIGNED', // Initial status when manager assigns
             dueDate: new Date(objective.dueDate),
             quarter: objective.quarter || `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
-            year: new Date().getFullYear(),
+            year: year,
             userId: employeeId,
             assignedById: assignedById
           }

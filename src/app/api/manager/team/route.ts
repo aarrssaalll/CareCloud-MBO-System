@@ -37,39 +37,51 @@ export async function GET(request: Request) {
       const objectives = member.objectives || [];
       const totalObjectives = objectives.length;
       
-      // Calculate completion rate
+      // Calculate weighted completion rate (same as employee dashboard)
       let completionRate = 0;
       if (totalObjectives > 0) {
-        const completedObjectives = objectives.filter(obj => {
-          if (obj.current && obj.target) {
-            return (obj.current / obj.target) >= 1.0;
-          }
-          return false;
-        }).length;
-        completionRate = Math.round((completedObjectives / totalObjectives) * 100);
+        let totalWeight = 0;
+        let totalWeightedProgress = 0;
+
+        objectives.forEach(objective => {
+          const progress = Math.min((objective.current || 0) / objective.target, 1);
+          const weight = objective.weight || 0.2; // Default weight 20%
+          totalWeight += weight;
+          totalWeightedProgress += progress * weight;
+        });
+
+        completionRate = totalWeight > 0 ? Math.round((totalWeightedProgress / totalWeight) * 100) : 0;
       }
 
-      // Determine status based on objectives and reviews
-      let status: 'active' | 'pending_review' | 'overdue' | 'completed' = 'active';
+      // Count objectives by status for detailed breakdown
+      const completedCount = objectives.filter(obj => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
+      const inProgressCount = objectives.filter(obj => obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED').length;
+      const overdueCount = objectives.filter(obj => 
+        new Date(obj.dueDate) < new Date() && 
+        (obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED')
+      ).length;
+      const pendingReviewCount = objectives.filter(obj => obj.status === 'SUBMITTED_TO_MANAGER').length;
+
+      // Create detailed status string
+      const statusParts = [];
+      if (completedCount > 0) statusParts.push(`${completedCount} completed`);
+      if (overdueCount > 0) statusParts.push(`${overdueCount} overdue`);
+      if (inProgressCount > 0) statusParts.push(`${inProgressCount} in progress`);
+      if (pendingReviewCount > 0) statusParts.push(`${pendingReviewCount} pending review`);
+      
+      const detailedStatus = statusParts.length > 0 ? statusParts.join(', ') : 'No objectives';
+
+      // Determine primary status for UI styling
+      let primaryStatus: 'active' | 'pending_review' | 'overdue' | 'completed' = 'active';
       
       if (totalObjectives === 0) {
-        status = 'active';
-      } else {
-        const hasUnreviewedObjectives = objectives.some(obj => 
-          obj.reviews.length === 0 && obj.status === 'COMPLETED'
-        );
-        const hasOverdueObjectives = objectives.some(obj => 
-          new Date(obj.dueDate) < new Date() && obj.status !== 'COMPLETED'
-        );
-        const allCompleted = objectives.every(obj => obj.status === 'COMPLETED');
-
-        if (hasOverdueObjectives) {
-          status = 'overdue';
-        } else if (hasUnreviewedObjectives) {
-          status = 'pending_review';
-        } else if (allCompleted) {
-          status = 'completed';
-        }
+        primaryStatus = 'active';
+      } else if (overdueCount > 0) {
+        primaryStatus = 'overdue';
+      } else if (pendingReviewCount > 0) {
+        primaryStatus = 'pending_review';
+      } else if (completedCount === totalObjectives && totalObjectives > 0) {
+        primaryStatus = 'completed';
       }
 
       return {
@@ -81,8 +93,14 @@ export async function GET(request: Request) {
         manager: managerId,
         objectivesCount: totalObjectives,
         completionRate: completionRate,
-        lastActive: member.updatedAt.toISOString().split('T')[0],
-        status: status,
+        status: primaryStatus,
+        detailedStatus: detailedStatus,
+        statusCounts: {
+          completed: completedCount,
+          inProgress: inProgressCount,
+          overdue: overdueCount,
+          pendingReview: pendingReviewCount
+        },
         currentQuarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}-${new Date().getFullYear()}`
       };
     });

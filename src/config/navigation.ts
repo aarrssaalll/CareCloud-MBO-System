@@ -26,7 +26,7 @@ export interface NavigationItem {
 
 export const NAV_ITEMS: NavigationItem[] = [
   { name: 'Dashboard', href: '/emp-dashboard', icon: HomeIcon, roles: ['employee', 'manager', 'hr', 'senior-management'] },
-  { name: 'Objectives', href: '/objectives', icon: ClipboardDocumentListIcon, roles: ['employee', 'manager'] },
+  { name: 'Pending Objectives', href: '/objectives', icon: ClipboardDocumentListIcon, roles: ['employee', 'manager'] },
   { name: 'Incoming Reviews', href: '/hr/incoming-objectives', icon: InboxIcon, roles: ['hr'] },
   { name: 'All Objectives', href: '/hr/objectives', icon: DocumentTextIcon, roles: ['hr'] },
   { name: 'Performance Review', href: '/performance', icon: ChartBarIcon, roles: ['employee', 'manager', 'hr'] },

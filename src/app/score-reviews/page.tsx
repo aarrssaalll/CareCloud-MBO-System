@@ -316,11 +316,11 @@ export default function ScoreReviewsPage() {
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500">Weight</p>
-                        <p className="text-sm font-semibold text-gray-900">{objective.weight}%</p>
+                        <p className="text-sm font-semibold text-gray-900">{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</p>
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-500">AI Score</p>
-                        <p className="text-sm font-semibold text-gray-900">{objective.aiEvaluation.score}/{objective.weight}</p>
+                        <p className="text-sm font-semibold text-gray-900">{objective.aiEvaluation.score < 1 ? Math.round(objective.aiEvaluation.score * 100) : objective.aiEvaluation.score}/{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}</p>
                       </div>
                     </div>
 
@@ -427,11 +427,11 @@ export default function ScoreReviewsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Weight</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedObjective.weight}%</p>
+                    <p className="mt-1 text-sm text-gray-900">{selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}%</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">AI Score</label>
-                    <p className="mt-1 text-sm text-gray-900">{selectedObjective.aiEvaluation.score}/{selectedObjective.weight}</p>
+                    <p className="mt-1 text-sm text-gray-900">{selectedObjective.aiEvaluation.score < 1 ? Math.round(selectedObjective.aiEvaluation.score * 100) : selectedObjective.aiEvaluation.score}/{selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Completion</label>
@@ -451,7 +451,7 @@ export default function ScoreReviewsPage() {
                         onChange={(e) => setManagerScore(parseInt(e.target.value) || 0)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#004E9E] focus:border-[#004E9E]"
                       />
-                      <p className="text-xs text-gray-500 mt-1">Score out of {selectedObjective.weight}</p>
+                      <p className="text-xs text-gray-500 mt-1">Score out of {selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}</p>
                     </div>
 
                     <div>

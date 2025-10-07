@@ -78,7 +78,26 @@ export function useAuth(requireAuth: boolean = true, allowedRoles?: string[]) {
         if (!normalizedAllowedRoles.includes(normalizedUserRole)) {
           console.log(`Access denied. User role ${userRole} (normalized: ${normalizedUserRole}) not in allowed roles:`, normalizedAllowedRoles);
           alert(`Access denied. This page requires one of the following roles: ${allowedRolesRef.current.join(', ')}`);
-          router.push('/dashboard'); // Redirect to dashboard instead of login
+          
+          // Redirect to appropriate role-based objectives page instead of dashboard
+          const role = parsedUser.role?.toLowerCase();
+          switch (role) {
+            case 'employee':
+              router.push('/employee/objectives');
+              break;
+            case 'manager':
+              router.push('/manager/objectives');
+              break;
+            case 'hr':
+              router.push('/hr/objectives');
+              break;
+            case 'senior-management':
+              router.push('/hr/objectives');
+              break;
+            default:
+              router.push('/employee/objectives');
+              break;
+          }
           return;
         }
       }

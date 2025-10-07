@@ -28,70 +28,88 @@ export default function PerformancePage() {
     role: "employee" as const,
     email: "guest@carecloud.com"
   });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     // Get user data from localStorage
-    const userData = localStorage.getItem("user");
+    const userData = localStorage.getItem("mbo_user") || localStorage.getItem("user");
     if (userData) {
-      setUser(JSON.parse(userData));
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+      loadPerformanceData(parsedUser.id);
     } else {
       // Redirect to login if no user data
       window.location.href = "/login";
     }
   }, []);
 
-  // Sample performance data
-  const performanceHistory: PerformanceData[] = [
-    { quarter: "Q1 2023", score: 82, bonus: 1850, objectives: 6, ranking: 15 },
-    { quarter: "Q2 2023", score: 78, bonus: 1650, objectives: 6, ranking: 22 },
-    { quarter: "Q3 2023", score: 85, bonus: 2100, objectives: 7, ranking: 12 },
-    { quarter: "Q4 2023", score: 88, bonus: 2350, objectives: 6, ranking: 8 },
-    { quarter: "Q1 2024", score: 84, bonus: 1950, objectives: 6, ranking: 14 },
-    { quarter: "Q2 2024", score: 89, bonus: 2400, objectives: 7, ranking: 6 },
-    { quarter: "Q3 2024", score: 91, bonus: 2650, objectives: 6, ranking: 4 },
-    { quarter: "Q4 2024", score: 87, bonus: 2450, objectives: 6, ranking: 7 }
-  ];
-
-  const quarterlyDetails: QuarterlyMetrics[] = [
-    {
-      quarter: "Q4 2024",
-      totalObjectives: 6,
-      completedObjectives: 5,
-      avgScore: 87,
-      bonusEligible: true,
-      bonusAmount: 2450,
-      feedback: "Strong performance across customer satisfaction and training objectives. Continue focus on process improvement initiatives."
-    },
-    {
-      quarter: "Q3 2024",
-      totalObjectives: 6,
-      completedObjectives: 6,
-      avgScore: 91,
-      bonusEligible: true,
-      bonusAmount: 2650,
-      feedback: "Exceptional quarter with all objectives met. Leadership in cross-functional projects particularly noteworthy."
-    },
-    {
-      quarter: "Q2 2024",
-      totalObjectives: 7,
-      completedObjectives: 6,
-      avgScore: 89,
-      bonusEligible: true,
-      bonusAmount: 2400,
-      feedback: "Consistent high performance. Excellent mentorship contributions and knowledge sharing initiatives."
-    },
-    {
-      quarter: "Q1 2024",
-      totalObjectives: 6,
-      completedObjectives: 5,
-      avgScore: 84,
-      bonusEligible: true,
-      bonusAmount: 1950,
-      feedback: "Good performance with room for improvement in process efficiency initiatives."
+  const loadPerformanceData = async (userId: string) => {
+    try {
+      setLoading(true);
+      
+      // Load bonus history
+      const bonusResponse = await fetch(`/api/mbo/bonus/history?userId=${userId}`);
+      const bonusResult = await bonusResponse.json();
+      
+      // Load objectives data
+      const objectivesResponse = await fetch(`/api/employee/objectives?userId=${userId}`);
+      const objectivesResult = await objectivesResponse.json();
+      
+      if (bonusResult.success && bonusResult.bonuses && bonusResult.bonuses.length > 0) {
+        // Transform bonus data to performance history format
+        const transformedHistory = bonusResult.bonuses.map((bonus: any) => ({
+          quarter: `${bonus.quarter} ${bonus.year}`,
+          score: Math.round(bonus.performanceMultiplier * 100) || 0,
+          bonus: bonus.finalAmount || 0,
+          objectives: 0, // Will be calculated from objectives data
+          ranking: 0 // Not available in current data structure
+        }));
+        
+        setPerformanceHistory(transformedHistory);
+        
+        // Transform to quarterly details format
+        const transformedDetails = bonusResult.bonuses.map((bonus: any) => ({
+          quarter: `${bonus.quarter} ${bonus.year}`,
+          totalObjectives: 0, // Will be calculated
+          completedObjectives: 0, // Will be calculated
+          avgScore: Math.round(bonus.performanceMultiplier * 100) || 0,
+          bonusEligible: bonus.status === 'APPROVED' || bonus.status === 'CALCULATED',
+          bonusAmount: bonus.finalAmount || 0,
+          feedback: `Performance evaluation for ${bonus.quarter} ${bonus.year}. Status: ${bonus.status}`
+        }));
+        
+        setQuarterlyDetails(transformedDetails);
+      } else {
+        // No bonus data available - show empty state
+        setPerformanceHistory([]);
+        setQuarterlyDetails([]);
+      }
+      
+    } catch (error) {
+      console.error('Error loading performance data:', error);
+      // Set empty arrays on error
+      setPerformanceHistory([]);
+      setQuarterlyDetails([]);
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
 
-  const currentQuarter = quarterlyDetails[0];
+  // Initialize empty performance data - will be loaded from database
+  const [performanceHistory, setPerformanceHistory] = useState<PerformanceData[]>([]);
+
+  // Initialize empty quarterly details - will be loaded from database
+  const [quarterlyDetails, setQuarterlyDetails] = useState<QuarterlyMetrics[]>([]);
+
+  const currentQuarter = quarterlyDetails[0] || {
+    quarter: "Q1 2025",
+    totalObjectives: 0,
+    completedObjectives: 0,
+    avgScore: 0,
+    bonusEligible: false,
+    bonusAmount: 0,
+    feedback: "No performance data available yet."
+  };
 
   const getPerformanceColor = (score: number) => {
     if (score >= 90) return "text-green-600";
@@ -138,8 +156,8 @@ export default function PerformancePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-text-light text-sm">Current Ranking</p>
-                <p className="text-3xl font-bold text-text">#7</p>
-                <p className="text-green-600 text-sm">↑ 3 positions</p>
+                <p className="text-3xl font-bold text-text">N/A</p>
+                <p className="text-gray-500 text-sm">No ranking data</p>
               </div>
               <div className="text-4xl">⭐</div>
             </div>
@@ -150,7 +168,12 @@ export default function PerformancePage() {
               <div>
                 <p className="text-text-light text-sm">Objectives Progress</p>
                 <p className="text-3xl font-bold text-text">{currentQuarter.completedObjectives}/{currentQuarter.totalObjectives}</p>
-                <p className="text-blue-600 text-sm">83% complete</p>
+                <p className="text-blue-600 text-sm">
+                  {currentQuarter.totalObjectives > 0 
+                    ? `${Math.round((currentQuarter.completedObjectives / currentQuarter.totalObjectives) * 100)}% complete`
+                    : 'No objectives yet'
+                  }
+                </p>
               </div>
               <div className="text-4xl">◯</div>
             </div>
@@ -159,9 +182,11 @@ export default function PerformancePage() {
           <div className="ms-card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-text-light text-sm">Estimated Bonus</p>
+                <p className="text-text-light text-sm">Current Bonus</p>
                 <p className="text-3xl font-bold text-text">${currentQuarter.bonusAmount.toLocaleString()}</p>
-                <p className="text-green-600 text-sm">Eligible</p>
+                <p className={`text-sm ${currentQuarter.bonusEligible ? 'text-green-600' : 'text-gray-500'}`}>
+                  {currentQuarter.bonusAmount > 0 ? (currentQuarter.bonusEligible ? 'Approved' : 'Calculated') : 'No bonus yet'}
+                </p>
               </div>
               <div className="text-4xl">$</div>
             </div>
@@ -173,125 +198,174 @@ export default function PerformancePage() {
           {/* Performance Trend Chart */}
           <div className="ms-card p-6">
             <h3 className="text-lg font-semibold text-text mb-4">Performance Trend</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={performanceHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="quarter" />
-                <YAxis domain={[60, 100]} />
-                <Tooltip />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="score" 
-                  stroke="#004E9E" 
-                  strokeWidth={3}
-                  dot={{ fill: "#004E9E", strokeWidth: 2, r: 6 }}
-                  name="Performance Score"
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E]"></div>
+              </div>
+            ) : performanceHistory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={performanceHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="quarter" />
+                  <YAxis domain={[0, 100]} />
+                  <Tooltip />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="score" 
+                    stroke="#004E9E" 
+                    strokeWidth={3}
+                    dot={{ fill: "#004E9E", strokeWidth: 2, r: 6 }}
+                    name="Performance Score"
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">📊</div>
+                  <p>No performance data available</p>
+                  <p className="text-sm">Complete some objectives to see your trends</p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Bonus History Chart */}
           <div className="ms-card p-6">
             <h3 className="text-lg font-semibold text-text mb-4">Bonus History</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={performanceHistory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="quarter" />
-                <YAxis />
-                <Tooltip formatter={(value) => [`$${value}`, 'Bonus Amount']} />
-                <Legend />
-                <Bar 
-                  dataKey="bonus" 
-                  fill="#007BFF" 
-                  name="Bonus Amount ($)"
-                  radius={[4, 4, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-[300px]">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E]"></div>
+              </div>
+            ) : performanceHistory.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={performanceHistory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="quarter" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => [`$${value}`, 'Bonus Amount']} />
+                  <Legend />
+                  <Bar 
+                    dataKey="bonus" 
+                    fill="#007BFF" 
+                    name="Bonus Amount ($)"
+                    radius={[4, 4, 0, 0]}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">💰</div>
+                  <p>No bonus history available</p>
+                  <p className="text-sm">Bonuses will appear here once awarded</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
         {/* Quarterly Details */}
-  <div className="ms-card p-6">
+        <div className="ms-card p-6">
           <h3 className="text-lg font-semibold text-text mb-6">Quarterly Performance Details</h3>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Quarter
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Objectives
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Score
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Bonus
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Performance
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Manager Feedback
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {quarterlyDetails.map((quarter, index) => {
-                  const badge = getPerformanceBadge(quarter.avgScore);
-                  return (
-                    <tr key={quarter.quarter} className={index === 0 ? "bg-blue-50" : ""}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-sm font-medium text-text">{quarter.quarter}</span>
-                          {index === 0 && (
-                            <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                              Current
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-text">
-                          {quarter.completedObjectives}/{quarter.totalObjectives}
-                        </div>
-                        <div className="text-xs text-text-light">
-                          {Math.round((quarter.completedObjectives / quarter.totalObjectives) * 100)}% Complete
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`text-lg font-semibold ${getPerformanceColor(quarter.avgScore)}`}>
-                          {quarter.avgScore}/100
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-text">
-                          ${quarter.bonusAmount.toLocaleString()}
-                        </div>
-                        <div className="text-xs text-text-light">
-                          {quarter.bonusEligible ? "Eligible" : "Not Eligible"}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${badge.bg} ${badge.color}`}>
-                          {badge.text}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-text-light max-w-xs">
-                          {quarter.feedback}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E]"></div>
+              <span className="ml-3 text-gray-600">Loading performance data...</span>
+            </div>
+          ) : quarterlyDetails.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Quarter
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Objectives
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Score
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Bonus
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Performance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Manager Feedback
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {quarterlyDetails.map((quarter, index) => {
+                    const badge = getPerformanceBadge(quarter.avgScore);
+                    return (
+                      <tr key={quarter.quarter} className={index === 0 ? "bg-blue-50" : ""}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <span className="text-sm font-medium text-text">{quarter.quarter}</span>
+                            {index === 0 && (
+                              <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                Recent
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-text">
+                            {quarter.completedObjectives}/{quarter.totalObjectives}
+                          </div>
+                          <div className="text-xs text-text-light">
+                            {quarter.totalObjectives > 0 
+                              ? `${Math.round((quarter.completedObjectives / quarter.totalObjectives) * 100)}% Complete`
+                              : 'N/A'
+                            }
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`text-lg font-semibold ${getPerformanceColor(quarter.avgScore)}`}>
+                            {quarter.avgScore}/100
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-text">
+                            ${quarter.bonusAmount.toLocaleString()}
+                          </div>
+                          <div className="text-xs text-text-light">
+                            {quarter.bonusAmount > 0 ? (quarter.bonusEligible ? "Approved" : "Calculated") : "No bonus"}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs font-medium rounded-full ${badge.bg} ${badge.color}`}>
+                            {badge.text}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="text-sm text-text-light max-w-xs">
+                            {quarter.feedback}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              <div className="text-6xl mb-4">📋</div>
+              <h4 className="text-lg font-medium mb-2">No Performance Data Yet</h4>
+              <p className="text-sm">Your quarterly performance details will appear here once you have:</p>
+              <ul className="text-sm mt-3 space-y-1">
+                <li>• Completed some objectives</li>
+                <li>• Received manager reviews</li>
+                <li>• Had bonus calculations processed</li>
+              </ul>
+            </div>
+          )}
         </div>
 
         {/* Performance Insights */}

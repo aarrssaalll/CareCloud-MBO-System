@@ -48,6 +48,17 @@ interface Objective {
     email: string;
     title: string;
   };
+  reviews?: Array<{
+    id: string;
+    score: number;
+    comments: string;
+    reviewDate: string;
+    reviewer: {
+      id: string;
+      name: string;
+      title: string;
+    };
+  }>;
 }
 
 export default function HRIncomingObjectivesPage() {
@@ -330,7 +341,30 @@ export default function HRIncomingObjectivesPage() {
                           <div>
                             <div className="text-sm font-medium text-gray-900">{objective.user.name}</div>
                             <div className="text-sm text-gray-500">{objective.title}</div>
-                            <div className="text-xs text-gray-400">Weight: {objective.weight}%</div>
+                            <div className="text-xs text-gray-400">Weight: {objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</div>
+                            
+                            {/* Manager Comments Preview */}
+                            {(objective.managerFeedback || (objective.reviews && objective.reviews.length > 0)) && (
+                              <div className="mt-1 p-2 bg-blue-50 rounded text-xs">
+                                <div className="flex items-center text-blue-700 mb-1">
+                                  <DocumentCheckIcon className="h-3 w-3 mr-1" />
+                                  <span className="font-medium">Manager Comments:</span>
+                                </div>
+                                {objective.managerFeedback && (
+                                  <div className="text-blue-600 truncate max-w-xs">
+                                    {objective.managerFeedback.length > 60 
+                                      ? `${objective.managerFeedback.substring(0, 60)}...` 
+                                      : objective.managerFeedback
+                                    }
+                                  </div>
+                                )}
+                                {objective.reviews && objective.reviews.length > 0 && (
+                                  <div className="text-blue-600 text-xs">
+                                    +{objective.reviews.length} review comment{objective.reviews.length > 1 ? 's' : ''}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -351,8 +385,8 @@ export default function HRIncomingObjectivesPage() {
                           {aiScore ? (
                             <div className="flex items-center">
                               <SparklesIcon className="h-4 w-4 text-purple-500 mr-1" />
-                              <span className="text-sm font-medium text-gray-900">{aiScore}</span>
-                              <span className="text-xs text-gray-500">/{objective.weight}</span>
+                              <span className="text-sm font-medium text-gray-900">{aiScore < 1 ? Math.round(aiScore * 100) : aiScore}%</span>
+                              <span className="text-xs text-gray-500">/{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</span>
                             </div>
                           ) : (
                             <span className="text-xs text-gray-400">No AI score</span>
@@ -451,14 +485,14 @@ export default function HRIncomingObjectivesPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Weight</label>
-                    <p className="text-sm text-gray-900">{selectedObjective.weight}%</p>
+                    <p className="text-sm text-gray-900">{selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}%</p>
                   </div>
                 </div>
 
                 {getAIScore(selectedObjective) && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700">AI Score</label>
-                    <p className="text-sm text-gray-900">{getAIScore(selectedObjective)} / {selectedObjective.weight}</p>
+                    <p className="text-sm text-gray-900">{getAIScore(selectedObjective) < 1 ? Math.round(getAIScore(selectedObjective) * 100) : getAIScore(selectedObjective)}% / {selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}%</p>
                   </div>
                 )}
 
@@ -468,10 +502,43 @@ export default function HRIncomingObjectivesPage() {
                   <p className="text-xs text-gray-500">Based on AI score and weight factor</p>
                 </div>
 
-                {selectedObjective.managerFeedback && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Manager Feedback</label>
-                    <p className="text-sm text-gray-900">{selectedObjective.managerFeedback}</p>
+                {/* Manager Feedback Section */}
+                {(selectedObjective.managerFeedback || (selectedObjective.reviews && selectedObjective.reviews.length > 0)) && (
+                  <div className="space-y-3">
+                    <label className="block text-sm font-medium text-gray-700">Manager's Final Comments</label>
+                    
+                    {/* Manager Feedback from objective */}
+                    {selectedObjective.managerFeedback && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <h5 className="text-sm font-medium text-blue-900 mb-1">Manager Feedback</h5>
+                        <p className="text-sm text-blue-800">{selectedObjective.managerFeedback}</p>
+                      </div>
+                    )}
+
+                    {/* Manager Review Comments */}
+                    {selectedObjective.reviews && selectedObjective.reviews
+                      .filter((review: any) => review.comments && review.comments.trim())
+                      .map((review: any, index: number) => (
+                        <div key={review.id || index} className="bg-green-50 border border-green-200 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <h5 className="text-sm font-medium text-green-900">
+                              Manager Review {review.reviewer ? `by ${review.reviewer.name}` : ''}
+                            </h5>
+                            {review.score && (
+                              <span className="text-sm font-medium text-green-700">
+                                Score: {review.score < 1 ? Math.round(review.score * 100) : review.score}%
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-green-800">{review.comments}</p>
+                          {review.reviewDate && (
+                            <p className="text-xs text-green-600 mt-1">
+                              {new Date(review.reviewDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    }
                   </div>
                 )}
 

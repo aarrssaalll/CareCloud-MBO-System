@@ -361,12 +361,12 @@ export default function EnhancedObjectiveAssignment() {
       });
 
       if (result.success) {
-        const successCount = result.results.filter(r => r.success).length;
-        alert(`Successfully assigned objectives to ${successCount} employees!`);
-        setSelectedEmployees([]);
-        loadTeamMembers();
-        loadAssignmentHistory();
-      }
+  const successCount = (result.results ?? []).filter(r => r.success).length;
+  alert(`Successfully assigned objectives to ${successCount} employees!`);
+  setSelectedEmployees([]);
+  loadTeamMembers();
+  loadAssignmentHistory();
+}
     } catch (error) {
       alert('An error occurred during bulk assignment.');
     } finally {

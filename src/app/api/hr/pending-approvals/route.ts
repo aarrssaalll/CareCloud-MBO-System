@@ -33,6 +33,27 @@ export async function GET(request: NextRequest) {
             email: true,
             title: true
           }
+        },
+        reviews: {
+          where: {
+            reviewType: 'MANAGER'
+          },
+          select: {
+            id: true,
+            score: true,
+            comments: true,
+            reviewDate: true,
+            reviewer: {
+              select: {
+                id: true,
+                name: true,
+                title: true
+              }
+            }
+          },
+          orderBy: {
+            reviewDate: 'desc'
+          }
         }
       },
       orderBy: [
