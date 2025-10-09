@@ -128,15 +128,25 @@ export default function HRIncomingObjectivesPage() {
     }
   };
 
+  const getFinalScore = (objective: Objective) => {
+    // Check if there's a manager review with a score (final score)
+    if (objective.reviews && objective.reviews.length > 0) {
+      const latestReview = objective.reviews[0]; // Reviews are ordered by reviewDate desc
+      return latestReview.score;
+    }
+    // Fall back to AI score if no manager review
+    return getAIScore(objective);
+  };
+
   const calculateBonusAmount = (objective: Objective) => {
     // Simple bonus calculation for now - we'll enhance this later
-    // Base calculation: (AI Score / Weight) * Base Bonus * Weight Factor
-    const aiScore = getAIScore(objective);
-    if (!aiScore) return 0;
+    // Base calculation: (Final Score / Weight) * Base Bonus * Weight Factor
+    const finalScore = getFinalScore(objective);
+    if (!finalScore) return 0;
     
     const baseBonusPerPoint = 100; // $100 per point
     const weightMultiplier = objective.weight / 100; // Convert percentage to decimal
-    const bonusAmount = Math.round(aiScore * baseBonusPerPoint * weightMultiplier);
+    const bonusAmount = Math.round(finalScore * baseBonusPerPoint * weightMultiplier);
     
     return bonusAmount;
   };
@@ -234,9 +244,14 @@ export default function HRIncomingObjectivesPage() {
                 </p>
               </div>
               <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">HR</p>
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
+                    <p className="text-xs text-gray-500">HR</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#003d7c] text-white flex items-center justify-center text-sm font-medium">
+                    {user.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
+                  </div>
                 </div>
               </div>
             </div>
@@ -247,54 +262,28 @@ export default function HRIncomingObjectivesPage() {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <ClockIcon className="h-8 w-8 text-blue-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending Review</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {objectives.filter(obj => obj.status === 'SUBMITTED_TO_HR').length}
-                </p>
+        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 overflow-hidden group max-w-md mx-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4 mb-3">
+                    <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
+                      <ClockIcon className="h-8 w-8 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-semibold text-blue-900">Pending Reviews</p>
+                      <p className="text-sm text-blue-600">Awaiting HR approval</p>
+                    </div>
+                  </div>
+                  <p className="text-4xl font-bold text-blue-900 mb-2">
+                    {objectives.filter(obj => obj.status !== 'REJECTED' && obj.status !== 'HR_APPROVED').length}
+                  </p>
+                  <p className="text-sm text-blue-700 font-medium">Objectives pending bonus approval</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <ExclamationTriangleIcon className="h-8 w-8 text-red-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Rejected</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {objectives.filter(obj => obj.status === 'REJECTED').length}
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <SparklesIcon className="h-8 w-8 text-purple-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Avg Achievement</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {objectives.length > 0 
-                    ? Math.round(objectives.reduce((sum, obj) => sum + getCompletionPercentage(obj), 0) / objectives.length)
-                    : 0}%
-                </p>
-              </div>
-            </div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <ChartBarIcon className="h-8 w-8 text-indigo-500" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Avg Achievement</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {objectives.length > 0 
-                    ? Math.round(objectives.reduce((sum, obj) => sum + getCompletionPercentage(obj), 0) / objectives.length)
-                    : 0}%
-                </p>
-              </div>
-            </div>
+            <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
           </div>
         </div>
 
@@ -305,18 +294,24 @@ export default function HRIncomingObjectivesPage() {
             <p className="text-sm text-gray-500 mt-1">Review manager evaluations and approve for bonus calculation</p>
           </div>
           <div className="overflow-x-auto">
-            {objectives.length > 0 ? (
+            {objectives.filter(obj => obj.status !== 'REJECTED').length > 0 ? (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Employee & Objective
+                      Objective Details
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Assigned To
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Assigned By
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Achievement
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      AI Score
+                      Final Score
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
@@ -330,102 +325,94 @@ export default function HRIncomingObjectivesPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {objectives.map((objective) => {
+                  {objectives
+                    .filter(objective => objective.status !== 'REJECTED')
+                    .map((objective) => {
+                    const finalScore = getFinalScore(objective);
                     const aiScore = getAIScore(objective);
                     const bonusAmount = calculateBonusAmount(objective);
                     const isRejected = objective.status === 'REJECTED';
                     
                     return (
                       <tr key={objective.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div>
-                            <div className="text-sm font-medium text-gray-900">{objective.user.name}</div>
-                            <div className="text-sm text-gray-500">{objective.title}</div>
-                            <div className="text-xs text-gray-400">Weight: {objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</div>
-                            
-                            {/* Manager Comments Preview */}
-                            {(objective.managerFeedback || (objective.reviews && objective.reviews.length > 0)) && (
-                              <div className="mt-1 p-2 bg-blue-50 rounded text-xs">
-                                <div className="flex items-center text-blue-700 mb-1">
-                                  <DocumentCheckIcon className="h-3 w-3 mr-1" />
-                                  <span className="font-medium">Manager Comments:</span>
-                                </div>
-                                {objective.managerFeedback && (
-                                  <div className="text-blue-600 truncate max-w-xs">
-                                    {objective.managerFeedback.length > 60 
-                                      ? `${objective.managerFeedback.substring(0, 60)}...` 
-                                      : objective.managerFeedback
-                                    }
-                                  </div>
-                                )}
-                                {objective.reviews && objective.reviews.length > 0 && (
-                                  <div className="text-blue-600 text-xs">
-                                    +{objective.reviews.length} review comment{objective.reviews.length > 1 ? 's' : ''}
-                                  </div>
-                                )}
-                              </div>
-                            )}
+                            <div className="text-sm font-medium text-gray-900">{objective.title}</div>
+                            <div className="text-xs text-gray-500">{objective.description.length > 30 ? `${objective.description.substring(0, 30)}...` : objective.description}</div>
+                            <div className="text-xs text-gray-400">{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}% • Q{objective.quarter}</div>
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{objective.user.name}</div>
+                          <div className="text-xs text-gray-500">{objective.user.title}</div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {objective.assignedBy ? objective.assignedBy.name : 'Manager'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {objective.assignedBy ? objective.assignedBy.title : 'Manager'}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="w-full bg-gray-200 rounded-full h-2 mr-3">
+                            <div className="w-12 bg-gray-200 rounded-full h-2 mr-2">
                               <div 
                                 className="bg-blue-500 h-2 rounded-full" 
                                 style={{ width: `${Math.min(100, getCompletionPercentage(objective))}%` }}
                               ></div>
                             </div>
-                            <span className="text-sm text-gray-900">{getCompletionPercentage(objective)}%</span>
+                            <span className="text-xs text-gray-900">{getCompletionPercentage(objective)}%</span>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {objective.current} / {objective.target}
+                          <div className="text-xs text-gray-500">
+                            {objective.current}/{objective.target}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {aiScore ? (
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {finalScore ? (
                             <div className="flex items-center">
-                              <SparklesIcon className="h-4 w-4 text-purple-500 mr-1" />
-                              <span className="text-sm font-medium text-gray-900">{aiScore < 1 ? Math.round(aiScore * 100) : aiScore}%</span>
-                              <span className="text-xs text-gray-500">/{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}%</span>
+                              {objective.reviews && objective.reviews.length > 0 ? (
+                                <div className="flex items-center">
+                                  <div className="h-2 w-2 bg-green-500 rounded-full mr-1" title="Manager Override" />
+                                  <span className="text-xs font-medium text-green-700">{finalScore < 1 ? Math.round(finalScore * 100) : finalScore}%</span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center">
+                                  <SparklesIcon className="h-3 w-3 text-purple-500 mr-1" />
+                                  <span className="text-xs font-medium text-gray-900">{finalScore < 1 ? Math.round(finalScore * 100) : finalScore}%</span>
+                                </div>
+                              )}
                             </div>
                           ) : (
-                            <span className="text-xs text-gray-400">No AI score</span>
+                            <span className="text-xs text-gray-400">No score</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {isRejected ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                              <ExclamationTriangleIcon className="h-3 w-3 mr-1" />
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
                               Rejected
                             </span>
                           ) : (
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getWorkflowStatusColor(objective.status)}`}>
-                              <ClockIcon className="h-3 w-3 mr-1" />
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getWorkflowStatusColor(objective.status)}`}>
                               {objective.status.replace('_', ' ')}
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {isRejected ? (
-                            <div className="text-sm text-gray-400">
-                              $0
-                            </div>
+                            <div className="text-xs text-gray-400">$0</div>
                           ) : (
-                            <div className="text-sm text-gray-500">
-                              ${bonusAmount.toLocaleString()} (est.)
-                            </div>
+                            <div className="text-xs text-gray-500">${bonusAmount.toLocaleString()}</div>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => setSelectedObjective(objective)}
-                              className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#004E9E]"
-                            >
-                              <EyeIcon className="h-4 w-4 mr-1" />
-                              Review
-                            </button>
-                          </div>
+                        <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
+                          <button
+                            onClick={() => setSelectedObjective(objective)}
+                            className="inline-flex items-center px-2 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                          >
+                            <EyeIcon className="h-3 w-3 mr-1" />
+                            Review
+                          </button>
                         </td>
                       </tr>
                     );
@@ -435,9 +422,9 @@ export default function HRIncomingObjectivesPage() {
             ) : (
               <div className="p-12 text-center">
                 <DocumentCheckIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No incoming objectives</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">No pending objectives</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  No objectives have been submitted by managers for HR approval yet.
+                  No objectives are currently pending HR review. Rejected objectives can be viewed in the "All Objectives" page.
                 </p>
               </div>
             )}
@@ -489,17 +476,32 @@ export default function HRIncomingObjectivesPage() {
                   </div>
                 </div>
 
-                {getAIScore(selectedObjective) && (
+                {getFinalScore(selectedObjective) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">AI Score</label>
-                    <p className="text-sm text-gray-900">{getAIScore(selectedObjective) < 1 ? Math.round(getAIScore(selectedObjective) * 100) : getAIScore(selectedObjective)}% / {selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}%</p>
+                    <label className="block text-sm font-medium text-gray-700">
+                      {selectedObjective.reviews && selectedObjective.reviews.length > 0 ? 'Final Score (Manager Override)' : 'AI Score'}
+                    </label>
+                    <p className="text-sm text-gray-900">
+                      <span className={selectedObjective.reviews && selectedObjective.reviews.length > 0 ? 'text-green-700 font-medium' : ''}>
+                        {getFinalScore(selectedObjective) < 1 ? Math.round(getFinalScore(selectedObjective) * 100) : getFinalScore(selectedObjective)}%
+                      </span>
+                      {' / '}
+                      {selectedObjective.weight < 1 ? Math.round(selectedObjective.weight * 100) : selectedObjective.weight}%
+                    </p>
+                    {selectedObjective.reviews && selectedObjective.reviews.length > 0 && getAIScore(selectedObjective) && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Original AI Score: {getAIScore(selectedObjective) < 1 ? Math.round(getAIScore(selectedObjective) * 100) : getAIScore(selectedObjective)}%
+                      </p>
+                    )}
                   </div>
                 )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Estimated Bonus Amount</label>
                   <p className="text-sm font-medium text-green-600">${calculateBonusAmount(selectedObjective).toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">Based on AI score and weight factor</p>
+                  <p className="text-xs text-gray-500">
+                    Based on {selectedObjective.reviews && selectedObjective.reviews.length > 0 ? 'manager final score' : 'AI score'} and weight factor
+                  </p>
                 </div>
 
                 {/* Manager Feedback Section */}

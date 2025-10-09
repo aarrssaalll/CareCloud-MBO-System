@@ -269,8 +269,36 @@ export default function HRPendingApprovalsPage() {
 
   // --- RENDER ---
   return (
-    <div className="p-6 bg-accent-gray min-h-screen">
-      {/* Top Stats */}
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Pending Approvals</h1>
+                <p className="mt-1 text-sm text-gray-500">
+                  Review and approve employee objectives awaiting HR approval
+                </p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-3">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                    <p className="text-xs text-gray-500">HR</p>
+                  </div>
+                  <div className="w-10 h-10 rounded-full bg-[#003d7c] text-white flex items-center justify-center text-sm font-medium">
+                    {user?.name?.split(' ').map((n: string) => n[0]).join('').slice(0,2).toUpperCase()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Top Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
           <div className="flex items-center">
@@ -550,6 +578,7 @@ export default function HRPendingApprovalsPage() {
         </div>
       )}
 
+      </div>
     </div>
   );
 }

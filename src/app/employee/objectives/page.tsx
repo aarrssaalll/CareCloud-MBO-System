@@ -52,74 +52,99 @@ export default function EmployeeObjectivesPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitObjectiveId, setSubmitObjectiveId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
+  const [interimText, setInterimText] = useState('');
   const [listening, setListening] = useState(false);
+  const [metrics, setMetrics] = useState<{ firstInterimMs?: number; firstFinalMs?: number }>({});
+  
+  // Voice recognition refs
   const recognitionRef = useRef<any>(null);
+  const listeningRef = useRef(false); // latest listening flag for handlers
+  const rafRef = useRef<number | null>(null); // for requestAnimationFrame throttle
+  const interimBufferRef = useRef(""); // accumulate interim between frames
+  const startTimeRef = useRef<number | null>(null);
+  const firstInterimLoggedRef = useRef(false);
 
-  // Voice-to-text handlers
-  const checkMicrophonePermission = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // Clean up
-      return true;
-    } catch (error) {
-      console.error('Microphone permission error:', error);
-      return false;
-    }
+  // Utility: safely set listening (state + ref)
+  const setListeningSafe = (val: boolean) => {
+    listeningRef.current = val;
+    setListening(val);
   };
 
-  const handleVoiceInput = async () => {
-    // Check if we're running on HTTPS or localhost
-    const isSecureContext = window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost';
-    if (!isSecureContext) {
-      alert("Speech recognition requires HTTPS or localhost. Please use a secure connection.");
-      return;
+  // Pre-check permission (non-blocking best effort)
+  async function ensureMicrophonePermission() {
+    // Try to avoid prompting in worst-case UX by asking once.
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Immediately stop tracks to avoid leaving mic open
+      stream.getTracks().forEach(t => t.stop());
+      return true;
+    } catch (err) {
+      console.warn("Microphone permission denied or unavailable:", err);
+      return false;
     }
+  }
 
-    const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    
-    if (!SpeechRecognition) {
-      alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari with the latest version.");
-      return;
-    }
+  function createRecognitionInstance() {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return null;
+    const r = new SpeechRecognition();
+    r.lang = "en-US";
+    r.interimResults = true;
+    r.continuous = true;
+    r.maxAlternatives = 1;
+    return r;
+  }
 
-    if (listening) {
-      // Stop current recognition
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
+  function flushInterimToState() {
+    // Called via rAF to throttle updates
+    const value = interimBufferRef.current;
+    if (value !== interimText) {
+      setInterimText(value);
+      // Log first interim latency once
+      if (!firstInterimLoggedRef.current && startTimeRef.current) {
+        const firstInterimMs = Math.round(performance.now() - startTimeRef.current);
+        firstInterimLoggedRef.current = true;
+        setMetrics(m => ({ ...m, firstInterimMs }));
       }
-      setListening(false);
-      return;
     }
+    rafRef.current = null;
+  }
 
-    // Check microphone permission first
-    const hasPermission = await checkMicrophonePermission();
-    if (!hasPermission) {
-      alert("Microphone access is required. Please:\n1. Click the microphone icon in your browser's address bar\n2. Select 'Allow' for microphone access\n3. Refresh the page and try again");
-      return;
+  function scheduleInterimFlush() {
+    if (rafRef.current == null) {
+      rafRef.current = requestAnimationFrame(flushInterimToState);
     }
+  }
 
-    // Clean up any existing recognition
+  function startRecognition() {
+    // Avoid duplicate starts
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
-      recognitionRef.current = null;
+      try {
+        recognitionRef.current.start();
+      } catch (e) {
+        // ignore if already started
+      }
+      setListeningSafe(true);
+      return;
     }
 
-    const recognition = new SpeechRecognition();
-    recognition.lang = "en-US";
-    recognition.interimResults = true; // Show interim results
-    recognition.continuous = true; // Keep listening
-    recognition.maxAlternatives = 1;
-    
-    let hasDetectedSpeech = false;
+    const r = createRecognitionInstance();
+    if (!r) {
+      alert("Speech recognition not supported in this browser.");
+      return;
+    }
 
-    recognition.onresult = (event: any) => {
-      hasDetectedSpeech = true;
-      
+    // Reset metrics
+    recognitionRef.current = r;
+    startTimeRef.current = performance.now();
+    firstInterimLoggedRef.current = false;
+    interimBufferRef.current = "";
+    setMetrics({});
+
+    r.onresult = (event: any) => {
       let finalTranscript = '';
       let interimTranscript = '';
 
-      // Only process NEW results from resultIndex onwards (this prevents duplicates)
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
@@ -129,60 +154,73 @@ export default function EmployeeObjectivesPage() {
         }
       }
 
-      console.log('New final transcript:', finalTranscript);
-      console.log('Interim transcript:', interimTranscript);
-
-      // Only update with final results to prevent duplicates
+      // Handle final results immediately
       if (finalTranscript.trim()) {
+        if (!firstInterimLoggedRef.current && startTimeRef.current) {
+          const firstFinalMs = Math.round(performance.now() - startTimeRef.current);
+          setMetrics(m => ({ ...m, firstFinalMs }));
+        }
+        
         setFinalComments(prev => {
-          const currentValue = prev || '';
-          const separator = currentValue && !currentValue.endsWith(' ') ? ' ' : '';
-          const newValue = currentValue + separator + finalTranscript.trim() + ' ';
-          console.log('Updating finalComments from:', currentValue, 'to:', newValue);
-          return newValue;
+          const sep = prev && !prev.endsWith(" ") ? " " : "";
+          return (prev || "") + sep + finalTranscript.trim() + " ";
         });
       }
-    };
 
-    recognition.onstart = () => {
-      console.log('🎤 Speech recognition started');
-      setListening(true);
-    };
-
-    recognition.onend = () => {
-      console.log('🎤 Speech recognition ended');
-      
-      // Only restart if user is still in listening mode
-      if (listening && recognitionRef.current) {
-        // Small delay before restarting to prevent rapid restarts
-        setTimeout(() => {
-          if (listening && recognitionRef.current) {
-            try {
-              recognitionRef.current.start();
-              console.log('🎤 Restarting recognition automatically');
-            } catch (error) {
-              console.log('Failed to restart recognition:', error);
-              setListening(false);
-              recognitionRef.current = null;
-            }
-          }
-        }, 100);
-      } else {
-        // User manually stopped it or recognition was cleared
-        setListening(false);
-        recognitionRef.current = null;
+      // Handle interim results with throttling
+      if (interimTranscript.trim()) {
+        interimBufferRef.current = interimTranscript.trim();
+        scheduleInterimFlush();
       }
     };
 
-    recognition.onerror = (event: any) => {
-      // Handle errors silently for common issues
+    r.onstart = () => {
+      console.log('🎤 Speech recognition started');
+      setListeningSafe(true);
+    };
+
+    r.onend = () => {
+      console.log("[speech] onend");
+      // If user still wants to listen, restart with small backoff
+      if (listeningRef.current) {
+        // small backoff to avoid tight restart loop
+        setTimeout(() => {
+          // if still listening and no instance exists, create fresh
+          if (listeningRef.current) {
+            try {
+              // sometimes calling start on existing instance throws; create new one
+              if (!recognitionRef.current) {
+                startRecognition();
+              } else {
+                recognitionRef.current.start();
+              }
+              console.log("[speech] restarted after onend");
+            } catch (err) {
+              console.error("[speech] failed restart", err);
+              // clear and stop
+              setListeningSafe(false);
+              if (recognitionRef.current) {
+                try { recognitionRef.current.stop(); } catch (_) {}
+                recognitionRef.current = null;
+              }
+            }
+          }
+        }, 200); // 200ms backoff recommended
+      } else {
+        // user has stopped
+        setListeningSafe(false);
+        if (recognitionRef.current) {
+          try { recognitionRef.current.stop(); } catch (_) {}
+          recognitionRef.current = null;
+        }
+      }
+    };
+
+    r.onerror = (event: any) => {
       switch (event.error) {
         case 'no-speech':
-          // Don't log or show anything - this is normal
-          return;
         case 'aborted':
-          // User stopped recording - don't show error
-          return;
+          return; // Silent for common cases
         case 'audio-capture':
           alert('Microphone access denied. Please check your browser permissions and try again.');
           break;
@@ -192,55 +230,63 @@ export default function EmployeeObjectivesPage() {
         case 'network':
           alert('Network error occurred. Please check your internet connection.');
           break;
-        case 'service-not-allowed':
-          alert('Speech recognition service is not allowed. Please check if you are using HTTPS.');
-          break;
         default:
           console.error(`Speech recognition error: ${event.error}`);
-          alert(`Speech recognition error: ${event.error}. Please try again or contact support.`);
+          alert(`Speech recognition error: ${event.error}. Please try again.`);
       }
-      
-      setListening(false);
+      setListeningSafe(false);
       recognitionRef.current = null;
     };
 
-    recognition.onspeechstart = () => {
-      console.log('🎤 Speech detected');
-      hasDetectedSpeech = true;
-    };
-
-    recognition.onspeechend = () => {
-      console.log('🎤 Speech ended');
-      // Don't auto-stop - let user control when to stop
-    };
-
-    recognition.onaudiostart = () => {
-      console.log('🎤 Audio input started');
-    };
-
-    recognition.onaudioend = () => {
-      console.log('🎤 Audio input ended');
-    };
-
-    recognition.onsoundstart = () => {
-      console.log('🎤 Sound detected');
-    };
-
-    recognition.onsoundend = () => {
-      console.log('🎤 Sound ended');
-    };
-
-    recognitionRef.current = recognition;
-    
+    // Start recognition
     try {
-      console.log('🎤 Starting speech recognition...');
-      recognition.start();
-    } catch (error) {
-      console.error('Failed to start speech recognition:', error);
-      setListening(false);
-      recognitionRef.current = null;
-      alert('Failed to start speech recognition. Please refresh the page and try again.');
+      r.start();
+      setListeningSafe(true);
+    } catch (err) {
+      console.error("[speech] start failed:", err);
+      setListeningSafe(false);
     }
+  }
+
+  function stopRecognition() {
+    setListeningSafe(false);
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        console.warn("stop error", e);
+      }
+      recognitionRef.current = null;
+    }
+    // Flush any interim text into finalComments when stopping
+    if (interimBufferRef.current) {
+      setFinalComments(prev => {
+        const sep = prev && !prev.endsWith(" ") ? " " : "";
+        return (prev || "") + sep + interimBufferRef.current.trim() + " ";
+      });
+      interimBufferRef.current = "";
+      setInterimText("");
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+    }
+  }
+
+  // Start/Stop function (toggle)
+  const handleVoiceInput = async () => {
+    // If already listening -> stop
+    if (listeningRef.current) {
+      stopRecognition();
+      return;
+    }
+    // Start
+    const success = await ensureMicrophonePermission();
+    if (!success) {
+      alert('Microphone permission required.');
+      return;
+    }
+    startRecognition();
   };
   const [digitalSignature, setDigitalSignature] = useState('');
 
@@ -357,8 +403,11 @@ export default function EmployeeObjectivesPage() {
   useEffect(() => {
     return () => {
       if (recognitionRef.current) {
-        recognitionRef.current.stop();
+        try { recognitionRef.current.stop(); } catch (_) {}
         recognitionRef.current = null;
+      }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
       }
     };
   }, []);
@@ -776,31 +825,36 @@ export default function EmployeeObjectivesPage() {
               </div>
               
               <div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center">
-                  Final Comments *
-                  <button
-                    type="button"
-                    onClick={handleVoiceInput}
-                    className={`ml-3 p-2 rounded-full border transition-all duration-200 ${
-                      listening
-                        ? "bg-red-500 text-white border-red-500 shadow-lg"
-                        : "bg-[#004E9E] text-white border-[#004E9E] hover:bg-[#003d7a] hover:shadow-md"
-                    }`}
-                    aria-label={listening ? "Stop voice input" : "Start voice input"}
-                    title={listening ? "Click to stop recording" : "Click to start voice input"}
-                  >
-                    <MicrophoneIcon className={`h-4 w-4 ${listening ? "animate-pulse" : ""}`} />
-                  </button>
-                  <span className={`ml-2 text-xs font-medium transition-colors ${
-                    listening ? "text-red-600" : "text-gray-500"
-                  }`}>
+                <div className="flex items-center gap-3 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 flex items-center">
+                    Final Comments *
+                    <button
+                      type="button"
+                      onClick={handleVoiceInput}
+                      aria-pressed={listening}
+                      title={listening ? "Stop voice input" : "Start voice input"}
+                      className={`ml-3 p-2 rounded-full ${listening ? "bg-red-500 text-white" : "bg-[#004E9E] text-white"}`}
+                    >
+                      <MicrophoneIcon className="h-4 w-4" />
+                    </button>
+                  </label>
+                  <div className="text-sm text-gray-600">
                     {listening ? "🔴 Recording..." : "Voice input available"}
-                  </span>
-                </label>
+                  </div>
+                  <div className="ml-auto text-xs text-gray-400">
+                    <div>firstInterimMs: {metrics.firstInterimMs ?? "—"} ms</div>
+                    <div>firstFinalMs: {metrics.firstFinalMs ?? "—"} ms</div>
+                  </div>
+                </div>
                 <textarea
-                  value={finalComments}
-                  onChange={(e) => setFinalComments(e.target.value)}
+                  value={`${finalComments || ""}${interimText ? (finalComments && !finalComments.endsWith(" ") ? " " : "") + interimText : ""}`}
+                  onChange={(e) => {
+                    // allow manual edit - update finalComments only (keep interim separate)
+                    setFinalComments(e.target.value);
+                    // clear interim if user edits
+                    interimBufferRef.current = "";
+                    setInterimText("");
+                  }}
                   placeholder="Describe your accomplishments, challenges overcome, and key outcomes achieved..."
                   className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors ${
                     listening ? "ring-2 ring-red-500 border-red-500" : ""
@@ -816,7 +870,6 @@ export default function EmployeeObjectivesPage() {
                     "Provide detailed information to help your manager understand your achievements"
                   )}
                 </p>
-              </div>
               </div>
               
               <div>

@@ -500,7 +500,7 @@ export default function DashboardPage() {
                                 Due: {new Date(objective.dueDate).toLocaleDateString()}
                               </span>
                               <span className="text-xs text-gray-500">
-                                Weight: {objective.weight}x
+                                Weight: {Math.round(objective.weight * 100)}%
                               </span>
                             </div>
                           </div>

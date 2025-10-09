@@ -54,6 +54,7 @@ interface NewEmployee {
 export default function EmployeeEnrollmentPage() {
   const { user, isLoading } = useAuth(true, ['HR', 'hr', 'SENIOR_MANAGEMENT', 'senior-management']);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
@@ -61,6 +62,7 @@ export default function EmployeeEnrollmentPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [form, setForm] = useState<NewEmployee>({
     name: "",
     email: "",
@@ -104,6 +106,7 @@ export default function EmployeeEnrollmentPage() {
       
       if (data.success) {
         setEmployees(data.data);
+        setFilteredEmployees(data.data);
         console.log('✅ Employees loaded successfully:', data.data.length, 'employees');
       } else {
         setError('Failed to fetch employees');
@@ -131,14 +134,18 @@ export default function EmployeeEnrollmentPage() {
     }
   };
 
-  // Fetch potential managers
+  // Fetch potential managers (both MANAGER and SENIOR_MANAGEMENT)
   const fetchManagers = async () => {
     try {
-      const response = await fetch('/api/mbo/users?role=MANAGER');
+      const response = await fetch('/api/mbo/users');
       const data = await response.json();
       
       if (data.success) {
-        setManagers(data.data);
+        // Filter to include only MANAGER and SENIOR_MANAGEMENT roles
+        const managerUsers = data.data.filter((user: Employee) => 
+          user.role === 'MANAGER' || user.role === 'SENIOR_MANAGEMENT'
+        );
+        setManagers(managerUsers);
       }
     } catch (err) {
       console.error('Error fetching managers:', err);
@@ -150,6 +157,104 @@ export default function EmployeeEnrollmentPage() {
     fetchDepartments();
     fetchManagers();
   }, []);
+
+  // Add keyboard shortcut to focus search (Ctrl/Cmd + K)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        const searchInput = document.getElementById('employee-search');
+        if (searchInput) {
+          searchInput.focus();
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
+  // Search functionality
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setFilteredEmployees(employees);
+      return;
+    }
+
+    const query = searchQuery.toLowerCase().trim();
+    const filtered = employees.filter(emp => {
+      // Search in multiple fields
+      const searchableFields = [
+        emp.name?.toLowerCase() || '',
+        emp.email?.toLowerCase() || '',
+        emp.employeeId?.toLowerCase() || '',
+        emp.title?.toLowerCase() || '',
+        emp.role?.toLowerCase().replace('_', ' ') || '',
+        emp.department?.name?.toLowerCase() || '',
+        emp.manager?.name?.toLowerCase() || '',
+        emp.phone?.toLowerCase() || ''
+      ];
+
+      return searchableFields.some(field => field.includes(query));
+    });
+
+    setFilteredEmployees(filtered);
+  }, [searchQuery, employees]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  const clearSearch = () => {
+    setSearchQuery("");
+  };
+
+  // Highlight search matches in text
+  const highlightMatch = (text: string, query: string) => {
+    if (!query.trim() || !text) return text;
+    
+    const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+    const parts = text.split(regex);
+    
+    return parts.map((part, index) => 
+      regex.test(part) ? (
+        <mark key={index} className="bg-yellow-200 px-1 py-0.5 rounded text-gray-900 font-medium">
+          {part}
+        </mark>
+      ) : part
+    );
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      clearSearch();
+    }
+  };
+
+  // Get available managers based on role hierarchy
+  const getAvailableManagers = (selectedRole: string) => {
+    switch (selectedRole) {
+      case 'EMPLOYEE':
+        // Employees can have managers
+        return managers.filter(manager => 
+          manager.role === 'MANAGER'
+        );
+      case 'MANAGER':
+        // Managers can have senior management as managers
+        return managers.filter(manager => 
+          manager.role === 'SENIOR_MANAGEMENT'
+        );
+      case 'HR':
+        // HR doesn't have managers in the hierarchy
+        return [];
+      case 'SENIOR_MANAGEMENT':
+        // Senior management doesn't have managers (top of company)
+        return [];
+      default:
+        return managers;
+    }
+  };
 
   // Auto-dismiss success message after 5 seconds
   useEffect(() => {
@@ -179,6 +284,11 @@ export default function EmployeeEnrollmentPage() {
     if (name === 'departmentId') {
       setForm(prev => ({ ...prev, teamId: "" }));
     }
+    
+    // Reset managerId when role changes (due to hierarchy rules)
+    if (name === 'role') {
+      setForm(prev => ({ ...prev, managerId: "" }));
+    }
   };
 
   const handleEditChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -188,6 +298,11 @@ export default function EmployeeEnrollmentPage() {
     // Reset teamId when department changes
     if (name === 'departmentId') {
       setEditForm(prev => ({ ...prev, teamId: "" }));
+    }
+    
+    // Reset managerId when role changes (due to hierarchy rules)
+    if (name === 'role') {
+      setEditForm(prev => ({ ...prev, managerId: "" }));
     }
   };
 
@@ -392,6 +507,18 @@ export default function EmployeeEnrollmentPage() {
 
             <div className="space-y-4">
               <div>
+                <label className="block text-sm font-medium text-text-dark">Employee ID *</label>
+                <input 
+                  name="employeeId" 
+                  value={form.employeeId} 
+                  onChange={handleChange} 
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary" 
+                  placeholder="e.g., CC001, EMP123"
+                  required
+                />
+              </div>
+              
+              <div>
                 <label className="block text-sm font-medium text-text-dark">Full Name *</label>
                 <input 
                   name="name" 
@@ -483,37 +610,29 @@ export default function EmployeeEnrollmentPage() {
                   value={form.managerId} 
                   onChange={handleChange} 
                   className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
+                  disabled={form.role === 'HR' || form.role === 'SENIOR_MANAGEMENT'}
                 >
-                  <option value="">Select Manager</option>
-                  {managers.map(manager => (
-                    <option key={manager.id} value={manager.id}>{manager.name}</option>
+                  <option value="">
+                    {form.role === 'HR' ? 'HR does not have managers' : 
+                     form.role === 'SENIOR_MANAGEMENT' ? 'Senior Management is at top of company' :
+                     getAvailableManagers(form.role).length === 0 ? 'No available managers' : 
+                     'Select Manager'}
+                  </option>
+                  {getAvailableManagers(form.role).map(manager => (
+                    <option key={manager.id} value={manager.id}>{manager.name} ({manager.role.replace('_', ' ')})</option>
                   ))}
                 </select>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-text-dark">Hire Date</label>
-                  <input 
-                    type="date" 
-                    name="hireDate" 
-                    value={form.hireDate} 
-                    onChange={handleChange} 
-                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary" 
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-text-dark">Employee ID *</label>
-                  <input 
-                    name="employeeId" 
-                    value={form.employeeId} 
-                    onChange={handleChange} 
-                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary" 
-                    placeholder="e.g., CC001, EMP123"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-text-dark">Hire Date</label>
+                <input 
+                  type="date" 
+                  name="hireDate" 
+                  value={form.hireDate} 
+                  onChange={handleChange} 
+                  className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary" 
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -555,8 +674,58 @@ export default function EmployeeEnrollmentPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-semibold text-text-dark">CareCloud Employees</h2>
               <div className="text-sm text-text-light">
-                Total: {employees.length} employees
+                {searchQuery ? `${filteredEmployees.length} of ${employees.length}` : `Total: ${employees.length}`} employees
               </div>
+            </div>
+
+            {/* Search Bar */}
+            <div className="mb-6">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <input
+                  id="employee-search"
+                  type="text"
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Search employees by name, email, ID, role, department, or manager..."
+                  className="block w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary sm:text-sm"
+                  autoComplete="off"
+                />
+                {searchQuery && (
+                  <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                    <button
+                      onClick={clearSearch}
+                      className="text-gray-400 hover:text-gray-600 focus:outline-none"
+                      title="Clear search"
+                    >
+                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
+              </div>
+              
+              {/* Search Results Info */}
+              {searchQuery && (
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    {filteredEmployees.length === 0 ? (
+                      <span className="text-red-600">No employees found matching "{searchQuery}"</span>
+                    ) : (
+                      <span>Found {filteredEmployees.length} employee{filteredEmployees.length !== 1 ? 's' : ''} matching "{searchQuery}"</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    Press <kbd className="px-1 py-0.5 bg-gray-100 border border-gray-300 rounded text-xs">Esc</kbd> to clear
+                  </div>
+                </div>
+              )}
             </div>
 
             {loading && employees.length === 0 ? (
@@ -564,7 +733,7 @@ export default function EmployeeEnrollmentPage() {
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                 <span className="ml-2 text-text-light">Loading employees...</span>
               </div>
-            ) : employees.length === 0 ? (
+            ) : filteredEmployees.length === 0 && employees.length === 0 ? (
               <div className="text-center py-8">
                 <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                   <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -572,6 +741,21 @@ export default function EmployeeEnrollmentPage() {
                   </svg>
                 </div>
                 <p className="text-text-light">No employees found. Add your first employee to get started.</p>
+              </div>
+            ) : filteredEmployees.length === 0 && searchQuery ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                <p className="text-text-light">No employees found matching your search.</p>
+                <button
+                  onClick={clearSearch}
+                  className="mt-2 text-primary hover:text-[#003d7c] text-sm font-medium"
+                >
+                  Clear search to view all employees
+                </button>
               </div>
             ) : (
               /* Scrollable Employee Display Box */
@@ -591,7 +775,7 @@ export default function EmployeeEnrollmentPage() {
                 {/* Scrollable Content - Height matches form height minus header */}
                 <div className="h-[600px] overflow-y-auto">
                   <div className="divide-y divide-gray-200">
-                    {employees.map(emp => (
+                    {filteredEmployees.map(emp => (
                       <div key={emp.id} className="px-4 py-3 hover:bg-gray-50 transition-colors">
                         <div className="grid grid-cols-12 gap-4 items-center">
                           {/* Employee Info */}
@@ -601,8 +785,12 @@ export default function EmployeeEnrollmentPage() {
                                 {emp.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <div className="font-medium text-text-dark text-sm truncate">{emp.name}</div>
-                                <div className="text-text-light text-xs truncate">{emp.email}</div>
+                                <div className="font-medium text-text-dark text-sm truncate">
+                                  {searchQuery ? highlightMatch(emp.name, searchQuery) : emp.name}
+                                </div>
+                                <div className="text-text-light text-xs truncate">
+                                  {searchQuery ? highlightMatch(emp.email, searchQuery) : emp.email}
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -622,21 +810,27 @@ export default function EmployeeEnrollmentPage() {
                           {/* Department */}
                           <div className="col-span-2">
                             <div className="text-sm text-text-light truncate">
-                              {emp.department?.name || 'Unassigned'}
+                              {emp.department?.name ? (
+                                searchQuery ? highlightMatch(emp.department.name, searchQuery) : emp.department.name
+                              ) : 'Unassigned'}
                             </div>
                           </div>
 
                           {/* Manager */}
                           <div className="col-span-2">
                             <div className="text-sm text-text-light truncate">
-                              {emp.manager?.name || 'No Manager'}
+                              {emp.manager?.name ? (
+                                searchQuery ? highlightMatch(emp.manager.name, searchQuery) : emp.manager.name
+                              ) : 'No Manager'}
                             </div>
                           </div>
 
                           {/* Employee ID */}
                           <div className="col-span-2">
                             <div className="text-sm text-text-light font-mono truncate">
-                              {emp.employeeId || 'N/A'}
+                              {emp.employeeId ? (
+                                searchQuery ? highlightMatch(emp.employeeId, searchQuery) : emp.employeeId
+                              ) : 'N/A'}
                             </div>
                           </div>
 
@@ -666,10 +860,10 @@ export default function EmployeeEnrollmentPage() {
                 </div>
 
                 {/* Footer with scroll indicator */}
-                {employees.length > 6 && (
+                {filteredEmployees.length > 6 && (
                   <div className="bg-gray-50 px-4 py-2 border-t border-gray-200">
                     <div className="text-xs text-gray-500 text-center">
-                      Scroll to view all {employees.length} employees
+                      Scroll to view all {filteredEmployees.length} {searchQuery ? 'matching ' : ''}employees
                     </div>
                   </div>
                 )}
@@ -799,6 +993,30 @@ export default function EmployeeEnrollmentPage() {
                       <option key={team.id} value={team.id}>
                         {team.name}
                       </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Manager */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Manager
+                  </label>
+                  <select
+                    name="managerId"
+                    value={editForm.managerId}
+                    onChange={handleEditChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    disabled={editForm.role === 'HR' || editForm.role === 'SENIOR_MANAGEMENT'}
+                  >
+                    <option value="">
+                      {editForm.role === 'HR' ? 'HR does not have managers' : 
+                       editForm.role === 'SENIOR_MANAGEMENT' ? 'Senior Management is at top of company' :
+                       getAvailableManagers(editForm.role).length === 0 ? 'No available managers' : 
+                       'Select Manager'}
+                    </option>
+                    {getAvailableManagers(editForm.role).map(manager => (
+                      <option key={manager.id} value={manager.id}>{manager.name} ({manager.role.replace('_', ' ')})</option>
                     ))}
                   </select>
                 </div>
