@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -18,6 +19,7 @@ interface Objective {
   id: string;
   title: string;
   description: string;
+  category?: string;
   target: number;
   current: number;
   weight: number;
@@ -43,37 +45,125 @@ interface Objective {
   };
 }
 
+interface ManagerObjective {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  target: number;
+  current: number;
+  weight: number;
+  status: string;
+  dueDate: string;
+  quarter: string;
+  year: number;
+  managerId: string;
+  managerName: string;
+  managerTitle: string;
+  progress: number;
+  completedAt?: string;
+  managerRemarks?: string;
+  managerEvidence?: string;
+  aiScore?: number;
+  aiComments?: string;
+  seniorManagerScore?: number;
+  seniorManagerComments?: string;
+  finalScore?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export default function HRObjectivesPage() {
   const { user, isLoading: authLoading } = useAuth(true, ['HR', 'hr', 'SENIOR_MANAGEMENT', 'senior_management']);
   const [objectives, setObjectives] = useState<Objective[]>([]);
+  const [managerObjectives, setManagerObjectives] = useState<ManagerObjective[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewModeState] = useState<'employee' | 'manager'>('employee');
+  const [loadingManagerObjectives, setLoadingManagerObjectives] = useState(false);
+
+  // Wrapper function for setViewMode with debugging
+  const setViewMode = (newMode: 'employee' | 'manager') => {
+    console.log('🔄 Toggling view mode from', viewMode, 'to', newMode);
+    setViewModeState(newMode);
+  };
 
   useEffect(() => {
+    console.log('Main useEffect triggered:', { authLoading, user: !!user, viewMode });
+    
     if (authLoading) return;
     if (!user) return;
-    loadAllObjectives();
-  }, [authLoading, user]);
+    
+    // Load data based on current view mode
+    if (viewMode === 'employee') {
+      loadAllObjectives();
+    } else if (viewMode === 'manager') {
+      loadAllManagerObjectives();
+    }
+  }, [authLoading, user, viewMode]);
 
   const loadAllObjectives = async () => {
+    console.log('🔄 Starting to load employee objectives...');
     setLoading(true);
     try {
-      console.log('Loading all objectives for HR view:', user?.id);
+      console.log('Loading all employee objectives for HR view:', user?.id);
       const response = await fetch(`/api/hr/all-objectives`);
+      console.log('📡 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       const data = await response.json();
-      console.log('All objectives response:', data);
+      console.log('All employee objectives response:', data);
       
       if (data.success) {
         setObjectives(data.data || []); // Fixed: changed from data.objectives to data.data
-        console.log(`Found ${data.data?.length || 0} total objectives`);
+        console.log(`✅ Found ${data.data?.length || 0} total employee objectives`);
       } else {
-        console.error('Failed to load objectives:', data.error);
+        console.error('❌ Failed to load objectives:', data.error);
         setObjectives([]);
       }
     } catch (error) {
-      console.error('Error loading objectives:', error);
+      console.error('❌ Error loading employee objectives:', error);
       setObjectives([]);
     } finally {
+      console.log('🏁 Finished loading employee objectives, setting loading to false');
       setLoading(false);
+    }
+  };
+
+  const loadAllManagerObjectives = async () => {
+    setLoadingManagerObjectives(true);
+    try {
+      console.log('Loading all manager objectives for HR dashboard');
+      
+      const response = await fetch('/api/hr/all-manager-objectives', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        }
+      });
+
+      console.log('Response status for manager objectives:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.log('Error response for manager objectives:', errorData);
+        throw new Error(`Failed to fetch manager objectives: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      console.log('Manager objectives data received:', data);
+      
+      if (data.success) {
+        setManagerObjectives(data.objectives || []);
+      } else {
+        throw new Error(data.error || 'Failed to load manager objectives');
+      }
+    } catch (error) {
+      console.error('Error loading manager objectives:', error);
+      setManagerObjectives([]);
+    } finally {
+      setLoadingManagerObjectives(false);
     }
   };
 
@@ -98,7 +188,10 @@ export default function HRObjectivesPage() {
     }
   };
 
-  const getCompletionPercentage = (objective: Objective) => {
+  const getCompletionPercentage = (objective: Objective | ManagerObjective) => {
+    if (viewMode === 'manager' && 'progress' in objective) {
+      return Math.round(objective.progress);
+    }
     return Math.round((objective.current / objective.target) * 100);
   };
 
@@ -117,15 +210,79 @@ export default function HRObjectivesPage() {
     }
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading objectives overview...</p>
-        </div>
+  // Updated summary cards section
+  const getSummaryData = () => {
+    const data = viewMode === 'employee' ? objectives : managerObjectives;
+    const isLoading = viewMode === 'employee' ? loading : loadingManagerObjectives;
+    
+    if (isLoading || data.length === 0) {
+      return {
+        total: 0,
+        completed: 0,
+        inProgress: 0,
+        notStarted: 0,
+        overdue: 0,
+        completionRate: 0
+      };
+    }
+
+    const total = data.length;
+    const completed = data.filter(obj => obj.status === 'COMPLETED' || obj.status === 'MANAGER_SUBMITTED' || obj.status === 'BONUS_APPROVED').length;
+    const inProgress = data.filter(obj => obj.status === 'ASSIGNED' || obj.status === 'ACTIVE' || obj.status === 'IN_PROGRESS').length;
+    const notStarted = data.filter(obj => obj.status === 'NOT_STARTED').length;
+    const overdue = data.filter(obj => {
+      const dueDate = new Date(obj.dueDate);
+      const today = new Date();
+      return obj.status !== 'COMPLETED' && obj.status !== 'MANAGER_SUBMITTED' && obj.status !== 'BONUS_APPROVED' && dueDate < today;
+    }).length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+    return {
+      total,
+      completed,
+      inProgress,
+      notStarted,
+      overdue,
+      completionRate
+    };
+  };
+
+  const summaryData = getSummaryData();
+
+  // Updated render methods
+  const renderToggleSwitch = () => (
+    <div className="flex items-center space-x-4 mb-6">
+      <span className="text-sm font-medium text-gray-700">View Mode:</span>
+      <button
+        onClick={() => setViewMode(viewMode === 'employee' ? 'manager' : 'employee')}
+        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#004E9E] focus:ring-offset-2 cursor-pointer ${
+          viewMode === 'manager' ? 'bg-[#004E9E]' : 'bg-gray-200'
+        }`}
+        role="switch"
+        aria-checked={viewMode === 'manager'}
+        aria-label="Toggle between Employee and Manager objectives"
+      >
+        <span
+          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-lg transition-transform ${
+            viewMode === 'manager' ? 'translate-x-6' : 'translate-x-1'
+          }`}
+        />
+      </button>
+      <div className="flex items-center space-x-6">
+        <span className={`text-sm font-medium cursor-pointer ${viewMode === 'employee' ? 'text-[#004E9E]' : 'text-gray-500'}`}
+          onClick={() => setViewMode('employee')}>
+          Employee Objectives
+        </span>
+        <span className={`text-sm font-medium cursor-pointer ${viewMode === 'manager' ? 'text-[#004E9E]' : 'text-gray-500'}`}
+          onClick={() => setViewMode('manager')}>
+          Manager Objectives
+        </span>
       </div>
-    );
+    </div>
+  );
+
+  if (authLoading || (viewMode === 'employee' && loading) || (viewMode === 'manager' && loadingManagerObjectives)) {
+    return <LoadingSpinner message="Loading objectives overview..." />;
   }
 
   if (!user) {
@@ -148,20 +305,12 @@ export default function HRObjectivesPage() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">All Organization Objectives</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                  Complete overview of all employee objectives across the organization
+                  Complete overview of all {viewMode === 'manager' ? 'manager' : 'employee'} objectives across the organization
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">HR</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#003d7c] text-white flex items-center justify-center text-sm font-medium">
-                    {user.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
-                  </div>
-                </div>
-              </div>
+              
+              {/* Toggle Switch */}
+              {renderToggleSwitch()}
             </div>
           </div>
         </div>
@@ -184,8 +333,12 @@ export default function HRObjectivesPage() {
                       <p className="text-xs text-blue-600">Organization wide</p>
                     </div>
                   </div>
-                  <p className="text-3xl font-bold text-blue-900 mb-1">{objectives.length}</p>
-                  <p className="text-xs text-blue-700 font-medium">All objectives in the org</p>
+                  <p className="text-3xl font-bold text-blue-900 mb-1">
+                    {summaryData.total}
+                  </p>
+                  <p className="text-xs text-blue-700 font-medium">
+                    All {viewMode === 'manager' ? 'manager' : 'employee'} objectives
+                  </p>
                 </div>
               </div>
             </div>
@@ -206,7 +359,7 @@ export default function HRObjectivesPage() {
                     </div>
                   </div>
                   <p className="text-3xl font-bold text-yellow-900 mb-1">
-                    {objectives.filter(obj => obj.status === 'ASSIGNED' || obj.status === 'ACTIVE' || obj.status === 'IN_PROGRESS').length}
+                    {summaryData.inProgress}
                   </p>
                   <p className="text-xs text-yellow-700 font-medium">Currently being worked on</p>
                 </div>
@@ -229,9 +382,11 @@ export default function HRObjectivesPage() {
                     </div>
                   </div>
                   <p className="text-3xl font-bold text-green-900 mb-1">
-                    {objectives.filter(obj => obj.status === 'COMPLETED').length}
+                    {summaryData.completed}
                   </p>
-                  <p className="text-xs text-green-700 font-medium">Completed by employees</p>
+                  <p className="text-xs text-green-700 font-medium">
+                    Completed by {viewMode === 'manager' ? 'managers' : 'employees'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -252,9 +407,11 @@ export default function HRObjectivesPage() {
                     </div>
                   </div>
                   <p className="text-3xl font-bold text-purple-900 mb-1">
-                    {objectives.filter(obj => obj.status === 'AI_SCORED' || obj.status === 'SUBMITTED_TO_HR').length}
+                    {(viewMode === 'manager' ? managerObjectives : objectives).filter(obj => obj.status === 'AI_SCORED' || obj.status === 'SUBMITTED_TO_HR').length}
                   </p>
-                  <p className="text-xs text-purple-700 font-medium">Scored by managers</p>
+                  <p className="text-xs text-purple-700 font-medium">
+                    Scored by {viewMode === 'manager' ? 'senior management' : 'managers'}
+                  </p>
                 </div>
               </div>
             </div>
@@ -311,73 +468,97 @@ export default function HRObjectivesPage() {
         {/* Objectives List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">All Employee Objectives</h2>
-            <p className="text-sm text-gray-500 mt-1">Complete list of all objectives in the organization</p>
+            <h2 className="text-lg font-semibold text-gray-900">
+              All {viewMode === 'manager' ? 'Manager' : 'Employee'} Objectives
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Complete list of all {viewMode === 'manager' ? 'manager' : 'employee'} objectives in the organization
+            </p>
           </div>
           <div className="overflow-x-auto">
-            {objectives.length > 0 ? (
+            {(viewMode === 'manager' ? managerObjectives : objectives).length > 0 ? (
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Objective Details
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {viewMode === 'employee' ? 'Employee' : 'Manager'}
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assigned To
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Objective
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Assigned By
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Category
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Progress
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Due Date
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Weight
+                    {viewMode === 'manager' && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        AI Score
+                      </th>
+                    )}
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {objectives.map((objective) => (
+                  {(viewMode === 'manager' ? managerObjectives : objectives).map((objective) => (
                     <tr key={objective.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      {/* Employee/Manager Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {viewMode === 'manager' ? (
+                          <>
+                            <div className="text-sm font-medium text-gray-900">{(objective as ManagerObjective).managerName}</div>
+                            <div className="text-xs text-gray-500">{(objective as ManagerObjective).managerTitle}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="text-sm font-medium text-gray-900">{(objective as Objective).user.name}</div>
+                            <div className="text-xs text-gray-500">{(objective as Objective).user.title}</div>
+                          </>
+                        )}
+                      </td>
+                      
+                      {/* Objective Column */}
+                      <td className="px-6 py-4">
                         <div className="text-sm font-medium text-gray-900">{objective.title}</div>
-                        <div className="text-xs text-gray-500">{objective.description.length > 40 ? `${objective.description.substring(0, 40)}...` : objective.description}</div>
-                        <div className="text-xs text-gray-400">Q{objective.quarter} {objective.year}</div>
+                        <div className="text-xs text-gray-500 mt-1">{objective.description.length > 60 ? `${objective.description.substring(0, 60)}...` : objective.description}</div>
+                        <div className="text-xs text-gray-400 mt-1">Q{objective.quarter} {objective.year}</div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">{objective.user.name}</div>
-                        <div className="text-xs text-gray-500">{objective.user.title}</div>
+                      
+                      {/* Category Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          {objective.category || 'General'}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {objective.assignedBy ? objective.assignedBy.name : 'Manager'}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {objective.assignedBy ? objective.assignedBy.title : 'Manager'}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
+                      
+                      {/* Progress Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
                             <div 
-                              className="bg-blue-500 h-2 rounded-full" 
+                              className="bg-[#004E9E] h-2 rounded-full" 
                               style={{ width: `${Math.min(100, getCompletionPercentage(objective))}%` }}
                             ></div>
                           </div>
                           <span className="text-xs text-gray-900">{getCompletionPercentage(objective)}%</span>
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 mt-1">
                           {objective.current} / {objective.target}
                         </div>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(objective.status)}`}>
+                      
+                      {/* Status Column */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(objective.status)}`}>
                           {objective.status === 'BONUS_APPROVED' ? (
                             <>
                               <CheckCircleIcon className="h-3 w-3 mr-1" />
@@ -388,11 +569,33 @@ export default function HRObjectivesPage() {
                           )}
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
-                        {new Date(objective.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                      
+                      {/* Due Date Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(objective.dueDate).toLocaleDateString('en-US', { 
+                          month: 'short', 
+                          day: 'numeric',
+                          year: 'numeric'
+                        })}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-xs text-gray-900">
-                        {Math.round(objective.weight * 100)}%
+                      
+                      {/* AI Score Column - Only for Manager Objectives */}
+                      {viewMode === 'manager' && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {(objective as ManagerObjective).aiScore ? 
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                              {Math.round((objective as ManagerObjective).aiScore!)}/10
+                            </span> : 
+                            <span className="text-gray-400">-</span>
+                          }
+                        </td>
+                      )}
+                      
+                      {/* Actions Column */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button className="text-[#004E9E] hover:text-[#007BFF] transition-colors">
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -401,7 +604,9 @@ export default function HRObjectivesPage() {
             ) : (
               <div className="p-12 text-center">
                 <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No objectives found</h3>
+                <h3 className="mt-2 text-sm font-medium text-gray-900">
+                  No {viewMode === 'manager' ? 'manager' : 'employee'} objectives found
+                </h3>
                 <p className="mt-1 text-sm text-gray-500">
                   No objectives have been created yet. Objectives will appear here once managers start assigning them to employees.
                 </p>

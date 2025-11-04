@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   CheckCircleIcon,
   ClockIcon,
   ExclamationTriangleIcon,
   EyeIcon,
   UserGroupIcon,
-  ChartBarIcon,
   SparklesIcon,
   ArrowRightIcon,
   DocumentCheckIcon
@@ -25,8 +25,9 @@ interface Objective {
   dueDate: string;
   quarter: string;
   year: number;
-  userId: string;
-  assignedById: string;
+  userId?: string;
+  managerId?: string;
+  assignedById?: string;
   completedAt?: string;
   submittedToManagerAt?: string;
   submittedToHrAt?: string;
@@ -36,11 +37,32 @@ interface Objective {
   hrNotes?: string;
   createdAt: string;
   updatedAt: string;
-  user: {
+  objectiveType?: 'EMPLOYEE' | 'MANAGER';
+  // For employee objectives
+  user?: {
     id: string;
     name: string;
     email: string;
     title: string;
+    salary?: number;
+    allocatedBonusAmount?: number;
+  };
+  // For manager objectives
+  manager?: {
+    id: string;
+    name: string;
+    email: string;
+    title: string;
+    salary?: number;
+    allocatedBonusAmount?: number;
+  };
+  submittedBy?: {
+    id: string;
+    name: string;
+    email: string;
+    title: string;
+    salary?: number;
+    allocatedBonusAmount?: number;
   };
   assignedBy?: {
     id: string;
@@ -115,6 +137,7 @@ export default function HRIncomingObjectivesPage() {
   };
 
   const getCompletionPercentage = (objective: Objective) => {
+    if (!objective.current || !objective.target) return 0;
     return Math.round((objective.current / objective.target) * 100);
   };
 
@@ -132,27 +155,63 @@ export default function HRIncomingObjectivesPage() {
     // Check if there's a manager review with a score (final score)
     if (objective.reviews && objective.reviews.length > 0) {
       const latestReview = objective.reviews[0]; // Reviews are ordered by reviewDate desc
-      return latestReview.score;
+      return latestReview?.score || 0;
     }
     // Fall back to AI score if no manager review
     return getAIScore(objective);
   };
 
+  const getUserData = (objective: Objective) => {
+    return objective.submittedBy || objective.user || objective.manager || null;
+  };
+
   const calculateBonusAmount = (objective: Objective) => {
-    // Simple bonus calculation for now - we'll enhance this later
-    // Base calculation: (Final Score / Weight) * Base Bonus * Weight Factor
+    // Enhanced bonus calculation based on weight and final score
     const finalScore = getFinalScore(objective);
     if (!finalScore) return 0;
     
-    const baseBonusPerPoint = 100; // $100 per point
-    const weightMultiplier = objective.weight / 100; // Convert percentage to decimal
-    const bonusAmount = Math.round(finalScore * baseBonusPerPoint * weightMultiplier);
+    // Get user data and fetch their allocated bonus amount from DB
+    const userData = getUserData(objective);
+    let bonusPool = userData?.allocatedBonusAmount;
     
-    return bonusAmount;
+    // If no allocated amount, use salary-based calculation
+    if (!bonusPool || bonusPool === 0) {
+      const salary = userData?.salary || 50000;
+      // Default: 10% of annual salary / 4 quarters
+      bonusPool = (salary * 0.1) / 4;
+    }
+    
+    // Ensure bonus pool is never zero
+    if (!bonusPool || bonusPool <= 0) {
+      bonusPool = 312.5; // Fallback: ~$50k * 0.1 / 4 quarters
+    }
+    
+    // Weight factor: percentage of bonus pool this objective represents
+    const weightPercentage = (objective.weight || 0) / 100;
+    
+    // Normalize score to percentage (if score is 0-10, convert to 0-100; if already 0-100, use as is)
+    let scorePercentage = finalScore;
+    if (finalScore <= 10) {
+      // Score is on 0-10 scale, convert to 0-100
+      scorePercentage = (finalScore / 10) * 100;
+    }
+    // Score percentage is capped at 100
+    scorePercentage = Math.min(scorePercentage, 100);
+    
+    // Calculate bonus:
+    // base = bonus pool * weight percentage (portion of pool allocated to this objective)
+    // final = base * (score percentage / 100) (actual achieved based on performance)
+    const baseBonusForObjective = bonusPool * weightPercentage;
+    const actualBonus = baseBonusForObjective * (scorePercentage / 100);
+    
+    return Math.round(actualBonus);
   };
 
   const handleApproveObjective = async (objectiveId: string) => {
     try {
+      // Find the objective to get its type
+      const objectiveToApprove = objectives.find(obj => obj.id === objectiveId);
+      
       const response = await fetch('/api/hr/approve-objective', {
         method: 'POST',
         headers: {
@@ -162,7 +221,8 @@ export default function HRIncomingObjectivesPage() {
           objectiveId,
           hrId: user?.id,
           action: 'approve',
-          notes: 'Approved for bonus calculation'
+          notes: `Approved for bonus calculation - ${objectiveToApprove?.objectiveType === 'MANAGER' ? 'Manager' : 'Employee'} objective`,
+          objectiveType: objectiveToApprove?.objectiveType || 'EMPLOYEE'
         }),
       });
 
@@ -182,6 +242,9 @@ export default function HRIncomingObjectivesPage() {
 
   const handleRejectObjective = async (objectiveId: string, reason: string) => {
     try {
+      // Find the objective to get its type
+      const objectiveToReject = objectives.find(obj => obj.id === objectiveId);
+      
       const response = await fetch('/api/hr/approve-objective', {
         method: 'POST',
         headers: {
@@ -191,7 +254,8 @@ export default function HRIncomingObjectivesPage() {
           objectiveId,
           hrId: user?.id,
           action: 'reject',
-          notes: reason
+          notes: `${reason} - ${objectiveToReject?.objectiveType === 'MANAGER' ? 'Manager' : 'Employee'} objective`,
+          objectiveType: objectiveToReject?.objectiveType || 'EMPLOYEE'
         }),
       });
 
@@ -210,14 +274,7 @@ export default function HRIncomingObjectivesPage() {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading incoming objectives...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading incoming objectives..." />;
   }
 
   if (!user) {
@@ -240,19 +297,8 @@ export default function HRIncomingObjectivesPage() {
               <div>
                 <h1 className="text-3xl font-bold text-gray-900">Incoming Objectives</h1>
                 <p className="mt-1 text-sm text-gray-500">
-                  Review and approve objectives submitted by managers for final evaluation
+                  Review and approve employee and manager objectives submitted for final evaluation and bonus calculation
                 </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">HR</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#003d7c] text-white flex items-center justify-center text-sm font-medium">
-                    {user.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase()}
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -291,7 +337,7 @@ export default function HRIncomingObjectivesPage() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">HR Objective Reviews</h2>
-            <p className="text-sm text-gray-500 mt-1">Review manager evaluations and approve for bonus calculation</p>
+            <p className="text-sm text-gray-500 mt-1">Review employee and manager objectives and approve for bonus calculation based on weight and final scores</p>
           </div>
           <div className="overflow-x-auto">
             {objectives.filter(obj => obj.status !== 'REJECTED').length > 0 ? (
@@ -338,20 +384,27 @@ export default function HRIncomingObjectivesPage() {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div>
                             <div className="text-sm font-medium text-gray-900">{objective.title}</div>
-                            <div className="text-xs text-gray-500">{objective.description.length > 30 ? `${objective.description.substring(0, 30)}...` : objective.description}</div>
+                            <div className="text-xs text-gray-500">{objective.description && objective.description.length > 30 ? `${objective.description.substring(0, 30)}...` : (objective.description || 'No description')}</div>
                             <div className="text-xs text-gray-400">{objective.weight < 1 ? Math.round(objective.weight * 100) : objective.weight}% • Q{objective.quarter}</div>
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">{objective.user.name}</div>
-                          <div className="text-xs text-gray-500">{objective.user.title}</div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {objective.submittedBy?.name || objective.user?.name || objective.manager?.name || 'Unknown User'}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {objective.submittedBy?.title || objective.user?.title || objective.manager?.title || 'Unknown Title'}
+                          </div>
+                          <div className="text-xs text-blue-600">
+                            {objective.objectiveType === 'MANAGER' ? '👔 Manager' : '👤 Employee'}
+                          </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {objective.assignedBy ? objective.assignedBy.name : 'Manager'}
+                            {objective.assignedBy?.name || 'Manager'}
                           </div>
                           <div className="text-xs text-gray-500">
-                            {objective.assignedBy ? objective.assignedBy.title : 'Manager'}
+                            {objective.assignedBy?.title || 'Manager'}
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -394,7 +447,7 @@ export default function HRIncomingObjectivesPage() {
                             </span>
                           ) : (
                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getWorkflowStatusColor(objective.status)}`}>
-                              {objective.status.replace('_', ' ')}
+                              {objective.status?.replace('_', ' ') || 'Unknown Status'}
                             </span>
                           )}
                         </td>
@@ -454,7 +507,12 @@ export default function HRIncomingObjectivesPage() {
                 <div>
                   <h4 className="font-medium text-gray-900">{selectedObjective.title}</h4>
                   <p className="text-sm text-gray-600 mt-1">{selectedObjective.description}</p>
-                  <p className="text-sm text-gray-500 mt-1">Employee: {selectedObjective.user.name}</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedObjective.objectiveType === 'MANAGER' ? 'Manager' : 'Employee'}: {selectedObjective.submittedBy?.name || selectedObjective.user?.name || selectedObjective.manager?.name || 'Unknown User'}
+                    <span className="ml-2 text-xs bg-blue-100 px-2 py-1 rounded-full">
+                      {selectedObjective.objectiveType === 'MANAGER' ? '👔 Manager Objective' : '👤 Employee Objective'}
+                    </span>
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -496,12 +554,15 @@ export default function HRIncomingObjectivesPage() {
                   </div>
                 )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Estimated Bonus Amount</label>
-                  <p className="text-sm font-medium text-green-600">${calculateBonusAmount(selectedObjective).toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">
-                    Based on {selectedObjective.reviews && selectedObjective.reviews.length > 0 ? 'manager final score' : 'AI score'} and weight factor
-                  </p>
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-green-800 mb-2">💰 Calculated Bonus Amount</label>
+                  <p className="text-lg font-bold text-green-700">${calculateBonusAmount(selectedObjective).toLocaleString()}</p>
+                  <div className="mt-2 text-xs text-green-700 space-y-1">
+                    <p>• Based on quarterly bonus allocation from salary</p>
+                    <p>• Weight factor: {selectedObjective.weight || 0}% of quarterly pool</p>
+                    <p>• Score factor: {getFinalScore(selectedObjective) || 0}/10 achievement rate</p>
+                    <p>• Objective Type: {selectedObjective.objectiveType === 'MANAGER' ? '👔 Manager' : '👤 Employee'}</p>
+                  </div>
                 </div>
 
                 {/* Manager Feedback Section */}
@@ -524,7 +585,7 @@ export default function HRIncomingObjectivesPage() {
                         <div key={review.id || index} className="bg-green-50 border border-green-200 rounded-lg p-3">
                           <div className="flex items-center justify-between mb-1">
                             <h5 className="text-sm font-medium text-green-900">
-                              Manager Review {review.reviewer ? `by ${review.reviewer.name}` : ''}
+                              Manager Review {review.reviewer?.name ? `by ${review.reviewer.name}` : ''}
                             </h5>
                             {review.score && (
                               <span className="text-sm font-medium text-green-700">

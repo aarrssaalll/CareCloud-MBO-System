@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { MicrophoneIcon } from "@heroicons/react/24/outline";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -413,14 +414,7 @@ export default function EmployeeObjectivesPage() {
   }, []);
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your objectives...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading your objectives..." />;
   }
 
   if (!user) {

@@ -95,8 +95,21 @@ export default function DashboardPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   // Objective counts for dashboard
   const totalObjectives = objectives.length;
-  const completedObjectives = objectives.filter(obj => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
-  const activeCount = objectives.filter(obj => obj.status !== 'COMPLETED' && obj.status !== 'BONUS_APPROVED').length;
+  // Include all completion and post-completion statuses: completed, AI scored, submitted to HR, HR approved, bonus approved
+  const completedObjectives = objectives.filter(obj => 
+    obj.status === 'COMPLETED' || 
+    obj.status === 'AI_SCORED' || 
+    obj.status === 'SUBMITTED_TO_HR' || 
+    obj.status === 'HR_APPROVED' || 
+    obj.status === 'BONUS_APPROVED'
+  ).length;
+  const activeCount = objectives.filter(obj => 
+    obj.status !== 'COMPLETED' && 
+    obj.status !== 'AI_SCORED' && 
+    obj.status !== 'SUBMITTED_TO_HR' && 
+    obj.status !== 'HR_APPROVED' && 
+    obj.status !== 'BONUS_APPROVED'
+  ).length;
   
   // Calculate overall completion rate based on actual progress (not just completed objectives)
   const overallCompletionRate = useMemo(() => {
@@ -241,8 +254,13 @@ export default function DashboardPage() {
     }
 
     const totalObjectives = objectives.length;
+    // Include all completion and post-completion statuses: completed, AI scored, submitted to HR, HR approved, bonus approved
     const completedObjectives = objectives.filter(
-      (obj) => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED'
+      (obj) => obj.status === 'COMPLETED' || 
+               obj.status === 'AI_SCORED' || 
+               obj.status === 'SUBMITTED_TO_HR' || 
+               obj.status === 'HR_APPROVED' || 
+               obj.status === 'BONUS_APPROVED'
     ).length;
     
     // Use the corrected overall completion rate
@@ -383,19 +401,6 @@ export default function DashboardPage() {
               <div className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white px-6 py-3 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300">
                 <div className="text-2xl font-bold">{bonusAmount}</div>
                 <div className="text-sm text-blue-100">Current Bonus</div>
-              </div>
-              {/* User Profile */}
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-sm text-gray-500">{user.title}</p>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
-                  <span className="text-white font-medium">
-                    {user.firstName[0]}
-                    {user.lastName[0]}
-                  </span>
-                </div>
               </div>
             </div>
           </div>

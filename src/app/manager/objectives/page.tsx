@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   CheckCircleIcon,
   ClockIcon,
@@ -110,7 +111,7 @@ export default function ManagerObjectivesPage() {
         setCompletedObjectives(prev => 
           prev.filter(obj => obj.id !== objective.id) // Remove from list as it's now AI-scored
         );
-        alert(`✅ AI Score Generated: ${data.score}/${objective.weight}\n\nObjective moved to Review page for final scoring and approval.`);
+        alert(`✅ AI Score Generated: ${data.score}/10\n\nObjective moved to Review page for final scoring and approval.`);
       } else {
         alert(data.error || 'Failed to generate AI score');
       }
@@ -178,14 +179,7 @@ export default function ManagerObjectivesPage() {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading completed objectives...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading completed objectives..." />;
   }
 
   if (!user) {
@@ -212,20 +206,6 @@ export default function ManagerObjectivesPage() {
                 <p className="text-sm text-gray-500 mt-1">
                   Generate AI scores for completed objectives and move them to review page
                 </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                {/* User Profile */}
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-sm text-gray-500">{user.title || 'Manager'}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
-                    <span className="text-white font-medium">
-                      {user.firstName ? user.firstName[0] : ''}{user.lastName ? user.lastName[0] : ''}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>

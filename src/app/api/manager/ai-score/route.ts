@@ -21,14 +21,20 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify objective exists and is completed
-    const objective = await prisma.mboObjective.findUnique({
+    // Verify objective exists and is manager-submitted
+    const objective = await prisma.mboManagerObjective.findUnique({
       where: { id: objectiveId },
       include: {
-        user: {
+        manager: {
           select: {
             name: true,
             email: true
+          }
+        },
+        assignedBySeniorManager: {
+          select: {
+            id: true,
+            name: true
           }
         }
       }
@@ -41,16 +47,16 @@ export async function POST(request: Request) {
       );
     }
 
-    // STRICT WORKFLOW VALIDATION: Only allow AI scoring for COMPLETED status
-    if (objective.status !== 'COMPLETED') {
+    // STRICT WORKFLOW VALIDATION: Only allow AI scoring for MANAGER_SUBMITTED status
+    if (objective.status !== 'MANAGER_SUBMITTED') {
       return NextResponse.json(
-        { success: false, error: 'Objective must be in COMPLETED status to generate AI score' },
+        { success: false, error: 'Objective must be in MANAGER_SUBMITTED status to generate AI score' },
         { status: 400 }
       );
     }
 
     // Prevent duplicate AI scoring
-    if (objective.aiScoreMetadata) {
+    if (objective.aiScoringMetadata) {
       return NextResponse.json(
         { success: false, error: 'Objective has already been AI scored' },
         { status: 400 }
@@ -77,27 +83,24 @@ export async function POST(request: Request) {
             current: current,
             target: target
           },
-          remarks: `Employee: ${employeeName}, Weight: ${weight}%, Achievement: ${completionPercentage}%, Employee Remarks: ${employeeRemarks || ''}`
+          remarks: `Manager: ${employeeName}, Weight: ${weight}%, Achievement: ${completionPercentage}%, Manager Remarks: ${employeeRemarks || ''}`
         }),
       });
 
       if (geminiResponse.ok) {
         const geminiResult = await geminiResponse.json();
         
-        // Convert Gemini's 0-100 score to weight-based score
+        // Convert Gemini's 0-100 score to 1-10 scale
         const geminiScore = Math.max(0, Math.min(100, geminiResult.score));
-        
-        // Handle weight formats: if weight < 1, assume it's decimal (0.3 = 30%), otherwise assume percentage (30)
-        const weightAsPercentage = weight < 1 ? weight * 100 : weight;
-        aiScore = Math.round((geminiScore / 100) * weightAsPercentage);
+        aiScore = Math.round((geminiScore / 100) * 10);
         explanation = geminiResult.feedback;
         
-        console.log('Gemini AI scoring successful:', {
+        console.log('Gemini AI scoring successful for manager objective:', {
           source: geminiResult.source,
           originalScore: geminiScore,
           weight: weight,
-          weightAsPercentage: weightAsPercentage,
-          weightedScore: aiScore
+          scaledScore: aiScore,
+          managerName: objective.manager?.name
         });
       } else {
         throw new Error('Gemini API request failed');
@@ -120,49 +123,36 @@ export async function POST(request: Request) {
         scorePercentage = Math.max(60, completionPercentage * 0.8);
       }
 
-      // Handle weight formats: if weight < 1, assume it's decimal (0.3 = 30%), otherwise assume percentage (30)
-      const weightAsPercentage = weight < 1 ? weight * 100 : weight;
-      aiScore = Math.round((scorePercentage / 100) * weightAsPercentage);
+      // Convert to 1-10 scale
+      aiScore = Math.round((scorePercentage / 100) * 10);
       explanation = `Performance evaluation based on ${completionPercentage}% target achievement. ${completionPercentage >= 100 ? 'Exceeded expectations.' : completionPercentage >= 90 ? 'Nearly achieved full targets.' : 'Partial achievement of objectives.'}`;
     }
 
     // Save AI score to database and update workflow status
-    const finalWeightForDisplay = weight < 1 ? weight * 100 : weight;
-    console.log(`Saving AI score ${aiScore}/${finalWeightForDisplay} for objective ${objectiveId}`);
+    console.log(`Saving AI score ${aiScore}/10 for manager objective ${objectiveId}`);
     
-    // Create AI review entry
-    await prisma.mboObjectiveReview.create({
-      data: {
-        objectiveId: objectiveId,
-        reviewerId: objective.assignedById || objective.userId, // Use manager ID if available
-        score: aiScore,
-        aiScore: aiScore,
-        aiComments: explanation,
-        reviewType: 'AI_ANALYSIS',
-        reviewDate: new Date()
-      }
-    });
-
-    // Update objective status to indicate it's been AI-scored and ready for manager review
-    await prisma.mboObjective.update({
+    // Update manager objective status to indicate it's been AI-scored and ready for senior manager review
+    await prisma.mboManagerObjective.update({
       where: { id: objectiveId },
       data: {
-        status: 'AI_SCORED', // Move from COMPLETED to AI_SCORED
-        aiScoreMetadata: JSON.stringify({
+        status: 'AI_SCORED', // Move from MANAGER_SUBMITTED to AI_SCORED
+        aiScore: aiScore,
+        aiComments: explanation,
+        aiScoringMetadata: JSON.stringify({
           score: aiScore,
-          maxScore: weight < 1 ? weight * 100 : weight,
+          maxScore: 10,
           explanation: explanation,
           completionRate: completionPercentage,
           generatedAt: new Date().toISOString()
         }),
-        submittedToManagerAt: new Date()
+        aiScoredAt: new Date()
       }
     });
 
     return NextResponse.json({
       success: true,
       score: aiScore,
-      maxScore: weight < 1 ? weight * 100 : weight,
+      maxScore: 10,
       explanation: explanation,
       completionRate: completionPercentage,
       generatedAt: new Date().toISOString(),
@@ -171,9 +161,9 @@ export async function POST(request: Request) {
     });
 
   } catch (error) {
-    console.error('Error in AI scoring:', error);
+    console.error('Error in manager AI scoring:', error);
     return NextResponse.json(
-      { success: false, error: 'Failed to generate AI score' },
+      { success: false, error: 'Failed to generate AI score for manager objective' },
       { status: 500 }
     );
   }

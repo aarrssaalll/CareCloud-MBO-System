@@ -79,23 +79,24 @@ export function useAuth(requireAuth: boolean = true, allowedRoles?: string[]) {
           console.log(`Access denied. User role ${userRole} (normalized: ${normalizedUserRole}) not in allowed roles:`, normalizedAllowedRoles);
           alert(`Access denied. This page requires one of the following roles: ${allowedRolesRef.current.join(', ')}`);
           
-          // Redirect to appropriate role-based objectives page instead of dashboard
+          // Redirect to appropriate role-based dashboard instead of objectives
           const role = parsedUser.role?.toLowerCase();
           switch (role) {
             case 'employee':
-              router.push('/employee/objectives');
+              router.push('/emp-dashboard');
               break;
             case 'manager':
-              router.push('/manager/objectives');
+              router.push('/manager-dashboard');
               break;
             case 'hr':
-              router.push('/hr/objectives');
+              router.push('/hr-dashboard');
               break;
             case 'senior-management':
-              router.push('/hr/objectives');
+            case 'senior_management':
+              router.push('/system-dashboard');
               break;
             default:
-              router.push('/employee/objectives');
+              router.push('/emp-dashboard');
               break;
           }
           return;

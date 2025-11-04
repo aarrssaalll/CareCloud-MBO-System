@@ -85,20 +85,6 @@ export default function ManagerReportsPage() {
                   Generate detailed reports on team performance and objectives
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                {/* User Profile */}
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-500">{user?.title || 'Manager'}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
-                    <span className="text-white font-medium">
-                      {user?.firstName ? user.firstName[0] : ''}{user?.lastName ? user.lastName[0] : ''}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

@@ -73,8 +73,13 @@ async function getEmployeeStats(userId: string) {
     });
 
     const totalObjectives = objectives.length;
+    // Include all completion and post-completion statuses: completed, AI scored, submitted to HR, HR approved, bonus approved
     const completedObjectives = objectives.filter((obj: any) => 
-      obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED'
+      obj.status === 'COMPLETED' || 
+      obj.status === 'AI_SCORED' || 
+      obj.status === 'SUBMITTED_TO_HR' || 
+      obj.status === 'HR_APPROVED' || 
+      obj.status === 'BONUS_APPROVED'
     ).length;
     
     const activeObjectives = objectives.filter((obj: any) => 
@@ -166,7 +171,7 @@ async function getManagerStats(userId: string) {
     let pendingReviews = 0;
     const teamMemberCompletionRates: number[] = [];
 
-    teamMembers.forEach(member => {
+    teamMembers.forEach((member: any) => {
       const objectives = member.objectives || [];
       totalTeamObjectives += objectives.length;
       
@@ -307,63 +312,65 @@ async function getHRStats(userId: string) {
 
 async function getSeniorManagementStats(userId: string) {
   try {
-    // Get comprehensive organization statistics
-    const allObjectives = await prisma.mboObjective.findMany({
+    // Get subordinate managers for this senior manager
+    const subordinateManagers = await prisma.mboUser.findMany({
+      where: {
+        managerId: userId,
+        role: 'MANAGER'
+      },
+      select: {
+        id: true
+      }
+    });
+
+    console.log(`👨‍💼 Total subordinate managers: ${subordinateManagers.length}`);
+
+    const managerIds = subordinateManagers.map((m: any) => m.id);
+
+    // Get manager objectives only for subordinate managers
+    const allManagerObjectives = await prisma.mboManagerObjective.findMany({
+      where: {
+        managerId: {
+          in: managerIds
+        }
+      },
       select: {
         id: true,
         status: true,
-        current: true,
-        target: true,
-        weight: true,
         quarter: true,
         year: true
       }
     });
 
-    const allUsers = await prisma.mboUser.findMany({
-      select: {
-        id: true,
-        role: true
-      }
-    });
+    console.log(`📋 Total manager objectives: ${allManagerObjectives.length}`);
 
     const currentYear = new Date().getFullYear();
     const currentQuarter = `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`;
 
-    const currentPeriodObjectives = allObjectives.filter((obj: any) => 
+    // Current period objectives
+    const currentPeriodObjectives = allManagerObjectives.filter((obj: any) =>
       obj.year === currentYear && obj.quarter === currentQuarter
     );
 
-    const totalEmployees = allUsers.length;
     const totalObjectives = currentPeriodObjectives.length;
-    const completedObjectives = currentPeriodObjectives.filter((obj: any) => 
-      obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED'
+    const completedObjectives = currentPeriodObjectives.filter((obj: any) =>
+      obj.status === 'COMPLETED' || obj.status === 'HR_APPROVED' || obj.status === 'BONUS_APPROVED' || obj.status === 'SUBMITTED_TO_HR'
     ).length;
 
-    const organizationHealth = calculateOrganizationHealth(currentPeriodObjectives);
-    const strategicCompletion = totalObjectives > 0 ? 
-      Math.round((completedObjectives / totalObjectives) * 100) : 0;
+    const pendingObjectives = currentPeriodObjectives.filter((obj: any) =>
+      obj.status === 'ASSIGNED' || obj.status === 'ACTIVE' || obj.status === 'IN_PROGRESS'
+    ).length;
+
+    console.log(`✅ Completed objectives: ${completedObjectives}`);
+    console.log(`⏳ Pending objectives: ${pendingObjectives}`);
 
     return {
       type: 'senior-management',
       overview: {
-        totalEmployees,
+        totalManagers: subordinateManagers.length,
         totalObjectives,
         completedObjectives,
-        strategicCompletion,
-        organizationHealth
-      },
-      strategic: {
-        currentPeriod: `${currentQuarter} ${currentYear}`,
-        objectives: totalObjectives,
-        completed: completedObjectives,
-        completion: strategicCompletion,
-        health: organizationHealth
-      },
-      organization: {
-        employees: totalEmployees,
-        managers: allUsers.filter((u: any) => u.role?.toLowerCase() === 'manager').length,
-        departments: 5 // This could be calculated from actual department data
+        pendingObjectives
       }
     };
 

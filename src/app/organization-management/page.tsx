@@ -438,10 +438,6 @@ export default function OrganizationManagement() {
                   Manage organizational hierarchy, roles, and employee structure
                 </p>
               </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                <p className="text-xs text-gray-500">Senior Management</p>
-              </div>
             </div>
           </div>
         </div>

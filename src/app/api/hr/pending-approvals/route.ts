@@ -6,10 +6,10 @@ const prisma = new PrismaClient();
 // GET /api/hr/pending-approvals
 export async function GET(request: NextRequest) {
   try {
-    console.log(`📋 Fetching objectives submitted by managers for HR approval`);
+    console.log(`📋 Fetching objectives submitted by managers and senior management for HR approval`);
 
-    // Get objectives that have been submitted to HR for approval or rejected (exclude BONUS_APPROVED)
-    const objectives = await prisma.mboObjective.findMany({
+    // Get employee objectives that have been submitted to HR for approval or rejected
+    const employeeObjectives = await prisma.mboObjective.findMany({
       where: {
         status: {
           in: ['SUBMITTED_TO_HR', 'REJECTED']
@@ -23,7 +23,8 @@ export async function GET(request: NextRequest) {
             email: true,
             title: true,
             employeeId: true,
-            salary: true
+            salary: true,
+            allocatedBonusAmount: true
           }
         },
         assignedBy: {
@@ -66,15 +67,79 @@ export async function GET(request: NextRequest) {
       ]
     });
 
-    console.log(`📊 Found ${objectives.length} objectives for HR review (pending and rejected only)`);
+    // Get manager objectives that have been submitted to HR for approval or rejected
+    const managerObjectives = await prisma.mboManagerObjective.findMany({
+      where: {
+        status: {
+          in: ['SUBMITTED_TO_HR', 'REJECTED', 'PENDING_SENIOR_REVIEW', 'SENIOR_APPROVED']
+        }
+      },
+      include: {
+        manager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            title: true,
+            employeeId: true,
+            salary: true,
+            allocatedBonusAmount: true
+          }
+        },
+        assignedBySeniorManager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            title: true
+          }
+        }
+      },
+      orderBy: [
+        {
+          status: 'asc'
+        },
+        {
+          managerSubmittedAt: 'desc'
+        }
+      ]
+    });
+
+    // Combine and normalize the objectives
+    const allObjectives = [
+      ...employeeObjectives.map((obj: any) => ({
+        ...obj,
+        objectiveType: 'EMPLOYEE',
+        submittedBy: obj.user,
+        assignedBy: obj.assignedBy
+      })),
+      ...managerObjectives.map((obj: any) => ({
+        ...obj,
+        objectiveType: 'MANAGER',
+        submittedBy: obj.manager,
+        assignedBy: obj.assignedBySeniorManager,
+        submittedToHrAt: obj.managerSubmittedAt
+      }))
+    ];
+
+    // Sort by submission date
+    allObjectives.sort((a: any, b: any) => {
+      const dateA = new Date(a.submittedToHrAt || 0);
+      const dateB = new Date(b.submittedToHrAt || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+
+    console.log(`📊 Found ${allObjectives.length} objectives for HR review (${employeeObjectives.length} employee, ${managerObjectives.length} manager)`);
 
     return NextResponse.json({
       success: true,
-      objectives: objectives,
-      count: objectives.length,
+      objectives: allObjectives,
+      count: allObjectives.length,
       breakdown: {
-        pending: objectives.filter(obj => obj.status === 'SUBMITTED_TO_HR').length,
-        rejected: objectives.filter(obj => obj.status === 'REJECTED').length
+        pending: allObjectives.filter((obj: any) => obj.status === 'SUBMITTED_TO_HR').length,
+        rejected: allObjectives.filter((obj: any) => obj.status === 'REJECTED').length,
+        managerObjectives: managerObjectives.length,
+        employeeObjectives: employeeObjectives.length
       }
     });
 

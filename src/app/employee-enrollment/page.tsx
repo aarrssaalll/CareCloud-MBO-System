@@ -57,6 +57,7 @@ export default function EmployeeEnrollmentPage() {
   const [filteredEmployees, setFilteredEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [managers, setManagers] = useState<Employee[]>([]);
+  const [teams, setTeams] = useState<{id: string, name: string}[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -276,15 +277,33 @@ export default function EmployeeEnrollmentPage() {
     }
   }, [error]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
-    
-    // Reset teamId when department changes
+    // Reset teamId and fetch teams when department changes
     if (name === 'departmentId') {
       setForm(prev => ({ ...prev, teamId: "" }));
+      if (value) {
+        try {
+          console.log('🔍 Fetching teams for departmentId:', value);
+          const response = await fetch(`/api/mbo/teams?departmentId=${value}`);
+          const data = await response.json();
+          console.log('📊 Teams API response:', data);
+          if (data.success && data.data) {
+            console.log(`✅ Found ${data.data.length} teams`);
+            setTeams(data.data);
+          } else {
+            console.log('⚠️ No teams found or API error:', data.error);
+            setTeams([]);
+          }
+        } catch (err) {
+          console.error('❌ Error fetching teams:', err);
+          setTeams([]);
+        }
+      } else {
+        setTeams([]);
+      }
     }
-    
     // Reset managerId when role changes (due to hierarchy rules)
     if (name === 'role') {
       setForm(prev => ({ ...prev, managerId: "" }));
@@ -588,6 +607,7 @@ export default function EmployeeEnrollmentPage() {
                 />
               </div>
               
+              {/* Department selection */}
               <div>
                 <label className="block text-sm font-medium text-text-dark">Department</label>
                 <select 
@@ -602,6 +622,25 @@ export default function EmployeeEnrollmentPage() {
                   ))}
                 </select>
               </div>
+
+              {/* Team selection for employees and managers only */}
+              {(form.role === 'EMPLOYEE' || form.role === 'MANAGER') && (
+                <div>
+                  <label className="block text-sm font-medium text-text-dark">Team</label>
+                  <select
+                    name="teamId"
+                    value={form.teamId}
+                    onChange={handleChange}
+                    className="mt-1 w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-primary focus:border-primary"
+                    disabled={!form.departmentId}
+                  >
+                    <option value="">{form.departmentId ? (teams.length > 0 ? 'Select Team' : 'No teams available') : 'Select department first'}</option>
+                    {teams.map(team => (
+                      <option key={team.id} value={team.id}>{team.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium text-text-dark">Manager</label>

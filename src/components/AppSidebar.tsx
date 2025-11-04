@@ -142,8 +142,6 @@ export default function AppSidebar() {
                   return '/strategic';
                 case 'Organization Reports':
                   return '/org-reports';
-                case 'Final Approvals':
-                  return '/approvals';
                 case 'Settings':
                   return '/settings';
                 default:

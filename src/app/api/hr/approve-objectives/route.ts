@@ -4,39 +4,44 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // Bonus calculation logic
-function calculateBonus(objectives: any[], employeeSalary: number, quarter: string, year: number) {
+function calculateBonus(objectives: any[], allocatedBonusAmount: number, quarter: string, year: number) {
   if (!objectives.length) return { baseAmount: 0, performanceMultiplier: 0, finalAmount: 0 };
 
-  // Calculate weighted average score
-  const totalWeight = objectives.reduce((sum, obj) => sum + (obj.weight || 1), 0);
-  const weightedScore = objectives.reduce((sum, obj) => {
-    return sum + (obj.managerScore * (obj.weight || 1));
-  }, 0) / totalWeight;
-
-  // Base bonus calculation (percentage of salary)
-  const quarterlyBonus = employeeSalary * 0.15; // 15% quarterly bonus potential
+  // allocatedBonusAmount is QUARTERLY amount, use directly as base
+  const baseAmount = allocatedBonusAmount || 1000;
   
-  // Performance multiplier based on score
-  let performanceMultiplier = 0;
-  if (weightedScore >= 90) {
-    performanceMultiplier = 1.2; // 120% for excellent performance
-  } else if (weightedScore >= 80) {
-    performanceMultiplier = 1.0; // 100% for good performance
-  } else if (weightedScore >= 70) {
-    performanceMultiplier = 0.8; // 80% for acceptable performance
-  } else if (weightedScore >= 60) {
-    performanceMultiplier = 0.5; // 50% for below expectations
-  } else {
-    performanceMultiplier = 0.25; // 25% for poor performance
-  }
+  // Calculate weighted performance score
+  let weightedPerformanceScore = 0;
+  
+  objectives.forEach((obj: any) => {
+    // Get the final score (manager review score or AI score)
+    const finalScore = obj.managerScore || obj.aiScore || 0;
+    
+    // Normalize score to 0-100 range
+    let scorePercentage = finalScore;
+    if (finalScore <= 10) {
+      scorePercentage = (finalScore / 10) * 100;
+    }
+    scorePercentage = Math.min(scorePercentage, 100);
+    
+    // Weight is already a percentage (e.g., 0.20 for 20%)
+    const weight = (obj.weight || 0) / 100;
+    
+    // Add weighted score to total
+    weightedPerformanceScore += scorePercentage * weight;
+  });
 
-  const finalAmount = quarterlyBonus * performanceMultiplier;
+  // Calculate performance multiplier (0-1 scale)
+  const performanceMultiplier = weightedPerformanceScore / 100;
+
+  // Calculate final bonus: base amount * performance multiplier
+  const finalAmount = Math.round(baseAmount * performanceMultiplier * 100) / 100;
 
   return {
-    baseAmount: quarterlyBonus,
-    performanceMultiplier,
-    finalAmount: Math.round(finalAmount * 100) / 100,
-    averageScore: Math.round(weightedScore * 100) / 100,
+    baseAmount: baseAmount,
+    performanceMultiplier: Math.min(performanceMultiplier, 1), // Cap at 1.0 (100%)
+    finalAmount: finalAmount,
+    averageScore: Math.round(weightedPerformanceScore),
     objectiveCount: objectives.length
   };
 }
@@ -70,7 +75,7 @@ export async function POST(request: NextRequest) {
 
       // Get objective details for bonus calculation
       const objectiveDetails = await prisma.$queryRaw`
-        SELECT o.*, u.id as userId, u.name as employeeName, u.salary,
+        SELECT o.*, u.id as userId, u.name as employeeName, u.salary, u.allocatedBonusAmount,
                r.score as managerScore, r.aiScore
         FROM mbo_objectives o
         INNER JOIN mbo_users u ON o.userId = u.id
@@ -87,7 +92,7 @@ export async function POST(request: NextRequest) {
         if (!bonusCalculations[userId]) {
           bonusCalculations[userId] = {
             employeeName: obj.employeeName,
-            salary: obj.salary,
+            allocatedBonusAmount: obj.allocatedBonusAmount || 0,
             objectives: []
           };
         }
@@ -113,7 +118,7 @@ export async function POST(request: NextRequest) {
     
     for (const [userId, data] of Object.entries(bonusCalculations)) {
       const empData = data as any;
-      const bonusCalc = calculateBonus(empData.objectives, empData.salary, quarter, year);
+      const bonusCalc = calculateBonus(empData.objectives, empData.allocatedBonusAmount, quarter, year);
       
       // Create bonus record
       const bonusId = `bonus_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -132,7 +137,7 @@ export async function POST(request: NextRequest) {
         bonusId
       });
 
-      console.log(`💰 Bonus calculated for ${empData.employeeName}: $${bonusCalc.finalAmount} (${bonusCalc.performanceMultiplier * 100}% of base)`);
+      console.log(`💰 Bonus calculated for ${empData.employeeName}: $${bonusCalc.finalAmount} (${bonusCalc.performanceMultiplier * 100}% of allocated: $${empData.allocatedBonusAmount})`);
     }
 
     console.log(`✅ HR approval completed for ${objectiveIds.length} objectives`);

@@ -417,12 +417,6 @@ export default function EnhancedObjectiveAssignment() {
                   AI-powered objective assignment and team management for Q3 2025
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">Team Manager</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>

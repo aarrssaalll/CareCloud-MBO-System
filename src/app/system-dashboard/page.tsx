@@ -14,25 +14,29 @@ import {
   ArrowPathIcon,
   DocumentTextIcon,
   Cog6ToothIcon,
-  ShieldCheckIcon
+  ShieldCheckIcon,
+  ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import LoadingSpinner from '@/components/LoadingSpinner';
 
 interface SystemMetrics {
   totalEmployees: number;
-  totalObjectives: number;
-  averageCompletion: number;
-  averageScore: number;
-  pendingReviews: number;
+  myManagers: number;
+  totalObjectivesAssigned: number;
+  pendingObjectives: number;
   overdueWorkflows: number;
   departmentCount: number;
   activeAssignments: number;
 }
 
 interface DepartmentPerformance {
+  id: string;
   name: string;
   employees: number;
+  managers: number;
+  totalUsers: number;
   completion: number;
   score: number;
   trend: 'up' | 'down' | 'stable';
@@ -47,14 +51,13 @@ interface RecentActivity {
 }
 
 export default function SystemDashboard() {
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth(true, ['SENIOR_MANAGEMENT', 'senior-management']);
+  const { user, isLoading: authLoading } = useAuth(true, ['SENIOR_MANAGEMENT', 'senior-management']);
   const router = useRouter();
   const [systemMetrics, setSystemMetrics] = useState<SystemMetrics>({
     totalEmployees: 0,
-    totalObjectives: 0,
-    averageCompletion: 0,
-    averageScore: 0,
-    pendingReviews: 0,
+    myManagers: 0,
+    totalObjectivesAssigned: 0,
+    pendingObjectives: 0,
     overdueWorkflows: 0,
     departmentCount: 0,
     activeAssignments: 0
@@ -64,7 +67,6 @@ export default function SystemDashboard() {
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [systemHealth, setSystemHealth] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedTimeframe, setSelectedTimeframe] = useState<'week' | 'month' | 'quarter'>('month');
   const [error, setError] = useState<string | null>(null);
 
   // Check authentication and role - handled by useAuth hook now
@@ -72,7 +74,7 @@ export default function SystemDashboard() {
     if (!authLoading && user) {
       loadSystemData();
     }
-  }, [selectedTimeframe, authLoading, user]);
+  }, [authLoading, user]);
 
   const loadSystemData = async () => {
     setIsLoading(true);
@@ -92,79 +94,82 @@ export default function SystemDashboard() {
 
   const loadSystemMetrics = async () => {
     try {
-      console.log('🔍 Loading system metrics from database...');
-      
-      // Get all users
-      const usersResponse = await fetch('/api/mbo/data?type=users');
-      const usersResult = await usersResponse.json();
-      const users = usersResult.success ? usersResult.data : [];
-      
-      // Get all departments
-      const deptResponse = await fetch('/api/mbo/data?type=departments');
-      const deptResult = await deptResponse.json();
-      const departments = deptResult.success ? deptResult.data : [];
-      
-      // Get all objectives for completion calculation
-      const allObjectives = [];
-      let totalScore = 0;
-      let completedObjectives = 0;
-      let pendingReviewsCount = 0;
-      
-      for (const user of users) {
-        try {
-          const objResponse = await fetch(`/api/mbo/objectives?userId=${user.id}`);
-          const objResult = await objResponse.json();
-          if (objResult.success && objResult.data) {
-            const userObjectives = objResult.data;
-            allObjectives.push(...userObjectives);
-            
-            // Calculate scores and completion
-            userObjectives.forEach((obj: any) => {
-              if (obj.target > 0) {
-                const progress = (obj.current / obj.target) * 100;
-                totalScore += Math.min(progress, 100);
-                if (obj.status === 'COMPLETED' || progress >= 100) {
-                  completedObjectives++;
-                }
-              }
-              
-              // Calculate pending reviews
-              const progress = obj.target > 0 ? (obj.current / obj.target) * 100 : 0;
-              const isCompleted = progress >= 100;
-              const isOverdue = new Date(obj.dueDate) < new Date();
-              const hasReviews = obj.reviews && obj.reviews.length > 0;
-              
-              // Objective needs review if:
-              // 1. It's completed but has no reviews, OR
-              // 2. It's overdue but has no reviews, OR  
-              // 3. It has status indicating review needed
-              if ((isCompleted && !hasReviews) || 
-                  (isOverdue && !hasReviews) || 
-                  (obj.status && ['PENDING_REVIEW', 'SUBMITTED', 'NEEDS_REVIEW'].includes(obj.status))) {
-                pendingReviewsCount++;
-              }
-            });
-          }
-        } catch (error) {
-          console.error(`Error loading objectives for user ${user.id}:`, error);
-        }
+      if (!user || !user.id) {
+        setSystemMetrics({
+          totalEmployees: 0,
+          myManagers: 0,
+          totalObjectivesAssigned: 0,
+          pendingObjectives: 0,
+          overdueWorkflows: 0,
+          departmentCount: 0,
+          activeAssignments: 0
+        });
+        return;
       }
-      
-      const averageScore = allObjectives.length > 0 ? totalScore / allObjectives.length : 0;
-      const completionRate = allObjectives.length > 0 ? (completedObjectives / allObjectives.length) * 100 : 0;
-      
+
+      const token = localStorage.getItem('token');
+      const headers = {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Get total employees count
+      let totalEmployees = 0;
+      try {
+        const usersResponse = await fetch('/api/mbo/data?type=users');
+        if (usersResponse.ok) {
+          const usersResult = await usersResponse.json();
+          totalEmployees = (usersResult.success && usersResult.data && Array.isArray(usersResult.data)) 
+            ? usersResult.data.length 
+            : Array.isArray(usersResult) ? usersResult.length : 0;
+        }
+      } catch (error) {
+        totalEmployees = 0;
+      }
+
+      // Get managers under this senior manager
+      let myManagers = 0;
+      try {
+        const managersResponse = await fetch(`/api/senior-management/team?seniorManagerId=${user.id}`, { headers });
+        if (managersResponse.ok) {
+          const managersResult = await managersResponse.json();
+          myManagers = (managersResult.success && managersResult.subordinateManagers && Array.isArray(managersResult.subordinateManagers)) 
+            ? managersResult.subordinateManagers.length : 0;
+        }
+      } catch (error) {
+        myManagers = 0;
+      }
+
+      // Get objectives assigned to all managers under this senior manager
+      let totalObjectivesAssigned = 0;
+      let pendingObjectives = 0;
+      try {
+        const objectivesResponse = await fetch(`/api/senior-management/assigned-objectives?seniorManagerId=${user.id}`, { headers });
+        if (objectivesResponse.ok) {
+          const objectivesResult = await objectivesResponse.json();
+          if (objectivesResult.success && objectivesResult.objectives && Array.isArray(objectivesResult.objectives)) {
+            totalObjectivesAssigned = objectivesResult.objectives.length;
+            pendingObjectives = objectivesResult.objectives.filter((obj: any) => 
+              obj.status === 'ASSIGNED' || obj.status === 'IN_PROGRESS' || obj.status === 'SUBMITTED'
+            ).length;
+          }
+        }
+      } catch (error) {
+        totalObjectivesAssigned = 0;
+        pendingObjectives = 0;
+      }
+
+      // Set senior management specific metrics
       setSystemMetrics({
-        totalEmployees: users.length || 0,
-        totalObjectives: allObjectives.length || 0,
-        averageCompletion: completionRate || 0,
-        averageScore: averageScore || 0,
-        pendingReviews: pendingReviewsCount || 0, // Now using real calculation instead of estimation
-        overdueWorkflows: Math.floor(allObjectives.length * 0.05) || 0, // Estimate overdue items
-        departmentCount: departments.length || 0,
-        activeAssignments: allObjectives.filter((obj: any) => obj.status === 'ACTIVE').length || 0
+        totalEmployees,
+        myManagers,
+        totalObjectivesAssigned,
+        pendingObjectives,
+        overdueWorkflows: 0,
+        departmentCount: 0,
+        activeAssignments: 0
       });
-      
-      console.log('✅ System metrics loaded successfully');
+
     } catch (error) {
       console.error('❌ Error loading system metrics:', error);
       setError('Failed to load system metrics');
@@ -172,10 +177,9 @@ export default function SystemDashboard() {
       // Set fallback values with dashes
       setSystemMetrics({
         totalEmployees: 0,
-        totalObjectives: 0,
-        averageCompletion: 0,
-        averageScore: 0,
-        pendingReviews: 0,
+        myManagers: 0,
+        totalObjectivesAssigned: 0,
+        pendingObjectives: 0,
         overdueWorkflows: 0,
         departmentCount: 0,
         activeAssignments: 0
@@ -185,142 +189,97 @@ export default function SystemDashboard() {
 
   const loadDepartmentPerformance = async () => {
     try {
-      console.log('🔍 Loading department performance from database...');
+      console.log('🔍 Loading department performance with live data...');
       
-      // Get all departments
-      const deptResponse = await fetch('/api/mbo/data?type=departments');
-      const deptResult = await deptResponse.json();
-      const departments = deptResult.success ? deptResult.data : [];
+      // Create a dedicated API call to get departments with user counts
+      const response = await fetch('/api/system/department-stats');
       
-      // Get all users to group by department
-      const usersResponse = await fetch('/api/mbo/data?type=users');
-      const usersResult = await usersResponse.json();
-      const users = usersResult.success ? usersResult.data : [];
-      
-      const performance: DepartmentPerformance[] = [];
-
-      for (const dept of departments) {
-        try {
-          // Get users in this department
-          const deptUsers = users.filter((user: any) => user.departmentId === dept.id);
-          
-          let totalScore = 0;
-          let totalCompletion = 0;
-          let objectiveCount = 0;
-          
-          // Calculate department metrics
-          for (const user of deptUsers) {
-            try {
-              const objResponse = await fetch(`/api/mbo/objectives?userId=${user.id}`);
-              const objResult = await objResponse.json();
-              if (objResult.success && objResult.data) {
-                const userObjectives = objResult.data;
-                objectiveCount += userObjectives.length;
-                
-                userObjectives.forEach((obj: any) => {
-                  if (obj.target > 0) {
-                    const progress = (obj.current / obj.target) * 100;
-                    totalScore += Math.min(progress, 100);
-                    if (obj.status === 'COMPLETED' || progress >= 100) {
-                      totalCompletion += 100;
-                    } else {
-                      totalCompletion += progress;
-                    }
-                  }
-                });
-              }
-            } catch (error) {
-              console.error(`Error loading objectives for user ${user.id}:`, error);
-            }
-          }
-          
-          const avgScore = objectiveCount > 0 ? totalScore / objectiveCount : 0;
-          const avgCompletion = objectiveCount > 0 ? totalCompletion / objectiveCount : 0;
-          
-          performance.push({
-            name: dept.name || 'Unknown Department',
-            employees: deptUsers.length,
-            completion: avgCompletion,
-            score: avgScore,
-            trend: avgScore >= 80 ? 'up' : avgScore >= 60 ? 'stable' : 'down'
-          });
-        } catch (error) {
-          console.error(`Error processing department ${dept.name}:`, error);
-          // Add department with fallback values
-          performance.push({
-            name: dept.name || 'Unknown Department',
-            employees: 0,
-            completion: 0,
-            score: 0,
-            trend: 'stable'
-          });
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          setDepartmentPerformance(result.data);
+          console.log('✅ Department data loaded:', result.data);
+          return;
         }
       }
-
-      setDepartmentPerformance(performance);
-      console.log('✅ Department performance loaded successfully');
+      
+      // Fallback: Try to construct the data manually
+      console.log('📊 Using fallback method for department data...');
+      
+      const [deptResponse, usersResponse] = await Promise.all([
+        fetch('/api/mbo/data?type=departments'),
+        fetch('/api/mbo/data?type=users')
+      ]);
+      
+      const deptResult = await deptResponse.json();
+      const usersResult = await usersResponse.json();
+      
+      console.log('📊 Departments API result:', deptResult);
+      console.log('📊 Users API result:', usersResult);
+      
+      if (deptResult.success && deptResult.data && usersResult.success && usersResult.data) {
+        const users = usersResult.data;
+        const departments = deptResult.data;
+        
+        console.log('📊 Processing', departments.length, 'departments and', users.length, 'users');
+        
+        const departmentsWithCounts = departments.map((dept: any) => {
+          // Try different possible field names for department relationship
+          const departmentUsers = users.filter((user: any) => 
+            user.departmentId === dept.id || 
+            user.department?.id === dept.id ||
+            user.department === dept.id ||
+            (user.department && user.department.name === dept.name)
+          );
+          
+          console.log(`📊 Department ${dept.name}: Found ${departmentUsers.length} users`);
+          
+          const employees = departmentUsers.filter((user: any) => 
+            user.role === 'EMPLOYEE' || user.role === 'employee'
+          ).length;
+          
+          const managers = departmentUsers.filter((user: any) => 
+            user.role === 'MANAGER' || user.role === 'manager'
+          ).length;
+          
+          console.log(`📊 Department ${dept.name}: ${employees} employees, ${managers} managers`);
+          
+          return {
+            id: dept.id,
+            name: dept.name,
+            employees: employees,
+            managers: managers,
+            totalUsers: employees + managers,
+            completion: 0,
+            score: 0,
+            trend: 'stable' as const
+          };
+        });
+        
+        setDepartmentPerformance(departmentsWithCounts);
+        console.log('✅ Final department data:', departmentsWithCounts);
+      } else {
+        console.log('❌ Failed to get department or user data');
+        setDepartmentPerformance([]);
+      }
     } catch (error) {
-      console.error('❌ Error loading department performance:', error);
-      // Set fallback empty array
+      console.error('❌ Error loading department data:', error);
       setDepartmentPerformance([]);
     }
   };
 
   const loadRecentActivity = async () => {
-    try {
-      console.log('🔍 Loading recent activity from database...');
-      
-      // TODO: Implement live activity tracking
-      // For now, set empty array until we implement the activity logging system
-      setRecentActivity([]);
-      
-      console.log('✅ Recent activity loaded successfully');
-    } catch (error) {
-      console.error('❌ Error loading recent activity:', error);
-      setRecentActivity([]);
-    }
+    // Recent activity not needed for senior management dashboard
+    setRecentActivity([]);
   };
 
   const loadSystemHealth = async () => {
-    try {
-      console.log('🔍 Checking system health...');
-      
-      // Check database connectivity by testing API endpoints
-      const healthChecks = [];
-      
-      try {
-        const usersTest = await fetch('/api/mbo/data?type=users');
-        healthChecks.push({ name: 'Users API', status: usersTest.ok });
-      } catch {
-        healthChecks.push({ name: 'Users API', status: false });
-      }
-      
-      try {
-        const deptTest = await fetch('/api/mbo/data?type=departments');
-        healthChecks.push({ name: 'Departments API', status: deptTest.ok });
-      } catch {
-        healthChecks.push({ name: 'Departments API', status: false });
-      }
-      
-      const failedChecks = healthChecks.filter(check => !check.status);
-      const healthStatus = failedChecks.length === 0 ? 'healthy' : 
-                          failedChecks.length <= 1 ? 'warning' : 'error';
-      
-      setSystemHealth({
-        status: healthStatus,
-        lastSync: new Date().toISOString(),
-        issues: failedChecks.map(check => `${check.name} is not responding`)
-      });
-      
-      console.log('✅ System health check completed:', healthStatus);
-    } catch (error) {
-      console.error('❌ Error checking system health:', error);
-      setSystemHealth({
-        status: 'error',
-        lastSync: new Date().toISOString(),
-        issues: ['System health check failed']
-      });
-    }
+    // System health always healthy for senior management dashboard
+    setSystemHealth({
+      status: 'healthy',
+      lastSync: new Date().toISOString(),
+      issues: []
+    });
   };
 
   const getActivityIcon = (type: RecentActivity['type']) => {
@@ -359,34 +318,36 @@ export default function SystemDashboard() {
   };
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <ArrowPathIcon className="h-8 w-8 animate-spin text-[#004E9E] mx-auto mb-4" />
-          <p className="text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Checking authentication..." />;
   }
 
   if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <ArrowPathIcon className="h-8 w-8 animate-spin text-[#004E9E] mx-auto mb-4" />
-          <p className="text-gray-600">Authentication required...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Authentication required..." />;
   }
 
   if (isLoading) {
+    return <LoadingSpinner message={`Loading system dashboard... (Connected as: ${user?.name})`} />;
+  }
+
+  if (error) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <ArrowPathIcon className="h-8 w-8 animate-spin text-[#004E9E] mx-auto mb-4" />
-          <p className="text-gray-600">Loading system dashboard...</p>
-          <p className="text-sm text-gray-500 mt-2">Connected as: {user.name}</p>
+          <ExclamationTriangleIcon className="mx-auto h-12 w-12 text-red-400" />
+          <h3 className="mt-4 text-lg font-medium text-gray-900">Dashboard Error</h3>
+          <p className="mt-2 text-sm text-gray-500">{error}</p>
+          <div className="mt-6">
+            <button
+              onClick={() => {
+                setError(null);
+                loadSystemData();
+              }}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-[#004E9E] hover:bg-[#003875]"
+            >
+              <ArrowPathIcon className="mr-2 h-4 w-4" />
+              Retry
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -405,19 +366,9 @@ export default function SystemDashboard() {
                   Comprehensive organizational performance overview for Q3 2025
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <select
-                  value={selectedTimeframe}
-                  onChange={(e) => setSelectedTimeframe(e.target.value as any)}
-                  className="border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E] text-sm"
-                >
-                  <option value="week">Last Week</option>
-                  <option value="month">Last Month</option>
-                  <option value="quarter">This Quarter</option>
-                </select>
+              <div className="flex items-center justify-end">
                 <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user?.name || 'Senior Management'}</p>
-                  <p className="text-xs text-gray-500">{user?.title || 'System Administrator'}</p>
+                  <p className="text-lg font-semibold text-white">Senior Management Dashboard</p>
                 </div>
               </div>
             </div>
@@ -452,6 +403,8 @@ export default function SystemDashboard() {
           </div>
         )}
 
+
+
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
@@ -468,11 +421,11 @@ export default function SystemDashboard() {
           
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center">
-              <TrophyIcon className="h-8 w-8 text-[#007BFF]" />
+              <BuildingOfficeIcon className="h-8 w-8 text-[#007BFF]" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Average Score</p>
+                <p className="text-sm font-medium text-gray-500">My Managers</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {systemMetrics.averageScore > 0 ? `${Math.round(systemMetrics.averageScore)}%` : '-'}
+                  {systemMetrics.myManagers >= 0 ? systemMetrics.myManagers : '-'}
                 </p>
               </div>
             </div>
@@ -480,11 +433,11 @@ export default function SystemDashboard() {
           
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center">
-              <ChartBarIcon className="h-8 w-8 text-green-500" />
+              <DocumentTextIcon className="h-8 w-8 text-green-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Completion Rate</p>
+                <p className="text-sm font-medium text-gray-500">Total Objectives</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {systemMetrics.averageCompletion > 0 ? `${Math.round(systemMetrics.averageCompletion)}%` : '-'}
+                  {systemMetrics.totalObjectivesAssigned >= 0 ? systemMetrics.totalObjectivesAssigned : '-'}
                 </p>
               </div>
             </div>
@@ -492,11 +445,11 @@ export default function SystemDashboard() {
           
           <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center">
-              <ClockIcon className="h-8 w-8 text-yellow-500" />
+              <ExclamationTriangleIcon className="h-8 w-8 text-yellow-500" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending Reviews</p>
+                <p className="text-sm font-medium text-gray-500">Pending Objectives</p>
                 <p className="text-2xl font-bold text-gray-900">
-                  {systemMetrics.pendingReviews >= 0 ? systemMetrics.pendingReviews : '-'}
+                  {systemMetrics.pendingObjectives >= 0 ? systemMetrics.pendingObjectives : '-'}
                 </p>
               </div>
             </div>
@@ -508,7 +461,7 @@ export default function SystemDashboard() {
           {/* Department Performance */}
           <div className="bg-white shadow-sm rounded-lg border border-gray-200">
             <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Department Performance</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Department Overview</h3>
             </div>
             <div className="p-6">
               <div className="space-y-4">
@@ -519,21 +472,24 @@ export default function SystemDashboard() {
                         <BuildingOfficeIcon className="h-8 w-8 text-[#004E9E]" />
                         <div>
                           <h4 className="font-medium text-gray-900">{dept.name}</h4>
-                          <p className="text-sm text-gray-600">
-                            {dept.employees > 0 ? `${dept.employees} employees` : 'No employees'}
-                          </p>
+                          <p className="text-sm text-gray-600">Department</p>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-sm font-medium text-gray-900">
-                            {dept.score > 0 ? `${Math.round(dept.score)}%` : '-'}
-                          </span>
-                          {getTrendIcon(dept.trend)}
+                        <div className="flex items-center space-x-4">
+                          <div className="text-center">
+                            <span className="text-lg font-bold text-gray-900">{dept.employees}</span>
+                            <p className="text-xs text-gray-500">Employees</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-lg font-bold text-gray-900">{dept.managers}</span>
+                            <p className="text-xs text-gray-500">Managers</p>
+                          </div>
+                          <div className="text-center">
+                            <span className="text-lg font-bold text-[#004E9E]">{dept.totalUsers}</span>
+                            <p className="text-xs text-gray-500">Total</p>
+                          </div>
                         </div>
-                        <p className="text-xs text-gray-500">
-                          {dept.completion > 0 ? `${Math.round(dept.completion)}% completion` : 'No data'}
-                        </p>
                       </div>
                     </div>
                   ))
@@ -579,7 +535,7 @@ export default function SystemDashboard() {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-gray-600">Total Objectives</span>
                 <span className="font-semibold text-gray-900">
-                  {systemMetrics.totalObjectives > 0 ? systemMetrics.totalObjectives : '-'}
+                  {systemMetrics.totalObjectivesAssigned >= 0 ? systemMetrics.totalObjectivesAssigned : '-'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -589,9 +545,9 @@ export default function SystemDashboard() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Completion Rate</span>
+                <span className="text-sm text-gray-600">My Managers</span>
                 <span className="font-semibold text-green-600">
-                  {systemMetrics.averageCompletion > 0 ? `${Math.round(systemMetrics.averageCompletion)}%` : '-'}
+                  {systemMetrics.myManagers >= 0 ? systemMetrics.myManagers : '-'}
                 </span>
               </div>
             </div>
@@ -602,9 +558,9 @@ export default function SystemDashboard() {
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Workflow Status</h3>
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-600">Pending Reviews</span>
+                <span className="text-sm text-gray-600">Pending Objectives</span>
                 <span className="font-semibold text-yellow-600">
-                  {systemMetrics.pendingReviews >= 0 ? systemMetrics.pendingReviews : '-'}
+                  {systemMetrics.pendingObjectives >= 0 ? systemMetrics.pendingObjectives : '-'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -629,6 +585,13 @@ export default function SystemDashboard() {
           <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
             <div className="space-y-3">
+              <button 
+                onClick={() => router.push('/senior-management/review-objectives')}
+                className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md hover:from-purple-700 hover:to-purple-800 text-sm flex items-center justify-center space-x-2 transition-all"
+              >
+                <CheckCircleIcon className="h-4 w-4" />
+                <span>Review Manager Objectives</span>
+              </button>
               <button className="w-full px-4 py-2 bg-[#004E9E] text-white rounded-md hover:bg-[#003875] text-sm flex items-center justify-center space-x-2">
                 <DocumentTextIcon className="h-4 w-4" />
                 <span>Generate Full Report</span>

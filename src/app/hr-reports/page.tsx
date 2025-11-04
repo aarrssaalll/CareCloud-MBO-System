@@ -106,17 +106,6 @@ export default function HRReportsPage() {
                   Comprehensive HR analytics and organizational insights
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-xs text-gray-500">HR</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#003d7c] text-white flex items-center justify-center text-sm font-medium">
-                    {user.name.split(' ').map((n: string) => n[0]).join('').slice(0,2).toUpperCase()}
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

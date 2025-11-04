@@ -70,6 +70,8 @@ model MboUser {
   ledTeams              MboTeam[]            @relation("TeamLeader")
   objectives            MboObjective[]       @relation("UserObjectives")
   assignedObjectives    MboObjective[]       @relation("AssignedByUser")
+  managerObjectives     MboManagerObjective[] @relation("ManagerObjectives")
+  assignedManagerObjectives MboManagerObjective[] @relation("AssignedManagerObjectives")
   bonuses               MboBonus[]
   objectiveReviews      MboObjectiveReview[] @relation("ReviewerRelation")
   reviews               MboReview[]
@@ -184,6 +186,69 @@ model MboApproval {
   @@index([approverId])
   @@index([entityId])
   @@map("mbo_approvals")
+}
+
+model MboManagerObjective {
+  id                          String    @id @default(cuid()) @db.NVarChar(36)
+  title                       String    @db.NVarChar(255)
+  description                 String?   @db.NVarChar(Max)
+  category                    String?   @db.NVarChar(100)
+  target                      Float
+  current                     Float?    @default(0)
+  weight                      Float?    @default(1.0)
+  status                      String?   @default("ASSIGNED") @db.NVarChar(50) // ASSIGNED, IN_PROGRESS, COMPLETED, MANAGER_SUBMITTED, AI_SCORED, SENIOR_REVIEWED, SUBMITTED_TO_HR, HR_APPROVED
+  dueDate                     DateTime
+  quarter                     String    @db.NVarChar(10)
+  year                        Int
+  
+  // Workflow timestamps
+  assignedAt                  DateTime  @default(now())
+  startedAt                   DateTime?
+  completedAt                 DateTime?
+  managerSubmittedAt          DateTime?
+  aiScoredAt                  DateTime?
+  seniorReviewedAt            DateTime?
+  submittedToHrAt             DateTime?
+  hrApprovedAt                DateTime?
+  
+  // Manager submission data
+  managerRemarks              String?   @db.NVarChar(Max)
+  managerEvidence             String?   @db.NVarChar(Max)
+  managerDigitalSignature     String?   @db.NVarChar(Max)
+  
+  // AI scoring data
+  aiScore                     Float?
+  aiComments                  String?   @db.NVarChar(Max)
+  aiScoringMetadata           String?   @db.NVarChar(Max)
+  
+  // Senior management review data
+  seniorManagerScore          Float?
+  seniorManagerComments       String?   @db.NVarChar(Max)
+  finalScore                  Float?
+  seniorDigitalSignature      String?   @db.NVarChar(Max)
+  
+  // HR data
+  hrNotes                     String?   @db.NVarChar(Max)
+  bonusAmount                 Float?
+  
+  // Audit fields
+  createdAt                   DateTime  @default(now())
+  updatedAt                   DateTime  @updatedAt
+  
+  // Foreign keys
+  managerId                   String    @db.NVarChar(36)
+  assignedBySeniorManagerId   String    @db.NVarChar(36)
+  
+  // Relations
+  manager                     MboUser   @relation("ManagerObjectives", fields: [managerId], references: [id], onDelete: Cascade)
+  assignedBySeniorManager     MboUser   @relation("AssignedManagerObjectives", fields: [assignedBySeniorManagerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@index([managerId])
+  @@index([assignedBySeniorManagerId])
+  @@index([status])
+  @@index([quarter, year])
+  @@index([dueDate])
+  @@map("mbo_manager_objectives")
 }
 
 model MboNotification {

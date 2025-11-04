@@ -1,7 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { 
   UserGroupIcon, 
   ClipboardDocumentListIcon, 
@@ -15,7 +17,8 @@ import {
   BellIcon,
   UsersIcon,
   XMarkIcon,
-  PencilSquareIcon
+  PencilSquareIcon,
+  DocumentCheckIcon
 } from '@heroicons/react/24/outline';
 
 // Types for the manager dashboard
@@ -188,14 +191,7 @@ export default function ManagerDashboard() {
   };
 
   if (authLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading manager dashboard...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading manager dashboard..." />;
   }
   
   if (!user) {
@@ -227,20 +223,6 @@ export default function ManagerDashboard() {
                     day: 'numeric',
                   })}
                 </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                {/* User Profile */}
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                    <p className="text-sm text-gray-500">{user.title || 'Manager'}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
-                    <span className="text-white font-medium">
-                      {user.firstName ? user.firstName[0] : ''}{user.lastName ? user.lastName[0] : ''}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
@@ -322,6 +304,49 @@ export default function ManagerDashboard() {
                 </div>
               </div>
             </div>
+
+            {/* Quick Actions */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <Link 
+                href="/manager/my-objectives" 
+                className="bg-gradient-to-br from-[#004E9E] to-[#007BFF] p-6 rounded-xl text-white hover:shadow-lg transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">My Objectives</h3>
+                    <p className="text-blue-100 text-sm">View objectives assigned to you by senior management</p>
+                  </div>
+                  <ClipboardDocumentListIcon className="h-8 w-8 text-blue-200 group-hover:scale-110 transition-transform" />
+                </div>
+              </Link>
+              
+              <Link 
+                href="/manager-review" 
+                className="bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-xl text-white hover:shadow-lg transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Review Team</h3>
+                    <p className="text-purple-100 text-sm">Review and approve completed objectives from your team</p>
+                  </div>
+                  <DocumentCheckIcon className="h-8 w-8 text-purple-200 group-hover:scale-110 transition-transform" />
+                </div>
+              </Link>
+
+              <Link 
+                href="/manager-reports" 
+                className="bg-gradient-to-br from-green-600 to-green-700 p-6 rounded-xl text-white hover:shadow-lg transition-all group"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-2">Reports</h3>
+                    <p className="text-green-100 text-sm">View comprehensive team performance reports and analytics</p>
+                  </div>
+                  <ChartBarIcon className="h-8 w-8 text-green-200 group-hover:scale-110 transition-transform" />
+                </div>
+              </Link>
+            </div>
+
             {/* Team Performance Table */}
             <div className="bg-white shadow-sm rounded-lg border border-gray-200">
               <div className="px-6 py-4 border-b border-gray-200">
@@ -387,7 +412,7 @@ export default function ManagerDashboard() {
                             >
                               ✨ Create Objective
                             </button>
-                            <button className="text-[#007BFF] hover:text-[#0056b3] text-xs">Review</button>
+                            
                           </td>
                         </tr>
                       ))}
@@ -452,6 +477,7 @@ function CustomObjectiveCreationPanel({
 }) {
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [defaultWeightage, setDefaultWeightage] = useState(20);
   const [objectiveData, setObjectiveData] = useState({
     title: '',
     description: '',
@@ -466,6 +492,32 @@ function CustomObjectiveCreationPanel({
   const [loadingWeights, setLoadingWeights] = useState<boolean>(false);
 
   const employee = teamMembers.find(member => member.id === selectedEmployee);
+
+  // Fetch default weightage setting from localStorage
+  useEffect(() => {
+    const getDefaultWeightage = () => {
+      try {
+        const systemSettings = localStorage.getItem("systemSettings");
+        if (systemSettings) {
+          const parsed = JSON.parse(systemSettings);
+          const weightSetting = parsed["2"]; // Setting ID "2" is "Default Objective Weight"
+          if (weightSetting && weightSetting.value) {
+            const defaultWeight = parseInt(weightSetting.value);
+            setDefaultWeightage(defaultWeight);
+            // Update objectiveData with the default weightage
+            setObjectiveData((prev) => ({ ...prev, weight: defaultWeight }));
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Error loading default weightage:", e);
+      }
+      // Fallback to 20 if not found
+      setDefaultWeightage(20);
+    };
+
+    getDefaultWeightage();
+  }, []);
 
   // Fetch quarterly weight allocations for the selected employee
   useEffect(() => {
@@ -512,14 +564,13 @@ function CustomObjectiveCreationPanel({
       setObjectiveData((prev) => ({ ...prev, weight: Math.max(5, available) }));
     }
   }, [currentQuarterInfo.available, objectiveData.weight]);
-
   const resetForm = () => {
     setObjectiveData({
       title: '',
       description: '',
       category: 'performance',
       target: '',
-      weight: 20,
+      weight: defaultWeightage,
       dueDate: '',
       quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
       year: new Date().getFullYear()
@@ -567,9 +618,7 @@ function CustomObjectiveCreationPanel({
             <h3 className="text-lg font-semibold text-gray-900">Create & Assign Custom Objectives</h3>
             <p className="text-sm text-gray-500 mt-1">Design personalized objectives for your team members</p>
           </div>
-          <div className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] px-4 py-2 rounded-lg">
-            <span className="text-white text-sm font-medium">✨ Custom Creation</span>
-          </div>
+          
         </div>
         
         {/* Employee Selection */}
@@ -724,6 +773,7 @@ function CustomObjectiveCreationPanel({
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Weight (%) - {objectiveData.quarter} {objectiveData.year}
+                    <span className="text-xs text-gray-500 ml-1">(Default: {defaultWeightage}%)</span>
                   </label>
                   <input
                     type="range"

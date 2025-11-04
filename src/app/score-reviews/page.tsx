@@ -207,12 +207,6 @@ export default function ScoreReviewsPage() {
                   Review and finalize AI-generated scores before submitting to HR
                 </p>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user.name}</p>
-                  <p className="text-xs text-gray-500">Manager</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>

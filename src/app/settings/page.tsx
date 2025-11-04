@@ -4,15 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Cog6ToothIcon,
-  ShieldCheckIcon,
-  UserGroupIcon,
   BellIcon,
-  ChartBarIcon,
-  CurrencyDollarIcon,
-  ClockIcon,
-  DocumentTextIcon,
+  MoonIcon,
+  SunIcon,
   ExclamationTriangleIcon,
+  DocumentTextIcon,
   CheckCircleIcon,
+  ClockIcon,
 } from "@heroicons/react/24/outline";
 
 interface SystemSetting {
@@ -34,6 +32,10 @@ export default function SettingsPage() {
   const [settings, setSettings] = useState<SystemSetting[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [systemInfo, setSystemInfo] = useState<any>(null);
+  const [loadingSystemInfo, setLoadingSystemInfo] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
@@ -43,11 +45,52 @@ export default function SettingsPage() {
       return;
     }
     setUser(JSON.parse(userData));
+    
+    // Load dark mode preference
+    const savedDarkMode = localStorage.getItem("darkMode") === "true";
+    setDarkMode(savedDarkMode);
+    applyDarkMode(savedDarkMode);
+    
+    // Load settings from localStorage or initialize defaults
     loadSettings();
+    
+    // Load system info
+    loadSystemInfo();
   }, [router]);
 
+  const loadSystemInfo = async () => {
+    try {
+      setLoadingSystemInfo(true);
+      const response = await fetch('/api/system/info');
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ System info loaded:', result.data);
+        setSystemInfo(result.data);
+      } else {
+        console.error('Error loading system info:', result.error);
+        setSystemInfo(null);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching system info:', error);
+      setSystemInfo(null);
+    } finally {
+      setLoadingSystemInfo(false);
+    }
+  };
+
+  const applyDarkMode = (isDark: boolean) => {
+    const htmlElement = document.documentElement;
+    if (isDark) {
+      htmlElement.classList.add("dark");
+    } else {
+      htmlElement.classList.remove("dark");
+    }
+  };
+
   const loadSettings = () => {
-    // Sample settings data
+    // Try to load from localStorage, otherwise use defaults
+    const savedSettings = localStorage.getItem("systemSettings");
     const systemSettings: SystemSetting[] = [
       // General Settings
       {
@@ -69,76 +112,14 @@ export default function SettingsPage() {
         max: 100,
         unit: "%"
       },
-      {
-        id: "3",
-        category: "general",
-        name: "Performance Review Cycle",
-        description: "Frequency of performance review cycles",
-        type: "select",
-        value: "quarterly",
-        options: ["monthly", "quarterly", "bi-annual", "annual"]
-      },
       
-      // Scoring Settings
       {
-        id: "4",
-        category: "scoring",
-        name: "AI Scoring Enabled",
-        description: "Enable AI-powered objective scoring",
+        id: "appearance",
+        category: "general",
+        name: "Dark Mode",
+        description: "Enable dark mode for the entire application",
         type: "boolean",
-        value: true
-      },
-      {
-        id: "5",
-        category: "scoring",
-        name: "Manager Override Threshold",
-        description: "Maximum percentage difference allowed for manager overrides",
-        type: "number",
-        value: 15,
-        min: 5,
-        max: 50,
-        unit: "%"
-      },
-      {
-        id: "6",
-        category: "scoring",
-        name: "Auto-Score Frequency",
-        description: "How often to automatically update AI scores",
-        type: "select",
-        value: "weekly",
-        options: ["daily", "weekly", "bi-weekly", "monthly"]
-      },
-
-      // Bonus Settings
-      {
-        id: "7",
-        category: "bonus",
-        name: "Bonus Pool Allocation",
-        description: "Total annual bonus pool amount",
-        type: "number",
-        value: 500000,
-        min: 0,
-        unit: "$"
-      },
-      {
-        id: "8",
-        category: "bonus",
-        name: "Minimum Performance Score",
-        description: "Minimum score required for bonus eligibility",
-        type: "number",
-        value: 70,
-        min: 0,
-        max: 100,
-        unit: "/100"
-      },
-      {
-        id: "9",
-        category: "bonus",
-        name: "Bonus Distribution Method",
-        description: "Method for calculating individual bonus amounts",
-        type: "select",
-        value: "performance_weighted",
-        options: ["equal_distribution", "performance_weighted", "role_based", "hybrid"]
+        value: darkMode
       },
 
       // Notifications
@@ -170,37 +151,27 @@ export default function SettingsPage() {
         max: 168,
         unit: "hours"
       },
-
-      // Security
       {
-        id: "13",
-        category: "security",
-        name: "Multi-Factor Authentication",
-        description: "Require MFA for all user accounts",
+        id: "notification_sound",
+        category: "notifications",
+        name: "Enable Sound Notifications",
+        description: "Play sound when receiving notifications",
         type: "boolean",
-        value: false
-      },
-      {
-        id: "14",
-        category: "security",
-        name: "Session Timeout",
-        description: "Automatic session timeout duration",
-        type: "number",
-        value: 8,
-        min: 1,
-        max: 24,
-        unit: "hours"
-      },
-      {
-        id: "15",
-        category: "security",
-        name: "Audit Log Retention",
-        description: "How long to retain audit logs",
-        type: "select",
-        value: "1_year",
-        options: ["3_months", "6_months", "1_year", "2_years", "indefinite"]
+        value: true
       }
-    ];
+    ];    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        const merged = systemSettings.map(setting => ({
+          ...setting,
+          value: parsed[setting.id]?.value !== undefined ? parsed[setting.id].value : setting.value
+        }));
+        setSettings(merged);
+        return;
+      } catch (e) {
+        console.error("Error loading saved settings:", e);
+      }
+    }
     
     setSettings(systemSettings);
   };
@@ -210,19 +181,83 @@ export default function SettingsPage() {
       setting.id === id ? { ...setting, value: newValue } : setting
     ));
     setHasChanges(true);
+
+    // Handle dark mode immediately
+    if (id === "appearance") {
+      setDarkMode(newValue);
+      applyDarkMode(newValue);
+      
+      // Save dark mode to localStorage immediately
+      localStorage.setItem("darkMode", newValue.toString());
+      
+      // Dispatch custom event for sidebar to listen to
+      window.dispatchEvent(new CustomEvent('darkModeChanged', { 
+        detail: { darkMode: newValue } 
+      }));
+      
+      // Also update document class for dark mode
+      const htmlElement = document.documentElement;
+      if (newValue) {
+        htmlElement.classList.add("dark");
+      } else {
+        htmlElement.classList.remove("dark");
+      }
+    }
+
+    // Handle maintenance mode update
+    if (id === "1") {
+      updateMaintenanceMode(newValue);
+    }
+  };
+
+  const updateMaintenanceMode = async (enabled: boolean) => {
+    try {
+      console.log(`🔧 Updating maintenance mode to: ${enabled}`);
+      const response = await fetch('/api/system/maintenance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ enabled })
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        console.log('✅ Maintenance mode updated:', result.message);
+      } else {
+        console.error('❌ Error updating maintenance mode:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error updating maintenance mode:', error);
+    }
   };
 
   const saveSettings = async () => {
     setIsSaving(true);
+    setSaveMessage("");
+    
     try {
+      // Save to localStorage
+      const settingsToSave: Record<string, any> = {};
+      settings.forEach(setting => {
+        settingsToSave[setting.id] = { value: setting.value };
+      });
+      
+      localStorage.setItem("systemSettings", JSON.stringify(settingsToSave));
+      localStorage.setItem("darkMode", darkMode.toString());
+      
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      console.log("Saving settings:", settings);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       setHasChanges(false);
-      alert("Settings saved successfully!");
+      setSaveMessage("✅ Settings saved successfully!");
+      
+      setTimeout(() => setSaveMessage(""), 3000);
     } catch (error) {
       console.error("Error saving settings:", error);
-      alert("Error saving settings. Please try again.");
+      setSaveMessage("❌ Error saving settings. Please try again.");
+      setTimeout(() => setSaveMessage(""), 3000);
     } finally {
       setIsSaving(false);
     }
@@ -231,16 +266,17 @@ export default function SettingsPage() {
   const resetSettings = () => {
     if (confirm("Are you sure you want to reset all settings to default values?")) {
       loadSettings();
+      setDarkMode(false);
+      applyDarkMode(false);
+      localStorage.removeItem("systemSettings");
+      localStorage.removeItem("darkMode");
       setHasChanges(false);
     }
   };
 
   const tabs = [
     { id: "general", name: "General", icon: Cog6ToothIcon },
-    { id: "scoring", name: "Scoring", icon: ChartBarIcon },
-    { id: "bonus", name: "Bonus", icon: CurrencyDollarIcon },
     { id: "notifications", name: "Notifications", icon: BellIcon },
-    { id: "security", name: "Security", icon: ShieldCheckIcon },
   ];
 
   const renderSettingInput = (setting: SystemSetting) => {
@@ -254,7 +290,11 @@ export default function SettingsPage() {
               onChange={(e) => updateSetting(setting.id, e.target.checked)}
               className="sr-only peer"
             />
-            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-light rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+            <div className={`w-11 h-6 rounded-full peer peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-light peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all ${
+              darkMode
+                ? 'bg-gray-700 peer-checked:bg-primary after:bg-gray-800'
+                : 'bg-gray-200 peer-checked:bg-primary after:bg-white'
+            }`}></div>
           </label>
         );
       
@@ -267,9 +307,13 @@ export default function SettingsPage() {
               onChange={(e) => updateSetting(setting.id, parseInt(e.target.value))}
               min={setting.min}
               max={setting.max}
-              className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+              className={`w-32 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary ${
+                darkMode
+                  ? 'bg-gray-700 border-gray-600 text-white'
+                  : 'border-gray-300 bg-white text-text-dark'
+              }`}
             />
-            {setting.unit && <span className="text-sm text-text-light">{setting.unit}</span>}
+            {setting.unit && <span className={`text-sm ${darkMode ? 'text-gray-400' : 'text-text-light'}`}>{setting.unit}</span>}
           </div>
         );
       
@@ -278,10 +322,14 @@ export default function SettingsPage() {
           <select
             value={setting.value}
             onChange={(e) => updateSetting(setting.id, e.target.value)}
-            className="w-48 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className={`w-48 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary ${
+              darkMode
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'border-gray-300 bg-white text-text-dark'
+            }`}
           >
             {setting.options?.map(option => (
-              <option key={option} value={option}>
+              <option key={option} value={option} className={darkMode ? 'bg-gray-800' : ''}>
                 {option.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </option>
             ))}
@@ -294,7 +342,11 @@ export default function SettingsPage() {
             type="text"
             value={setting.value}
             onChange={(e) => updateSetting(setting.id, e.target.value)}
-            className="w-64 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+            className={`w-64 px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-primary ${
+              darkMode
+                ? 'bg-gray-700 border-gray-600 text-white'
+                : 'border-gray-300 bg-white text-text-dark'
+            }`}
           />
         );
       
@@ -303,12 +355,12 @@ export default function SettingsPage() {
     }
   };
 
-  if (!user) return <div>Loading...</div>;
+  if (!user) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
 
   const filteredSettings = settings.filter(setting => setting.category === activeTab);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
       
       
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -316,37 +368,71 @@ export default function SettingsPage() {
         <div className="mb-8">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h1 className="text-3xl font-bold text-text-dark">System Settings</h1>
-              <p className="text-text-light mt-2">Configure system parameters and organizational preferences</p>
+              <h1 className={`text-3xl font-bold ${darkMode ? 'text-white' : 'text-text-dark'}`}>System Settings</h1>
+              <p className={`mt-2 ${darkMode ? 'text-gray-400' : 'text-text-light'}`}>Configure system parameters and organizational preferences</p>
             </div>
             
-            {hasChanges && (
-              <div className="mt-4 lg:mt-0 flex items-center space-x-3">
-                <div className="flex items-center text-yellow-600">
-                  <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
-                  <span className="text-sm font-medium">Unsaved changes</span>
+            {/* Dark Mode Toggle in Header */}
+            <div className="mt-4 lg:mt-0 flex items-center space-x-4">
+              <button
+                onClick={() => {
+                  const newDarkMode = !darkMode;
+                  setDarkMode(newDarkMode);
+                  applyDarkMode(newDarkMode);
+                  setHasChanges(true);
+                }}
+                className={`p-2 rounded-lg transition-colors ${
+                  darkMode 
+                    ? 'bg-gray-800 text-yellow-400 hover:bg-gray-700' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {darkMode ? <SunIcon className="w-6 h-6" /> : <MoonIcon className="w-6 h-6" />}
+              </button>
+
+              {hasChanges && (
+                <div className="flex items-center space-x-3">
+                  <div className={`flex items-center ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>
+                    <ExclamationTriangleIcon className="w-5 h-5 mr-2" />
+                    <span className="text-sm font-medium">Unsaved changes</span>
+                  </div>
+                  <button
+                    onClick={resetSettings}
+                    className={`px-4 py-2 border rounded-lg transition-colors ${
+                      darkMode
+                        ? 'border-gray-600 text-gray-300 hover:bg-gray-800'
+                        : 'border-gray-300 text-text-dark hover:bg-gray-50'
+                    }`}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    onClick={saveSettings}
+                    disabled={isSaving}
+                    className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
+                  >
+                    {isSaving ? "Saving..." : "Save Changes"}
+                  </button>
                 </div>
-                <button
-                  onClick={resetSettings}
-                  className="px-4 py-2 border border-gray-300 text-text-dark rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Reset
-                </button>
-                <button
-                  onClick={saveSettings}
-                  disabled={isSaving}
-                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark disabled:opacity-50 transition-colors"
-                >
-                  {isSaving ? "Saving..." : "Save Changes"}
-                </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
+
+          {/* Save Message */}
+          {saveMessage && (
+            <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${
+              saveMessage.includes('✅')
+                ? darkMode ? 'bg-green-900 text-green-200' : 'bg-green-50 text-green-800'
+                : darkMode ? 'bg-red-900 text-red-200' : 'bg-red-50 text-red-800'
+            }`}>
+              {saveMessage}
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-8">
-          <div className="border-b border-gray-200">
+        <div className={`rounded-xl shadow-sm border ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} mb-8`}>
+          <div className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
             <nav className="flex space-x-8 px-6" aria-label="Tabs">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -358,8 +444,8 @@ export default function SettingsPage() {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                       isActive
-                        ? "border-primary text-primary"
-                        : "border-transparent text-text-light hover:text-text-dark hover:border-gray-300"
+                        ? `border-primary ${darkMode ? 'text-primary' : 'text-primary'}`
+                        : `border-transparent ${darkMode ? 'text-gray-400 hover:text-gray-300 hover:border-gray-600' : 'text-text-light hover:text-text-dark hover:border-gray-300'}`
                     }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -374,10 +460,10 @@ export default function SettingsPage() {
           <div className="p-6">
             <div className="space-y-6">
               {filteredSettings.map((setting) => (
-                <div key={setting.id} className="flex items-center justify-between py-4 border-b border-gray-100 last:border-b-0">
+                <div key={setting.id} className={`flex items-center justify-between py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-100'} last:border-b-0`}>
                   <div className="flex-1 pr-8">
-                    <h3 className="text-lg font-medium text-text-dark">{setting.name}</h3>
-                    <p className="text-sm text-text-light mt-1">{setting.description}</p>
+                    <h3 className={`text-lg font-medium ${darkMode ? 'text-white' : 'text-text-dark'}`}>{setting.name}</h3>
+                    <p className={`text-sm mt-1 ${darkMode ? 'text-gray-400' : 'text-text-light'}`}>{setting.description}</p>
                   </div>
                   <div className="flex-shrink-0">
                     {renderSettingInput(setting)}
@@ -390,51 +476,71 @@ export default function SettingsPage() {
 
         {/* System Information */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-text-dark mb-4 flex items-center">
+          <div className={`rounded-xl shadow-sm border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <h3 className={`text-lg font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-text-dark'}`}>
               <DocumentTextIcon className="w-5 h-5 mr-2" />
               System Information
             </h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-text-light">System Version:</span>
-                <span className="text-text-dark font-medium">2.4.1</span>
+            {loadingSystemInfo ? (
+              <div className="flex items-center justify-center py-8">
+                <p className={darkMode ? 'text-gray-400' : 'text-text-light'}>Loading system info...</p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-light">Last Updated:</span>
-                <span className="text-text-dark font-medium">Dec 1, 2024</span>
+            ) : systemInfo ? (
+              <div className={`space-y-3 text-sm ${darkMode ? 'text-gray-300' : ''}`}>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-text-light'}>System Version:</span>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-text-dark'}`}>{systemInfo.systemVersion}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-text-light'}>Last Updated:</span>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-text-dark'}`}>
+                    {new Date(systemInfo.lastUpdated).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-text-light'}>Database Status:</span>
+                  <span className="text-green-600 font-medium flex items-center">
+                    <CheckCircleIcon className="w-4 h-4 mr-1" />
+                    {systemInfo.databaseStatus}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t pt-3" style={{borderTopColor: darkMode ? '#374151' : '#e5e7eb'}}>
+                  <span className={darkMode ? 'text-gray-400' : 'text-text-light'}>Total Users:</span>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-text-dark'}`}>{systemInfo.totalUsers}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-text-light'}>Total Departments:</span>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-text-dark'}`}>{systemInfo.totalDepartments}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className={darkMode ? 'text-gray-400' : 'text-text-light'}>Total Teams:</span>
+                  <span className={`font-medium ${darkMode ? 'text-white' : 'text-text-dark'}`}>{systemInfo.totalTeams}</span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-light">Database Status:</span>
-                <span className="text-green-600 font-medium flex items-center">
-                  <CheckCircleIcon className="w-4 h-4 mr-1" />
-                  Connected
-                </span>
+            ) : (
+              <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-text-light'}`}>
+                Failed to load system information
               </div>
-              <div className="flex justify-between">
-                <span className="text-text-light">Total Users:</span>
-                <span className="text-text-dark font-medium">204</span>
-              </div>
-            </div>
+            )}
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-text-dark mb-4 flex items-center">
+          <div className={`rounded-xl shadow-sm border p-6 ${darkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'}`}>
+            <h3 className={`text-lg font-semibold mb-4 flex items-center ${darkMode ? 'text-white' : 'text-text-dark'}`}>
               <ClockIcon className="w-5 h-5 mr-2" />
               Recent Changes
             </h3>
             <div className="space-y-3">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm font-medium text-blue-800">Bonus Pool Updated</p>
-                <p className="text-xs text-blue-600">Increased by 15% for Q4 2024</p>
+              <div className={`p-3 rounded-lg ${darkMode ? 'bg-blue-900 bg-opacity-30' : 'bg-blue-50'}`}>
+                <p className={`text-sm font-medium ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>Bonus Pool Updated</p>
+                <p className={`text-xs ${darkMode ? 'text-blue-400' : 'text-blue-600'}`}>Increased by 15% for Q4 2024</p>
               </div>
-              <div className="p-3 bg-green-50 rounded-lg">
-                <p className="text-sm font-medium text-green-800">AI Scoring Improved</p>
-                <p className="text-xs text-green-600">Algorithm updated to v2.1</p>
+              <div className={`p-3 rounded-lg ${darkMode ? 'bg-green-900 bg-opacity-30' : 'bg-green-50'}`}>
+                <p className={`text-sm font-medium ${darkMode ? 'text-green-300' : 'text-green-800'}`}>AI Scoring Improved</p>
+                <p className={`text-xs ${darkMode ? 'text-green-400' : 'text-green-600'}`}>Algorithm updated to v2.1</p>
               </div>
-              <div className="p-3 bg-yellow-50 rounded-lg">
-                <p className="text-sm font-medium text-yellow-800">Security Update</p>
-                <p className="text-xs text-yellow-600">MFA implementation in progress</p>
+              <div className={`p-3 rounded-lg ${darkMode ? 'bg-yellow-900 bg-opacity-30' : 'bg-yellow-50'}`}>
+                <p className={`text-sm font-medium ${darkMode ? 'text-yellow-300' : 'text-yellow-800'}`}>Security Update</p>
+                <p className={`text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>MFA implementation in progress</p>
               </div>
             </div>
           </div>

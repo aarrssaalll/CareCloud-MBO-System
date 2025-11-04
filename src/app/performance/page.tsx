@@ -23,9 +23,14 @@ interface QuarterlyMetrics {
 
 export default function PerformancePage() {
   const [selectedPeriod, setSelectedPeriod] = useState("2024");
-  const [user, setUser] = useState({
+  const [user, setUser] = useState<{
+    name: string;
+    role: string;
+    email: string;
+    id?: string;
+  }>({
     name: "Guest",
-    role: "employee" as const,
+    role: "EMPLOYEE",
     email: "guest@carecloud.com"
   });
   const [loading, setLoading] = useState(true);
@@ -47,46 +52,27 @@ export default function PerformancePage() {
     try {
       setLoading(true);
       
-      // Load bonus history
-      const bonusResponse = await fetch(`/api/mbo/bonus/history?userId=${userId}`);
-      const bonusResult = await bonusResponse.json();
+      console.log('📊 Loading performance data for userId:', userId);
       
-      // Load objectives data
-      const objectivesResponse = await fetch(`/api/employee/objectives?userId=${userId}`);
-      const objectivesResult = await objectivesResponse.json();
+      // Use the new unified performance trends API
+      const response = await fetch(`/api/performance/user-trends?userId=${userId}`);
+      const result = await response.json();
       
-      if (bonusResult.success && bonusResult.bonuses && bonusResult.bonuses.length > 0) {
-        // Transform bonus data to performance history format
-        const transformedHistory = bonusResult.bonuses.map((bonus: any) => ({
-          quarter: `${bonus.quarter} ${bonus.year}`,
-          score: Math.round(bonus.performanceMultiplier * 100) || 0,
-          bonus: bonus.finalAmount || 0,
-          objectives: 0, // Will be calculated from objectives data
-          ranking: 0 // Not available in current data structure
-        }));
-        
-        setPerformanceHistory(transformedHistory);
-        
-        // Transform to quarterly details format
-        const transformedDetails = bonusResult.bonuses.map((bonus: any) => ({
-          quarter: `${bonus.quarter} ${bonus.year}`,
-          totalObjectives: 0, // Will be calculated
-          completedObjectives: 0, // Will be calculated
-          avgScore: Math.round(bonus.performanceMultiplier * 100) || 0,
-          bonusEligible: bonus.status === 'APPROVED' || bonus.status === 'CALCULATED',
-          bonusAmount: bonus.finalAmount || 0,
-          feedback: `Performance evaluation for ${bonus.quarter} ${bonus.year}. Status: ${bonus.status}`
-        }));
-        
-        setQuarterlyDetails(transformedDetails);
+      console.log('📊 Performance API response:', result);
+      
+      if (result.success && result.performanceHistory && result.quarterlyDetails) {
+        setPerformanceHistory(result.performanceHistory);
+        setQuarterlyDetails(result.quarterlyDetails);
+        console.log(`✅ Loaded ${result.performanceHistory.length} performance records`);
       } else {
-        // No bonus data available - show empty state
+        // No data available - show empty state
         setPerformanceHistory([]);
         setQuarterlyDetails([]);
+        console.log('⚠️ No performance data available');
       }
       
     } catch (error) {
-      console.error('Error loading performance data:', error);
+      console.error('❌ Error loading performance data:', error);
       // Set empty arrays on error
       setPerformanceHistory([]);
       setQuarterlyDetails([]);
@@ -125,79 +111,36 @@ export default function PerformancePage() {
     return { text: "Needs Improvement", bg: "bg-red-100", color: "text-red-800" };
   };
 
+  const isManager = user.role === 'MANAGER' || user.role === 'manager';
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Unified Header Section */}
       <div className="bg-white/95 backdrop-blur-xl border-b border-gray-200/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col py-6">
-            <h1 className="text-3xl font-bold text-[#333333] mb-1">Performance</h1>
-            <p className="text-gray-500 text-base max-w-2xl">Track your performance trends, bonus history, and quarterly analytics. Review your progress and see how your efforts contribute to your success at CareCloud.</p>
+            <h1 className="text-3xl font-bold text-[#333333] mb-1">
+              {isManager ? 'Team Performance Trends' : 'Performance Trends'}
+            </h1>
+            <p className="text-gray-500 text-base max-w-2xl">
+              {isManager 
+                ? 'Monitor your team members\' performance trends, bonus history, and quarterly analytics. Track team progress and identify areas for improvement.'
+                : 'Track your performance trends, bonus history, and quarterly analytics. Review your progress and see how your efforts contribute to your success at CareCloud.'
+              }
+            </p>
           </div>
         </div>
       </div>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Key Metrics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="ms-card p-6 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-white/80 text-sm">Current Score</p>
-                <p className="text-3xl font-bold">{currentQuarter.avgScore}/100</p>
-                <p className="text-white/80 text-sm">Q4 2024</p>
-              </div>
-              <div className="text-4xl">★</div>
-            </div>
-          </div>
-
-          <div className="ms-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-light text-sm">Current Ranking</p>
-                <p className="text-3xl font-bold text-text">N/A</p>
-                <p className="text-gray-500 text-sm">No ranking data</p>
-              </div>
-              <div className="text-4xl">⭐</div>
-            </div>
-          </div>
-
-          <div className="ms-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-light text-sm">Objectives Progress</p>
-                <p className="text-3xl font-bold text-text">{currentQuarter.completedObjectives}/{currentQuarter.totalObjectives}</p>
-                <p className="text-blue-600 text-sm">
-                  {currentQuarter.totalObjectives > 0 
-                    ? `${Math.round((currentQuarter.completedObjectives / currentQuarter.totalObjectives) * 100)}% complete`
-                    : 'No objectives yet'
-                  }
-                </p>
-              </div>
-              <div className="text-4xl">◯</div>
-            </div>
-          </div>
-
-          <div className="ms-card p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-text-light text-sm">Current Bonus</p>
-                <p className="text-3xl font-bold text-text">${currentQuarter.bonusAmount.toLocaleString()}</p>
-                <p className={`text-sm ${currentQuarter.bonusEligible ? 'text-green-600' : 'text-gray-500'}`}>
-                  {currentQuarter.bonusAmount > 0 ? (currentQuarter.bonusEligible ? 'Approved' : 'Calculated') : 'No bonus yet'}
-                </p>
-              </div>
-              <div className="text-4xl">$</div>
-            </div>
-          </div>
-        </div>
-
         {/* Charts Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Performance Trend Chart */}
           <div className="ms-card p-6">
-            <h3 className="text-lg font-semibold text-text mb-4">Performance Trend</h3>
+            <h3 className="text-lg font-semibold text-text mb-4">
+              {isManager ? 'Team Performance Trend' : 'Performance Trend'}
+            </h3>
             {loading ? (
               <div className="flex items-center justify-center h-[300px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E]"></div>
@@ -216,7 +159,7 @@ export default function PerformancePage() {
                     stroke="#004E9E" 
                     strokeWidth={3}
                     dot={{ fill: "#004E9E", strokeWidth: 2, r: 6 }}
-                    name="Performance Score"
+                    name={isManager ? "Team Avg Score" : "Performance Score"}
                   />
                 </LineChart>
               </ResponsiveContainer>
@@ -225,7 +168,9 @@ export default function PerformancePage() {
                 <div className="text-center">
                   <div className="text-4xl mb-2">📊</div>
                   <p>No performance data available</p>
-                  <p className="text-sm">Complete some objectives to see your trends</p>
+                  <p className="text-sm">
+                    {isManager ? 'Your team needs to complete objectives' : 'Complete some objectives to see your trends'}
+                  </p>
                 </div>
               </div>
             )}
@@ -233,7 +178,9 @@ export default function PerformancePage() {
 
           {/* Bonus History Chart */}
           <div className="ms-card p-6">
-            <h3 className="text-lg font-semibold text-text mb-4">Bonus History</h3>
+            <h3 className="text-lg font-semibold text-text mb-4">
+              {isManager ? 'Team Bonus History' : 'Bonus History'}
+            </h3>
             {loading ? (
               <div className="flex items-center justify-center h-[300px]">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E]"></div>
@@ -259,7 +206,9 @@ export default function PerformancePage() {
                 <div className="text-center">
                   <div className="text-4xl mb-2">💰</div>
                   <p>No bonus history available</p>
-                  <p className="text-sm">Bonuses will appear here once awarded</p>
+                  <p className="text-sm">
+                    {isManager ? 'Team bonuses will appear here once awarded' : 'Bonuses will appear here once awarded'}
+                  </p>
                 </div>
               </div>
             )}
@@ -268,7 +217,9 @@ export default function PerformancePage() {
 
         {/* Quarterly Details */}
         <div className="ms-card p-6">
-          <h3 className="text-lg font-semibold text-text mb-6">Quarterly Performance Details</h3>
+          <h3 className="text-lg font-semibold text-text mb-6">
+            {isManager ? 'Team Quarterly Performance Details' : 'Quarterly Performance Details'}
+          </h3>
           {loading ? (
             <div className="flex items-center justify-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#004E9E]"></div>
@@ -358,10 +309,15 @@ export default function PerformancePage() {
             <div className="text-center py-12 text-gray-500">
               <div className="text-6xl mb-4">📋</div>
               <h4 className="text-lg font-medium mb-2">No Performance Data Yet</h4>
-              <p className="text-sm">Your quarterly performance details will appear here once you have:</p>
+              <p className="text-sm">
+                {isManager 
+                  ? 'Team quarterly performance details will appear here once your team has:' 
+                  : 'Your quarterly performance details will appear here once you have:'
+                }
+              </p>
               <ul className="text-sm mt-3 space-y-1">
                 <li>• Completed some objectives</li>
-                <li>• Received manager reviews</li>
+                <li>• Received {isManager ? 'performance' : 'manager'} reviews</li>
                 <li>• Had bonus calculations processed</li>
               </ul>
             </div>

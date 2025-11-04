@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
     if (userAny.departmentId) userResponse.departmentId = userAny.departmentId;
     if (userAny.teamId) userResponse.teamId = userAny.teamId;
     if (userAny.managerId) userResponse.managerId = userAny.managerId;
-    
+
     return NextResponse.json({
       success: true,
       message: 'Login successful',

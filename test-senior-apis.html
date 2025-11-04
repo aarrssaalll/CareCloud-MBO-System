@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Senior Management APIs</title>
+</head>
+<body>
+    <h1>Senior Management API Test</h1>
+    
+    <div>
+        <h2>Test Authentication</h2>
+        <button onclick="testLogin()">Test Login</button>
+        <div id="login-result"></div>
+    </div>
+    
+    <div>
+        <h2>Test Senior Management APIs</h2>
+        <button onclick="testManagers()">Test Managers API</button>
+        <button onclick="testObjectives()">Test Objectives API</button>
+        <button onclick="testAssignedObjectives()">Test Assigned Objectives API</button>
+        
+        <div>
+            <h3>Results:</h3>
+            <pre id="results"></pre>
+        </div>
+    </div>
+
+    <script>
+        let authToken = localStorage.getItem('auth-token');
+        
+        async function testLogin() {
+            try {
+                const response = await fetch('/api/mbo/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        email: 'crystal@carecloud.com',  // Try Crystal first
+                        password: 'crystal123'  // Common password pattern
+                    })
+                });
+                
+                const result = await response.json();
+                document.getElementById('login-result').innerHTML = 
+                    '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                    
+                if (result.token) {
+                    authToken = result.token;
+                    localStorage.setItem('auth-token', authToken);
+                    console.log('Login successful, token saved');
+                }
+            } catch (error) {
+                document.getElementById('login-result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testManagers() {
+            try {
+                const response = await fetch('/api/senior-management/managers', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                document.getElementById('results').innerHTML = 
+                    'Managers API Response:\n' + JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('results').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testObjectives() {
+            try {
+                const response = await fetch('/api/senior-management/objectives?status=completed', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                document.getElementById('results').innerHTML = 
+                    'Objectives API Response:\n' + JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('results').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testAssignedObjectives() {
+            try {
+                const response = await fetch('/api/senior-management/assigned-objectives', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                document.getElementById('results').innerHTML = 
+                    'Assigned Objectives API Response:\n' + JSON.stringify(result, null, 2);
+            } catch (error) {
+                document.getElementById('results').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        // Check if we already have a token
+        if (authToken) {
+            document.getElementById('login-result').innerHTML = 
+                '<p style="color: green;">Auth token found: ' + authToken.substring(0, 20) + '...</p>';
+        }
+    </script>
+</body>
+</html>

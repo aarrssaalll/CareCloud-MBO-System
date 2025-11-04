@@ -19,7 +19,28 @@ export default function LoginPage() {
     setIsLoading(true);
     
     try {
-      // Try database authentication first
+      // Check system maintenance mode first
+      console.log('Checking system maintenance mode...');
+      const maintenanceResponse = await fetch('/api/system/maintenance', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const maintenanceData = await maintenanceResponse.json();
+      console.log('Maintenance mode status:', maintenanceData.maintenanceMode);
+
+      if (maintenanceData.maintenanceMode) {
+        // System is in maintenance mode - only HR and SENIOR_MANAGEMENT can login
+        if (formData.role !== 'HR' && formData.role !== 'SENIOR_MANAGEMENT') {
+          alert('System is under maintenance. Only administrators (HR and Senior Managers) can login at this time.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      // Try database authentication
       console.log('Attempting database authentication...');
       const response = await fetch('/api/mbo/auth', {
         method: 'POST',

@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
   try {
-    const { objectiveId, hrId, action, notes } = await request.json();
+    const { objectiveId, hrId, action, notes, objectiveType } = await request.json();
 
     if (!objectiveId || !hrId || !action) {
       return NextResponse.json(
@@ -14,8 +14,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // Validate the objective exists and is in the correct workflow state
-    const objective = await prisma.mboObjective.findUnique({
+    let objective: any = null;
+    let userName = '';
+    let updateTable: 'employee' | 'manager' = 'employee';
+
+    // Try to find as employee objective first
+    const employeeObjective = await prisma.mboObjective.findUnique({
       where: { id: objectiveId },
       include: {
         user: {
@@ -27,9 +31,34 @@ export async function POST(request: Request) {
       }
     });
 
+    // Try to find as manager objective if not found as employee objective
+    if (!employeeObjective) {
+      const managerObjective = await prisma.mboManagerObjective.findUnique({
+        where: { id: objectiveId },
+        include: {
+          manager: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+      
+      if (managerObjective) {
+        objective = managerObjective;
+        userName = managerObjective.manager.name;
+        updateTable = 'manager';
+      }
+    } else {
+      objective = employeeObjective;
+      userName = employeeObjective.user.name;
+      updateTable = 'employee';
+    }
+
     if (!objective) {
       return NextResponse.json(
-        { success: false, error: 'Objective not found' },
+        { success: false, error: 'Objective not found in either employee or manager objectives' },
         { status: 404 }
       );
     }
@@ -61,7 +90,12 @@ export async function POST(request: Request) {
     };
 
     if (action === 'approve') {
-      updateData.status = 'BONUS_APPROVED';
+      // Use different status values based on objective type
+      if (updateTable === 'employee') {
+        updateData.status = 'BONUS_APPROVED';
+      } else {
+        updateData.status = 'HR_APPROVED'; // Manager objectives use HR_APPROVED
+      }
       updateData.hrApprovedAt = new Date();
     } else if (action === 'reject') {
       updateData.status = 'REJECTED';
@@ -72,19 +106,35 @@ export async function POST(request: Request) {
       );
     }
 
-    // Update the objective
-    const updatedObjective = await prisma.mboObjective.update({
-      where: { id: objectiveId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            name: true,
-            email: true
+    // Update the objective in the correct table
+    let updatedObjective: any;
+    if (updateTable === 'employee') {
+      updatedObjective = await prisma.mboObjective.update({
+        where: { id: objectiveId },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              name: true,
+              email: true
+            }
           }
         }
-      }
-    });
+      });
+    } else {
+      updatedObjective = await prisma.mboManagerObjective.update({
+        where: { id: objectiveId },
+        data: updateData,
+        include: {
+          manager: {
+            select: {
+              name: true,
+              email: true
+            }
+          }
+        }
+      });
+    }
 
     // Create HR approval record for audit trail
     await prisma.mboApproval.create({
@@ -98,7 +148,8 @@ export async function POST(request: Request) {
           hrUser: hrUser.name,
           processedAt: new Date().toISOString(),
           objectiveTitle: objective.title,
-          employeeName: objective.user.name
+          employeeName: userName,
+          objectiveType: updateTable === 'employee' ? 'EMPLOYEE' : 'MANAGER'
         }),
         approverId: hrId,
         approvedAt: action === 'approve' ? new Date() : null,
@@ -107,16 +158,17 @@ export async function POST(request: Request) {
       }
     });
 
-    console.log(`HR ${action}d objective: ${objective.title} for employee: ${objective.user.name}`);
+    console.log(`HR ${action}d ${updateTable} objective: ${objective.title} for ${updateTable === 'employee' ? 'employee' : 'manager'}: ${userName}`);
 
     return NextResponse.json({
       success: true,
-      message: `Objective ${action}d successfully`,
+      message: `${updateTable === 'employee' ? 'Employee' : 'Manager'} objective ${action}d successfully`,
       objective: {
         id: updatedObjective.id,
         title: updatedObjective.title,
         status: updatedObjective.status,
-        employeeName: updatedObjective.user.name,
+        employeeName: userName,
+        objectiveType: updateTable === 'employee' ? 'EMPLOYEE' : 'MANAGER',
         processedAt: new Date().toISOString(),
         action: action
       }
@@ -167,7 +219,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       success: true,
-      approvals: approvals.map(approval => {
+      approvals: approvals.map((approval: any) => {
         let details: any = {};
         try {
           details = JSON.parse(approval.comments || '{}');

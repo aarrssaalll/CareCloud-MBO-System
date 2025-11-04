@@ -1,0 +1,53 @@
+// Simple HTML page to test the API calls
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Manager APIs</title>
+</head>
+<body>
+    <h1>Testing Manager APIs</h1>
+    
+    <button onclick="testTeamAPI()">Test Team API</button>
+    <button onclick="testObjectivesAPI()">Test Manager Objectives API</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        const michaelId = 'cmev046tw000lhz6szipvvb12';
+        
+        async function testTeamAPI() {
+            try {
+                console.log('Testing team API...');
+                const response = await fetch(`/api/manager/team?managerId=${michaelId}`);
+                const data = await response.json();
+                
+                document.getElementById('results').innerHTML += 
+                    '<h2>Team API Response:</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    
+                console.log('Team API Response:', data);
+            } catch (error) {
+                console.error('Team API Error:', error);
+                document.getElementById('results').innerHTML += 
+                    '<h2>Team API Error:</h2><pre>' + error.message + '</pre>';
+            }
+        }
+        
+        async function testObjectivesAPI() {
+            try {
+                console.log('Testing manager objectives API...');
+                const response = await fetch(`/api/manager/objectives?managerId=${michaelId}`);
+                const data = await response.json();
+                
+                document.getElementById('results').innerHTML += 
+                    '<h2>Manager Objectives API Response:</h2><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                    
+                console.log('Manager Objectives API Response:', data);
+            } catch (error) {
+                console.error('Manager Objectives API Error:', error);
+                document.getElementById('results').innerHTML += 
+                    '<h2>Manager Objectives API Error:</h2><pre>' + error.message + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html>

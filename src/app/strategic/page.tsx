@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   BuildingOfficeIcon,
   ChartBarIcon,
@@ -106,54 +107,36 @@ export default function StrategicPage() {
 
   const loadStrategicKPIs = async () => {
     try {
-      console.log('🔍 Loading strategic KPIs from database...');
+      console.log('🔍 Loading strategic KPIs from strategic API...');
       
-      // Get overall organizational metrics
-      const [usersResponse, objectivesResponse] = await Promise.all([
-        fetch('/api/mbo/data?type=users'),
-        fetch('/api/mbo/data?type=objectives')
-      ]);
+      if (!user || !user.id) {
+        console.log('⚠️ No user ID available');
+        return;
+      }
+
+      const response = await fetch(`/api/senior-management/strategic-trends?userId=${user.id}`);
+      const result = await response.json();
       
-      const usersResult = await usersResponse.json();
-      const objectivesResult = await objectivesResponse.json();
+      console.log('📊 Strategic KPIs API response:', result);
       
-      if (usersResult.success && objectivesResult.success) {
-        const users = usersResult.data || [];
-        const objectives = objectivesResult.data || [];
-        
-        // Calculate real metrics
-        const totalEmployees = users.length;
-        const totalObjectives = objectives.length;
-        
-        let totalScore = 0;
-        let completedObjectives = 0;
-        
-        objectives.forEach((obj: any) => {
-          if (obj.target > 0) {
-            const progress = Math.min((obj.current / obj.target) * 100, 100);
-            totalScore += progress;
-            if (progress >= 100) completedObjectives++;
-          }
-        });
-        
-        const avgScore = totalObjectives > 0 ? totalScore / totalObjectives : 0;
-        const completionRate = totalObjectives > 0 ? (completedObjectives / totalObjectives) * 100 : 0;
+      if (result.success && result.overallMetrics) {
+        const metrics = result.overallMetrics;
         
         const kpis: StrategicKPI[] = [
           {
-            title: "Overall Organizational Score",
-            value: avgScore > 0 ? avgScore.toFixed(1) : "-",
+            title: "Manager Performance Score",
+            value: metrics.avgScore > 0 ? metrics.avgScore.toString() : "-",
             unit: "/100",
-            change: "-", // TODO: Calculate from historical data
+            change: "-",
             trend: "stable",
             icon: TrophyIcon,
             color: "text-green-600",
             bgColor: "bg-green-50",
           },
           {
-            title: "Employee Engagement",
-            value: "-", // Not available in current database
-            unit: "",
+            title: "Total Managers",
+            value: metrics.totalManagers > 0 ? metrics.totalManagers.toString() : "-",
+            unit: "Managers",
             change: "-",
             trend: "stable",
             icon: UsersIcon,
@@ -162,32 +145,33 @@ export default function StrategicPage() {
           },
           {
             title: "Objectives Completion Rate",
-            value: completionRate > 0 ? `${Math.round(completionRate)}%` : "-",
+            value: metrics.completionRate > 0 ? `${metrics.completionRate}%` : "-",
             unit: "",
-            change: "-", // TODO: Calculate from historical data
-            trend: "stable",
+            change: "-",
+            trend: metrics.completionRate >= 80 ? "up" : metrics.completionRate >= 60 ? "stable" : "down",
             icon: CheckCircleIcon,
             color: "text-primary",
             bgColor: "bg-primary-50",
           },
           {
-            title: "Revenue Impact",
-            value: "-", // Not available in current database
-            unit: "",
+            title: "Total Manager Objectives",
+            value: metrics.totalObjectives > 0 ? metrics.totalObjectives.toString() : "-",
+            unit: "Objectives",
             change: "-",
             trend: "stable",
-            icon: CurrencyDollarIcon,
+            icon: ChartBarIcon,
             color: "text-emerald-600",
             bgColor: "bg-emerald-50",
           },
         ];
         
         setStrategicKPIs(kpis);
+        console.log('✅ Strategic KPIs loaded successfully');
       } else {
         setStrategicKPIs([]);
+        console.log('⚠️ No KPI data available');
       }
       
-      console.log('✅ Strategic KPIs loaded successfully');
     } catch (error) {
       console.error('❌ Error loading strategic KPIs:', error);
       setStrategicKPIs([]);
@@ -196,69 +180,26 @@ export default function StrategicPage() {
 
   const loadDepartmentData = async () => {
     try {
-      console.log('🔍 Loading department data from database...');
+      console.log('🔍 Loading department data from strategic API...');
       
-      const [deptResponse, usersResponse] = await Promise.all([
-        fetch('/api/mbo/data?type=departments'),
-        fetch('/api/mbo/data?type=users')
-      ]);
+      if (!user || !user.id) {
+        console.log('⚠️ No user ID available');
+        return;
+      }
+
+      const response = await fetch(`/api/senior-management/strategic-trends?userId=${user.id}`);
+      const result = await response.json();
       
-      const deptResult = await deptResponse.json();
-      const usersResult = await usersResponse.json();
+      console.log('📊 Department performance API response:', result);
       
-      if (deptResult.success && usersResult.success) {
-        const departments = deptResult.data || [];
-        const users = usersResult.data || [];
-        
-        const deptData: DepartmentData[] = [];
-        
-        for (const dept of departments) {
-          const deptUsers = users.filter((user: any) => user.departmentId === dept.id);
-          
-          // Calculate department performance
-          let totalScore = 0;
-          let totalCompletion = 0;
-          let objectiveCount = 0;
-          
-          for (const user of deptUsers) {
-            try {
-              const objResponse = await fetch(`/api/mbo/objectives?userId=${user.id}`);
-              const objResult = await objResponse.json();
-              
-              if (objResult.success && objResult.data) {
-                const userObjectives = objResult.data;
-                objectiveCount += userObjectives.length;
-                
-                userObjectives.forEach((obj: any) => {
-                  if (obj.target > 0) {
-                    const progress = Math.min((obj.current / obj.target) * 100, 100);
-                    totalScore += progress;
-                    totalCompletion += progress;
-                  }
-                });
-              }
-            } catch (error) {
-              console.error(`Error loading objectives for user ${user.id}:`, error);
-            }
-          }
-          
-          const avgScore = objectiveCount > 0 ? totalScore / objectiveCount : 0;
-          const avgCompletion = objectiveCount > 0 ? totalCompletion / objectiveCount : 0;
-          
-          deptData.push({
-            name: dept.name || 'Unknown Department',
-            score: Math.round(avgScore),
-            employees: deptUsers.length,
-            completion: Math.round(avgCompletion)
-          });
-        }
-        
-        setDepartmentData(deptData);
+      if (result.success && result.departmentPerformance) {
+        setDepartmentData(result.departmentPerformance);
+        console.log(`✅ Loaded ${result.departmentPerformance.length} department records`);
       } else {
         setDepartmentData([]);
+        console.log('⚠️ No department data available');
       }
       
-      console.log('✅ Department data loaded successfully');
     } catch (error) {
       console.error('❌ Error loading department data:', error);
       setDepartmentData([]);
@@ -267,13 +208,25 @@ export default function StrategicPage() {
 
   const loadQuarterlyTrends = async () => {
     try {
-      console.log('🔍 Loading quarterly trends...');
+      console.log('🔍 Loading quarterly trends from strategic API...');
       
-      // TODO: Implement historical quarterly data when available
-      // For now, set empty array since we don't have historical data
-      setQuarterlyTrends([]);
+      if (!user || !user.id) {
+        console.log('⚠️ No user ID available');
+        return;
+      }
+
+      const response = await fetch(`/api/senior-management/strategic-trends?userId=${user.id}`);
+      const result = await response.json();
       
-      console.log('⚠️ Quarterly trends: Historical data not available');
+      console.log('📊 Strategic trends API response:', result);
+      
+      if (result.success && result.quarterlyTrends) {
+        setQuarterlyTrends(result.quarterlyTrends);
+        console.log(`✅ Loaded ${result.quarterlyTrends.length} quarterly trend records`);
+      } else {
+        setQuarterlyTrends([]);
+        console.log('⚠️ No quarterly trends data available');
+      }
     } catch (error) {
       console.error('❌ Error loading quarterly trends:', error);
       setQuarterlyTrends([]);
@@ -313,14 +266,7 @@ export default function StrategicPage() {
   const COLORS = ['#004E9E', '#007BFF', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
   if (isLoading || loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading strategic overview...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner message="Loading strategic overview..." />;
   }
   
   if (!user) {
@@ -360,18 +306,7 @@ export default function StrategicPage() {
             <h1 className="text-3xl font-bold text-text-dark">Strategic Overview</h1>
             <p className="text-text-light mt-2">Executive dashboard for organizational performance and strategic initiatives</p>
           </div>
-          <div className="mt-4 lg:mt-0">
-            <select
-              value={selectedPeriod}
-              onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-            >
-              <option value="Q4-2024">Q4 2024</option>
-              <option value="Q3-2024">Q3 2024</option>
-              <option value="Q2-2024">Q2 2024</option>
-              <option value="Q1-2024">Q1 2024</option>
-            </select>
-          </div>
+          
         </div>
 
         {/* Strategic KPIs */}

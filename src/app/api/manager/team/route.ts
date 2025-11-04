@@ -19,7 +19,9 @@ export async function GET(request: Request) {
     const teamMembers = await prisma.mboUser.findMany({
       where: {
         managerId: managerId,
-        role: 'EMPLOYEE'
+        role: {
+          in: ['EMPLOYEE', 'MANAGER'] // Include both employees and managers
+        }
       },
       include: {
         objectives: {
@@ -33,7 +35,7 @@ export async function GET(request: Request) {
     });
 
     // Calculate metrics for each team member
-    const teamMembersWithMetrics = teamMembers.map((member) => {
+    const teamMembersWithMetrics = teamMembers.map((member: any) => {
       const objectives = member.objectives || [];
       const totalObjectives = objectives.length;
       
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
         let totalWeight = 0;
         let totalWeightedProgress = 0;
 
-        objectives.forEach(objective => {
+        objectives.forEach((objective: any) => {
           const progress = Math.min((objective.current || 0) / objective.target, 1);
           const weight = objective.weight || 0.2; // Default weight 20%
           totalWeight += weight;
@@ -54,13 +56,13 @@ export async function GET(request: Request) {
       }
 
       // Count objectives by status for detailed breakdown
-      const completedCount = objectives.filter(obj => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
-      const inProgressCount = objectives.filter(obj => obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED').length;
-      const overdueCount = objectives.filter(obj => 
+      const completedCount = objectives.filter((obj: any) => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
+      const inProgressCount = objectives.filter((obj: any) => obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED').length;
+      const overdueCount = objectives.filter((obj: any) => 
         new Date(obj.dueDate) < new Date() && 
         (obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED')
       ).length;
-      const pendingReviewCount = objectives.filter(obj => obj.status === 'SUBMITTED_TO_MANAGER').length;
+      const pendingReviewCount = objectives.filter((obj: any) => obj.status === 'SUBMITTED_TO_MANAGER').length;
 
       // Create detailed status string
       const statusParts = [];

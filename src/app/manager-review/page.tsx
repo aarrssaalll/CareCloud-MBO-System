@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -320,15 +321,7 @@ export default function ManagerReviewPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#004E9E] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading AI-scored objectives...</p>
-        </div>
-        
-      </div>
-    );
+    return <LoadingSpinner message="Loading AI-scored objectives..." />;
   }
 
   if (!user) {
@@ -355,20 +348,6 @@ export default function ManagerReviewPage() {
                 <p className="text-sm text-gray-500 mt-1">
                   Review AI-scored objectives, override scores if needed, and submit to HR
                 </p>
-              </div>
-              <div className="flex items-center space-x-4">
-                {/* User Profile */}
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                    <p className="text-sm text-gray-500">{user?.title || 'Manager'}</p>
-                  </div>
-                  <div className="w-10 h-10 rounded-full bg-[#004E9E] flex items-center justify-center">
-                    <span className="text-white font-medium">
-                      {user?.firstName ? user.firstName[0] : ''}{user?.lastName ? user.lastName[0] : ''}
-                    </span>
-                  </div>
-                </div>
               </div>
             </div>
           </div>
