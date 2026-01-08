@@ -111,7 +111,7 @@ export default function ManagerObjectivesPage() {
         setCompletedObjectives(prev => 
           prev.filter(obj => obj.id !== objective.id) // Remove from list as it's now AI-scored
         );
-        alert(`✅ AI Score Generated: ${data.score}/10\n\nObjective moved to Review page for final scoring and approval.`);
+        alert(`AI Score Generated: ${data.score}/10\n\nObjective moved to Review page for final scoring and approval.`);
       } else {
         alert(data.error || 'Failed to generate AI score');
       }
@@ -160,7 +160,7 @@ export default function ManagerObjectivesPage() {
       prev.filter(obj => !processedIds.includes(obj.id))
     );
 
-    alert(`✅ AI scoring completed for ${successCount}/${unprocessedObjectives.length} objectives!\n\nObjectives have been moved to the Review page.`);
+    alert(`AI scoring completed for ${successCount}/${unprocessedObjectives.length} objectives!\n\nObjectives have been moved to the Review page.`);
   };
 
   const getCompletionPercentage = (objective: CompletedObjective) => {

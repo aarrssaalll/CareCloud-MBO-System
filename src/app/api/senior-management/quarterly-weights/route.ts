@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all manager objectives for this manager for the specified year
+    // Get all manager objectives (both qualitative and quantitative) for this manager for the specified year
     const objectives = await prisma.mboManagerObjective.findMany({
       where: {
         managerId: managerId,
@@ -27,11 +28,15 @@ export async function GET(request: NextRequest) {
         quarter: true,
         weight: true,
         status: true,
-        title: true
+        title: true,
+        objectiveType: true,
+        isQuantitative: true
       }
     });
 
-    // Calculate weight allocation by quarter
+    console.log(`📊 Found ${objectives.length} objectives for manager ${managerId}, year ${year}`);
+
+    // Calculate weight allocation by quarter (both objective types share the same 100% pool per quarter)
     const quarterlyWeights = {
       Q1: { allocated: 0, available: 100, objectives: [] as any[] },
       Q2: { allocated: 0, available: 100, objectives: [] as any[] },
@@ -42,13 +47,14 @@ export async function GET(request: NextRequest) {
     objectives.forEach((objective: any) => {
       const quarter = objective.quarter as keyof typeof quarterlyWeights;
       if (quarter && quarterlyWeights[quarter]) {
-        const weight = Math.round((objective.weight || 0) * 100); // Convert to percentage
+        const weight = objective.weight || 0; // Weight is already in percentage format
         quarterlyWeights[quarter].allocated += weight;
         quarterlyWeights[quarter].objectives.push({
           id: objective.id,
           title: objective.title,
           weight: weight,
-          status: objective.status
+          status: objective.status,
+          type: objective.objectiveType || (objective.isQuantitative ? 'quantitative' : 'qualitative')
         });
       }
     });
@@ -57,6 +63,7 @@ export async function GET(request: NextRequest) {
     Object.keys(quarterlyWeights).forEach(quarter => {
       const q = quarter as keyof typeof quarterlyWeights;
       quarterlyWeights[q].available = Math.max(0, 100 - quarterlyWeights[q].allocated);
+      console.log(`${q}: ${quarterlyWeights[q].allocated.toFixed(1)}% allocated, ${quarterlyWeights[q].available.toFixed(1)}% available`);
     });
 
     return NextResponse.json({

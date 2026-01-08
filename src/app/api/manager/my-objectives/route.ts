@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// GET: Fetch manager's strategic objectives (assigned by senior management)
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
@@ -14,18 +15,62 @@ export async function GET(request: NextRequest) {
 
     console.log(`🔍 Fetching strategic objectives for manager: ${managerId}`);
 
-    // For now, return empty array since we need to implement senior management assignment functionality
-    // This will be populated when senior managers assign objectives to managers
-    const objectives: any[] = [];
+    // Fetch all objectives assigned to this manager by senior management
+    const objectives = await prisma.mboManagerObjective.findMany({
+      where: {
+        managerId: managerId,
+      },
+      include: {
+        assignedBySeniorManager: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            title: true,
+          },
+        },
+        quantitativeData: {
+          include: {
+            practiceRevenues: {
+              orderBy: {
+                practiceName: 'asc',
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { dueDate: 'asc' },
+        { createdAt: 'desc' },
+      ],
+    });
 
-    console.log(`📋 Found ${objectives.length} strategic objectives for manager`);
+    // Calculate progress for each objective
+    const objectivesWithProgress = objectives.map((obj) => {
+      let progress = 0;
+      
+      if (obj.isQuantitative && obj.quantitativeData) {
+        // Progress auto-calculated from revenue data
+        progress = obj.quantitativeData.overallProgress;
+      } else if (obj.target > 0) {
+        // For qualitative objectives
+        progress = ((obj.current || 0) / obj.target) * 100;
+      }
+
+      return {
+        ...obj,
+        progress: Math.min(Math.round(progress), 100),
+      };
+    });
+
+    console.log(`📋 Found ${objectivesWithProgress.length} strategic objectives for manager`);
 
     return NextResponse.json({
       success: true,
-      objectives: objectives,
-      message: objectives.length === 0 
+      objectives: objectivesWithProgress,
+      message: objectivesWithProgress.length === 0 
         ? 'No strategic objectives have been assigned to you by senior management yet.' 
-        : `Found ${objectives.length} strategic objectives`
+        : `Found ${objectivesWithProgress.length} strategic objectives`
     });
 
   } catch (error) {

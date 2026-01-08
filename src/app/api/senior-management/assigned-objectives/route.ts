@@ -50,6 +50,15 @@ export async function GET(request: NextRequest) {
             name: true,
             title: true
           }
+        },
+        quantitativeData: {
+          include: {
+            practiceRevenues: {
+              where: {
+                isCurrent: true
+              }
+            }
+          }
         }
       },
       orderBy: [
@@ -67,12 +76,19 @@ export async function GET(request: NextRequest) {
       category: obj.category,
       target: obj.target,
       current: obj.current || 0,
-      weight: (obj.weight || 0) * 100, // Convert to percentage
+      weight: obj.weight || 0, // Weight is already a percentage integer (20, 40, etc.)
       status: obj.status,
       dueDate: obj.dueDate,
       quarter: obj.quarter,
       year: obj.year,
       progress: obj.target > 0 ? ((obj.current || 0) / obj.target) * 100 : 0,
+      
+      // Objective type
+      objectiveType: obj.objectiveType || 'qualitative',
+      isQuantitative: obj.isQuantitative || false,
+      
+      // Quantitative data
+      quantitativeData: obj.quantitativeData,
       
       // Timestamps
       assignedAt: obj.assignedAt,
@@ -109,6 +125,9 @@ export async function GET(request: NextRequest) {
       hrNotes: obj.hrNotes,
       bonusAmount: obj.bonusAmount
     }));
+
+    console.log('📊 Total objectives found:', formattedObjectives.length);
+    console.log('📊 Objective statuses:', formattedObjectives.map((o: any) => o.status));
 
     return NextResponse.json({
       success: true,

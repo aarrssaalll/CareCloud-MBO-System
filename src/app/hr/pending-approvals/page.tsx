@@ -14,7 +14,8 @@ import {
   EyeIcon,
   CheckIcon,
   XMarkIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  MicrophoneIcon
 } from "@heroicons/react/24/outline";
 
 interface PendingObjective {
@@ -374,13 +375,22 @@ export default function HRPendingApprovalsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 HR Approval Notes (Optional)
               </label>
-              <textarea
-                value={hrNotes}
-                onChange={(e) => setHrNotes(e.target.value)}
-                rows={2}
-                className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                placeholder="Add notes about this approval batch..."
-              />
+              <div className="relative">
+                <textarea
+                  value={hrNotes}
+                  onChange={(e) => setHrNotes(e.target.value)}
+                  rows={2}
+                  className="w-full pr-12 border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                  placeholder="Add notes about this approval batch..."
+                />
+                <button
+                  type="button"
+                  className="absolute top-2 right-2 p-2 text-gray-400 hover:text-[#004E9E] hover:bg-gray-100 rounded-md transition-colors"
+                  title="Voice input (Coming soon)"
+                >
+                  <MicrophoneIcon className="h-5 w-5" />
+                </button>
+              </div>
             </div>
           )}
         </div>

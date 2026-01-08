@@ -204,18 +204,26 @@ export async function POST(request: NextRequest) {
           }
         });
 
-        // Create notification for HR
-        await prisma.mboNotification.create({
-          data: {
-            type: 'info',
-            title: 'Manager Objective Submitted for HR Approval',
-            message: `Manager objective "${objective.title}" by ${objective.manager.name} submitted for bonus approval. Final score: ${objective.finalScore}/100, Bonus: $${bonusAmount.toFixed(2)}`,
-            actionRequired: true,
-            entityId: objective.id,
-            entityType: 'manager_objective',
-            userId: 'hr-notifications' // HR notification system
-          }
+        // Create notification for HR - get all HR users
+        const hrUsers = await prisma.mboUser.findMany({
+          where: { role: 'HR' },
+          select: { id: true }
         });
+
+        // Create notification for each HR user
+        for (const hrUser of hrUsers) {
+          await prisma.mboNotification.create({
+            data: {
+              type: 'info',
+              title: 'Manager Objective Submitted for HR Approval',
+              message: `Manager objective "${objective.title}" by ${objective.manager.name} submitted for bonus approval. Final score: ${objective.finalScore}/100, Bonus: $${bonusAmount.toFixed(2)}`,
+              actionRequired: true,
+              entityId: objective.id,
+              entityType: 'manager_objective',
+              userId: hrUser.id
+            }
+          });
+        }
 
         // Notify the manager
         await prisma.mboNotification.create({

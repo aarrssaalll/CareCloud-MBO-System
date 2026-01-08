@@ -318,150 +318,84 @@ export default function HRObjectivesPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Cards */}
+        {/* Summary Cards - Minimal Design */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 overflow-hidden group">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <UserGroupIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-blue-900">Total Objectives</p>
-                      <p className="text-xs text-blue-600">Organization wide</p>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-blue-900 mb-1">
-                    {summaryData.total}
-                  </p>
-                  <p className="text-xs text-blue-700 font-medium">
-                    All {viewMode === 'manager' ? 'manager' : 'employee'} objectives
-                  </p>
-                </div>
+          {/* Total Objectives */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <UserGroupIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+            <p className="text-sm font-medium text-gray-600">Total Objectives</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{summaryData.total}</p>
+            <p className="text-xs text-gray-500 mt-1">All {viewMode === 'manager' ? 'manager' : 'employee'} objectives</p>
           </div>
 
-          <div className="bg-gradient-to-br from-yellow-50 to-orange-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-yellow-200/50 overflow-hidden group">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-3 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <ClockIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-yellow-900">In Progress</p>
-                      <p className="text-xs text-yellow-600">Active work</p>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-yellow-900 mb-1">
-                    {summaryData.inProgress}
-                  </p>
-                  <p className="text-xs text-yellow-700 font-medium">Currently being worked on</p>
-                </div>
+          {/* In Progress */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <ClockIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-yellow-500 to-orange-600"></div>
+            <p className="text-sm font-medium text-gray-600">In Progress</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{summaryData.inProgress}</p>
+            <p className="text-xs text-gray-500 mt-1">Currently being worked on</p>
           </div>
 
-          <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-green-200/50 overflow-hidden group">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <CheckCircleIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-green-900">Completed</p>
-                      <p className="text-xs text-green-600">Employee done</p>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-green-900 mb-1">
-                    {summaryData.completed}
-                  </p>
-                  <p className="text-xs text-green-700 font-medium">
-                    Completed by {viewMode === 'manager' ? 'managers' : 'employees'}
-                  </p>
-                </div>
+          {/* Completed */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <CheckCircleIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-green-500 to-emerald-600"></div>
+            <p className="text-sm font-medium text-gray-600">Completed</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">{summaryData.completed}</p>
+            <p className="text-xs text-gray-500 mt-1">Completed by {viewMode === 'manager' ? 'managers' : 'employees'}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-50 to-indigo-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-purple-200/50 overflow-hidden group">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-3 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <SparklesIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-purple-900">AI Scored</p>
-                      <p className="text-xs text-purple-600">Manager reviewed</p>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-purple-900 mb-1">
-                    {(viewMode === 'manager' ? managerObjectives : objectives).filter(obj => obj.status === 'AI_SCORED' || obj.status === 'SUBMITTED_TO_HR').length}
-                  </p>
-                  <p className="text-xs text-purple-700 font-medium">
-                    Scored by {viewMode === 'manager' ? 'senior management' : 'managers'}
-                  </p>
-                </div>
+          {/* AI Scored */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <SparklesIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-purple-500 to-indigo-600"></div>
+            <p className="text-sm font-medium text-gray-600">AI Scored</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {(viewMode === 'manager' ? managerObjectives : objectives).filter(obj => obj.status === 'AI_SCORED' || obj.status === 'SUBMITTED_TO_HR').length}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Scored by {viewMode === 'manager' ? 'senior management' : 'managers'}</p>
           </div>
 
-          <div className="bg-gradient-to-br from-emerald-50 to-teal-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-emerald-200/50 overflow-hidden group">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <ChartBarIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-emerald-900">Bonus Approved</p>
-                      <p className="text-xs text-emerald-600">HR approved</p>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-emerald-900 mb-1">
-                    {objectives.filter(obj => obj.status === 'BONUS_APPROVED').length}
-                  </p>
-                  <p className="text-xs text-emerald-700 font-medium">Approved by HR</p>
-                </div>
+          {/* Bonus Approved */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <ChartBarIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-emerald-500 to-teal-600"></div>
+            <p className="text-sm font-medium text-gray-600">Bonus Approved</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {objectives.filter(obj => obj.status === 'BONUS_APPROVED').length}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Approved by HR</p>
           </div>
 
-          <div className="bg-gradient-to-br from-red-50 to-rose-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-red-200/50 overflow-hidden group">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="p-3 bg-gradient-to-r from-red-500 to-rose-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <ExclamationTriangleIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-red-900">Rejected</p>
-                      <p className="text-xs text-red-600">Not approved</p>
-                    </div>
-                  </div>
-                  <p className="text-3xl font-bold text-red-900 mb-1">
-                    {objectives.filter(obj => obj.status === 'REJECTED').length}
-                  </p>
-                  <p className="text-xs text-red-700 font-medium">Rejected objectives</p>
-                </div>
+          {/* Rejected */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <ExclamationTriangleIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-red-500 to-rose-600"></div>
+            <p className="text-sm font-medium text-gray-600">Rejected</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {objectives.filter(obj => obj.status === 'REJECTED').length}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Rejected objectives</p>
           </div>
         </div>
 

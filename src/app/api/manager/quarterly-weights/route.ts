@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Get all objectives for this employee for the specified year
-    const objectives = await prisma.mboObjective.findMany({
+    // Get all objectives for this employee for the specified year (for display purposes)
+    const allObjectives = await prisma.mboObjective.findMany({
       where: {
         userId: employeeId,
         year: year
@@ -31,15 +31,48 @@ export async function GET(request: NextRequest) {
       }
     });
 
-    // Calculate weight allocation by quarter
+    // Get only active objectives for weight calculation
+    const activeObjectives = await prisma.mboObjective.findMany({
+      where: {
+        userId: employeeId,
+        year: year,
+        status: {
+          in: ['ASSIGNED', 'IN_PROGRESS', 'ACTIVE']
+        }
+      },
+      select: {
+        id: true,
+        quarter: true,
+        weight: true,
+        status: true,
+        title: true
+      }
+    });
+
+    // Calculate weight allocation by quarter using ONLY active objectives
     const quarterlyWeights = {
-      Q1: { allocated: 0, available: 100, objectives: [] as any[] },
-      Q2: { allocated: 0, available: 100, objectives: [] as any[] },
-      Q3: { allocated: 0, available: 100, objectives: [] as any[] },
-      Q4: { allocated: 0, available: 100, objectives: [] as any[] }
+      Q1: { allocated: 0, available: 100, objectives: [] as any[], allObjectives: [] as any[] },
+      Q2: { allocated: 0, available: 100, objectives: [] as any[], allObjectives: [] as any[] },
+      Q3: { allocated: 0, available: 100, objectives: [] as any[], allObjectives: [] as any[] },
+      Q4: { allocated: 0, available: 100, objectives: [] as any[], allObjectives: [] as any[] }
     };
 
-    objectives.forEach(objective => {
+    // First, populate ALL objectives for display
+    allObjectives.forEach((objective: any) => {
+      const quarter = objective.quarter as keyof typeof quarterlyWeights;
+      if (quarter && quarterlyWeights[quarter]) {
+        const weight = Math.round((objective.weight || 0) * 100); // Convert to percentage
+        quarterlyWeights[quarter].allObjectives.push({
+          id: objective.id,
+          title: objective.title,
+          weight: weight,
+          status: objective.status
+        });
+      }
+    });
+
+    // Then, calculate allocated weight using ONLY active objectives
+    activeObjectives.forEach((objective: any) => {
       const quarter = objective.quarter as keyof typeof quarterlyWeights;
       if (quarter && quarterlyWeights[quarter]) {
         const weight = Math.round((objective.weight || 0) * 100); // Convert to percentage
@@ -93,18 +126,22 @@ export async function POST(request: NextRequest) {
     }
 
     // Check current weight allocation for this quarter
+    // Only count active objectives, exclude COMPLETED, CANCELLED, REJECTED, BONUS_APPROVED
     const currentObjectives = await prisma.mboObjective.findMany({
       where: {
         userId: employeeId,
         quarter: quarter,
-        year: year
+        year: year,
+        status: {
+          in: ['ASSIGNED', 'IN_PROGRESS', 'ACTIVE']
+        }
       },
       select: {
         weight: true
       }
     });
 
-    const currentAllocated = currentObjectives.reduce((sum, obj) => sum + ((obj.weight || 0) * 100), 0);
+    const currentAllocated = currentObjectives.reduce((sum: number, obj: any) => sum + ((obj.weight || 0) * 100), 0);
     const requestedWeight = Math.round(weight * 100); // Convert to percentage
     const totalAfterAddition = currentAllocated + requestedWeight;
 

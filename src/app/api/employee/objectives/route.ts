@@ -28,12 +28,25 @@ export async function GET(request: Request) {
             role: true
           }
         },
+        assignedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            title: true
+          }
+        },
         reviews: {
           select: {
             id: true,
             score: true,
             comments: true,
             reviewDate: true
+          }
+        },
+        quantitativeData: {
+          include: {
+            practiceRevenues: true
           }
         }
       },

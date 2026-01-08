@@ -9,6 +9,7 @@ import {
   ClockIcon,
   StarIcon,
   ChatBubbleLeftRightIcon,
+  MicrophoneIcon,
 } from "@heroicons/react/24/outline";
 
 interface Review {
@@ -352,13 +353,22 @@ export default function ReviewsPage() {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-text-dark mb-2">Comment</label>
-                        <textarea
-                          value={comment}
-                          onChange={(e) => setComment(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
-                          rows={3}
-                          placeholder="Add your review comment..."
-                        />
+                        <div className="relative">
+                          <textarea
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                            className="w-full px-3 py-2 pr-12 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
+                            rows={3}
+                            placeholder="Add your review comment..."
+                          />
+                          <button
+                            type="button"
+                            className="absolute top-2 right-2 p-2 text-gray-400 hover:text-[#004E9E] hover:bg-gray-100 rounded-md transition-colors"
+                            title="Voice input (Coming soon)"
+                          >
+                            <MicrophoneIcon className="h-5 w-5" />
+                          </button>
+                        </div>
                       </div>
                       <div className="flex space-x-3">
                         <button

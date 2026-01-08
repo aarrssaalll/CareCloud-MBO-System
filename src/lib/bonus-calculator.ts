@@ -42,6 +42,63 @@ export interface BonusCalculationResult {
 export class BonusCalculator {
   
   /**
+   * Fetch bonus structure from database or return defaults
+   * Note: MboBonusStructure model not yet implemented in schema, using defaults
+   */
+  private static async getBonusStructure(year: number) {
+    // TODO: Implement MboBonusStructure model in Prisma schema to enable dynamic bonus structures
+    // For now, using default structure
+    
+    // Return default structure
+    return {
+      calculationMethod: 'weighted_performance',
+      baseAmount: 5000,
+      performanceThresholds: [
+        { minPercentage: 0, maxPercentage: 50, multiplier: 0.5 },
+        { minPercentage: 50, maxPercentage: 70, multiplier: 0.75 },
+        { minPercentage: 70, maxPercentage: 85, multiplier: 0.9 },
+        { minPercentage: 85, maxPercentage: 100, multiplier: 1.0 },
+        { minPercentage: 100, maxPercentage: 150, multiplier: 1.25 }
+      ],
+      enableManualOverride: true,
+      quarterlyBudget: 20000,
+      departmentOverrides: {} as Record<string, { multiplier?: number }>,
+      roleMultipliers: {} as Record<string, number>
+    };
+  }
+
+  /**
+   * Calculate performance multiplier based on performance score and thresholds
+   */
+  private static getPerformanceMultiplier(
+    performanceScore: number,
+    thresholds: any[],
+    calculationMethod: string
+  ): number {
+    if (calculationMethod === 'tiered_performance') {
+      // Find the threshold that matches the performance score
+      for (const threshold of thresholds) {
+        if (performanceScore >= threshold.minPercentage && performanceScore < threshold.maxPercentage) {
+          return threshold.multiplier;
+        }
+      }
+      // If over all thresholds, use the last one
+      return thresholds[thresholds.length - 1]?.multiplier || 1.0;
+    } else if (calculationMethod === 'flat_rate') {
+      // Flat rate: bonus only if 100% or more achieved
+      return performanceScore >= 100 ? 1.0 : 0.5;
+    } else if (calculationMethod === 'hybrid') {
+      // Hybrid: use tiered but cap at max multiplier
+      let multiplier = performanceScore / 100;
+      const maxMultiplier = thresholds[thresholds.length - 1]?.multiplier || 1.25;
+      return Math.min(multiplier, maxMultiplier);
+    } else {
+      // Default weighted_performance: multiply performance score percentage by 0.01
+      return performanceScore / 100;
+    }
+  }
+  
+  /**
    * Calculate bonus for a specific employee in a given quarter/year
    */
   static async calculateEmployeeBonus(
@@ -52,12 +109,20 @@ export class BonusCalculator {
     
     console.log(`🎯 Calculating bonus for employee: ${employeeId}, Q${quarter} ${year}`);
     
+    // Fetch bonus structure
+    const bonusStructure = await this.getBonusStructure(year);
+    console.log(`📊 Using calculation method: ${bonusStructure.calculationMethod}`);
+    
     // Get employee data
     const employee = await prisma.mboUser.findUnique({
       where: { id: employeeId },
       select: {
         id: true,
         name: true,
+        role: true,
+        department: {
+          select: { id: true, name: true }
+        },
         allocatedBonusAmount: true,
       }
     });
@@ -108,12 +173,20 @@ export class BonusCalculator {
       };
     }
 
+    // Normalize objectives to ensure all required fields are numbers
+    const normalizedObjectives = objectives.map(obj => ({
+      ...obj,
+      current: obj.current ?? 0,
+      weight: obj.weight ?? 1,
+      status: obj.status ?? 'DRAFT'
+    }));
+
     // Calculate total weight of all objectives
-    const totalWeight = objectives.reduce((sum, obj) => sum + (obj.weight || 1), 0);
+    const totalWeight = normalizedObjectives.reduce((sum: number, obj) => sum + (obj.weight || 1), 0);
     console.log(`⚖️ Total weight of objectives: ${totalWeight}`);
 
     // Calculate breakdown for each objective
-    const breakdown = objectives.map(objective => {
+    const breakdown = normalizedObjectives.map((objective) => {
       const current = objective.current || 0;
       const target = objective.target;
       const weight = objective.weight || 1;
@@ -134,20 +207,40 @@ export class BonusCalculator {
     });
 
     // Calculate overall weighted performance score
-    const weightedPerformanceScore = breakdown.reduce((sum, item) => sum + item.weightedScore, 0);
+    const weightedPerformanceScore = breakdown.reduce((sum: number, item) => sum + item.weightedScore, 0);
 
     // Calculate overall completion percentage (simple average for display)
-    const overallCompletionPercentage = breakdown.reduce((sum, item) => sum + item.completionPercentage, 0) / breakdown.length;
+    const overallCompletionPercentage = breakdown.reduce((sum: number, item) => sum + item.completionPercentage, 0) / breakdown.length;
 
     // Count completed objectives (>= 100% completion)
-    const completedObjectives = breakdown.filter(item => item.completionPercentage >= 100).length;
+    const completedObjectives = breakdown.filter((item: any) => item.completionPercentage >= 100).length;
 
-    // Calculate performance multiplier (weighted score as percentage)
-    const performanceMultiplier = weightedPerformanceScore / 100;
+    // Calculate performance multiplier using bonus structure configuration
+    const performanceMultiplier = this.getPerformanceMultiplier(
+      weightedPerformanceScore,
+      bonusStructure.performanceThresholds,
+      bonusStructure.calculationMethod
+    );
 
-    // Calculate final bonus amount
-    const baseAmount = employee.allocatedBonusAmount || 0;
-    const finalBonusAmount = Math.round(baseAmount * performanceMultiplier * 100) / 100; // Round to 2 decimal places
+    // Apply role multiplier if configured
+    let finalMultiplier = performanceMultiplier;
+    if (employee.role && bonusStructure.roleMultipliers[employee.role]) {
+      finalMultiplier = performanceMultiplier * bonusStructure.roleMultipliers[employee.role];
+      console.log(`🎭 Applied role multiplier for ${employee.role}: ${bonusStructure.roleMultipliers[employee.role]}`);
+    }
+
+    // Apply department overrides if configured
+    if (employee.department?.id && bonusStructure.departmentOverrides[employee.department.id]) {
+      const deptOverride = bonusStructure.departmentOverrides[employee.department.id];
+      if (deptOverride.multiplier) {
+        finalMultiplier = performanceMultiplier * deptOverride.multiplier;
+        console.log(`🏢 Applied department override for ${employee.department.name}: ${deptOverride.multiplier}`);
+      }
+    }
+
+    // Calculate final bonus amount using base amount from structure (not employee allocation)
+    const baseAmount = bonusStructure.baseAmount;
+    const finalBonusAmount = Math.round(baseAmount * finalMultiplier * 100) / 100; // Round to 2 decimal places
 
     console.log(`💰 Bonus calculation results:
     - Total Objectives: ${objectives.length}
@@ -164,14 +257,7 @@ export class BonusCalculator {
       employeeName: employee.name,
       quarter,
       year,
-      objectives: objectives.map(obj => ({
-        id: obj.id,
-        current: obj.current || 0,
-        target: obj.target,
-        weight: obj.weight || 1,
-        status: obj.status || 'DRAFT',
-        title: obj.title
-      })),
+      objectives: normalizedObjectives,
       totalObjectives: objectives.length,
       completedObjectives,
       totalWeight,
@@ -309,8 +395,8 @@ export class BonusCalculator {
       }
     });
 
-    const totalBonuses = bonuses.reduce((sum, bonus) => sum + bonus.finalAmount, 0);
-    const averageMultiplier = bonuses.reduce((sum, bonus) => sum + bonus.performanceMultiplier, 0) / bonuses.length;
+    const totalBonuses = bonuses.reduce((sum: number, bonus: any) => sum + bonus.finalAmount, 0);
+    const averageMultiplier = bonuses.reduce((sum: number, bonus: any) => sum + bonus.performanceMultiplier, 0) / bonuses.length;
 
     return {
       quarter,

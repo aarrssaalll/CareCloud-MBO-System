@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Update objective progress
+// PUT: Update a manager's objective (only for qualitative objectives - quantitative are auto-updated)
 export async function PUT(
   request: NextRequest,
   { params }: { params: { objectiveId: string } }
@@ -11,26 +11,50 @@ export async function PUT(
   try {
     const { objectiveId } = params;
     const body = await request.json();
-    const { current, employeeRemarks } = body;
 
-    console.log(`🔄 Updating manager objective: ${objectiveId}`);
+    console.log(`📝 Updating manager objective: ${objectiveId}`);
 
-    // When implemented, this will update the senior management objective table
-    // For now, return success message
-    const updatedObjective = {
-      id: objectiveId,
-      current,
-      employeeRemarks,
-      progress: (current / 100) * 100, // This will be calculated based on actual target
-      updatedAt: new Date().toISOString()
-    };
+    // Fetch the objective first to check if it's quantitative
+    const objective = await prisma.mboManagerObjective.findUnique({
+      where: { id: objectiveId },
+    });
+
+    if (!objective) {
+      return NextResponse.json({ error: 'Objective not found' }, { status: 404 });
+    }
+
+    // Prevent manual updates to quantitative objectives (they're auto-updated)
+    if (objective.isQuantitative) {
+      return NextResponse.json(
+        { error: 'Quantitative objectives are automatically updated from revenue data and cannot be manually modified' },
+        { status: 400 }
+      );
+    }
+
+    // Update qualitative objective
+    const updatedObjective = await prisma.mboManagerObjective.update({
+      where: { id: objectiveId },
+      data: {
+        current: body.current,
+        managerRemarks: body.managerRemarks || body.employeeRemarks, // Support both field names for compatibility
+        managerEvidence: body.managerEvidence,
+        status: body.status || objective.status,
+        ...(body.status === 'IN_PROGRESS' && !objective.startedAt ? { startedAt: new Date() } : {}),
+        ...(body.status === 'COMPLETED' && !objective.completedAt ? { completedAt: new Date() } : {}),
+      },
+      include: {
+        assignedBySeniorManager: {
+          select: { id: true, name: true, email: true, title: true },
+        },
+      },
+    });
 
     console.log(`✅ Manager objective updated successfully`);
 
     return NextResponse.json({
       success: true,
-      ...updatedObjective,
-      message: 'Objective progress updated successfully'
+      objective: updatedObjective,
+      message: 'Objective updated successfully',
     });
 
   } catch (error) {
@@ -44,42 +68,43 @@ export async function PUT(
   }
 }
 
-// Submit objective for review
-export async function POST(
+// GET: Fetch a single manager objective
+export async function GET(
   request: NextRequest,
   { params }: { params: { objectiveId: string } }
 ) {
   try {
     const { objectiveId } = params;
-    const body = await request.json();
-    const { current, employeeRemarks, digitalSignature, status } = body;
 
-    console.log(`📤 Submitting manager objective for review: ${objectiveId}`);
+    const objective = await prisma.mboManagerObjective.findUnique({
+      where: { id: objectiveId },
+      include: {
+        assignedBySeniorManager: {
+          select: { id: true, name: true, email: true, title: true },
+        },
+        quantitativeData: {
+          include: {
+            practiceRevenues: {
+              orderBy: { practiceName: 'asc' },
+            },
+          },
+        },
+      },
+    });
 
-    // When implemented, this will update the senior management objective table
-    // and set status to COMPLETED for senior management review
-    const submittedObjective = {
-      id: objectiveId,
-      current,
-      employeeRemarks,
-      digitalSignature,
-      status: 'COMPLETED',
-      submittedAt: new Date().toISOString(),
-      progress: (current / 100) * 100, // This will be calculated based on actual target
-    };
-
-    console.log(`✅ Manager objective submitted for senior management review`);
+    if (!objective) {
+      return NextResponse.json({ error: 'Objective not found' }, { status: 404 });
+    }
 
     return NextResponse.json({
       success: true,
-      ...submittedObjective,
-      message: 'Objective submitted for senior management review successfully'
+      objective,
     });
 
   } catch (error) {
-    console.error('❌ Error submitting manager objective:', error);
+    console.error('❌ Error fetching manager objective:', error);
     return NextResponse.json(
-      { error: 'Failed to submit objective', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch objective', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   } finally {

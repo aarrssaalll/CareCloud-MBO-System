@@ -63,6 +63,23 @@ export async function GET(request: Request) {
             email: true,
             role: true
           }
+        },
+        assignedBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            title: true
+          }
+        },
+        quantitativeData: {
+          include: {
+            practiceRevenues: {
+              orderBy: {
+                practiceName: 'asc'
+              }
+            }
+          }
         }
       },
       orderBy: { createdAt: 'desc' },
@@ -70,12 +87,22 @@ export async function GET(request: Request) {
     })
 
     // Calculate progress for each objective
-    const objectivesWithProgress = objectives.map((objective) => ({
-      ...objective,
-      progress: objective.target > 0 && objective.current != null 
-        ? Math.round((objective.current / objective.target) * 100) 
-        : 0
-    }))
+    const objectivesWithProgress = objectives.map((objective) => {
+      let progress = 0;
+      
+      if (objective.isQuantitative && objective.quantitativeData) {
+        // For quantitative objectives, use auto-calculated progress
+        progress = objective.quantitativeData.overallProgress;
+      } else if (objective.target > 0 && objective.current != null) {
+        // For qualitative objectives
+        progress = (objective.current / objective.target) * 100;
+      }
+      
+      return {
+        ...objective,
+        progress: Math.min(Math.round(progress), 100)
+      };
+    })
 
     const result = { 
       objectives: objectivesWithProgress,

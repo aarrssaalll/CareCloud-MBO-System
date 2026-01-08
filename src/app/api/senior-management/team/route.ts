@@ -28,11 +28,6 @@ export async function GET(request: Request) {
         }
       },
       include: {
-        objectives: {
-          include: {
-            reviews: true
-          }
-        },
         department: true,
         team: true,
         // Get count of managed users
@@ -44,85 +39,127 @@ export async function GET(request: Request) {
       }
     });
 
-    // Calculate metrics for each subordinate manager
-    const managersWithMetrics = subordinateManagers.map((manager: any) => {
-      const objectives = manager.objectives || [];
-      const totalObjectives = objectives.length;
-      
-      // Calculate weighted completion rate (same as employee dashboard)
-      let completionRate = 0;
-      if (totalObjectives > 0) {
-        let totalWeight = 0;
-        let totalWeightedProgress = 0;
-
-        objectives.forEach((objective: any) => {
-          const progress = Math.min((objective.current || 0) / objective.target, 1);
-          const weight = objective.weight || 0.2; // Default weight 20%
-          totalWeight += weight;
-          totalWeightedProgress += progress * weight;
+    // Get manager objectives for each subordinate manager
+    const managersWithMetrics = await Promise.all(subordinateManagers.map(async (manager: any) => {
+      try {
+        // Fetch manager objectives assigned to this manager
+        const managerObjectives = await prisma.mboManagerObjective.findMany({
+          where: {
+            managerId: manager.id
+          }
+        }).catch((err: any) => {
+          console.error(`Error fetching objectives for manager ${manager.id}:`, err);
+          return [];
         });
 
-        completionRate = totalWeight > 0 ? Math.round((totalWeightedProgress / totalWeight) * 100) : 0;
+        const objectives = managerObjectives || [];
+        const totalObjectives = objectives.length;
+        
+        // Calculate weighted completion rate (same as employee dashboard)
+        let completionRate = 0;
+        if (totalObjectives > 0) {
+          let totalWeight = 0;
+          let totalWeightedProgress = 0;
+
+          objectives.forEach((objective: any) => {
+            const progress = Math.min((objective.current || 0) / (objective.target || 1), 1);
+            const weight = objective.weight || 0.2; // Default weight 20%
+            totalWeight += weight;
+            totalWeightedProgress += progress * weight;
+          });
+
+          completionRate = totalWeight > 0 ? Math.round((totalWeightedProgress / totalWeight) * 100) : 0;
+        }
+
+        // Count objectives by status for detailed breakdown
+        const completedCount = objectives.filter((obj: any) => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
+        const inProgressCount = objectives.filter((obj: any) => obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED').length;
+        const overdueCount = objectives.filter((obj: any) => {
+          try {
+            return new Date(obj.dueDate) < new Date() && 
+              (obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED');
+          } catch {
+            return false;
+          }
+        }).length;
+        const pendingReviewCount = objectives.filter((obj: any) => obj.status === 'SUBMITTED_TO_MANAGER').length;
+
+        // Create detailed status string
+        const statusParts = [];
+        if (completedCount > 0) statusParts.push(`${completedCount} completed`);
+        if (overdueCount > 0) statusParts.push(`${overdueCount} overdue`);
+        if (inProgressCount > 0) statusParts.push(`${inProgressCount} in progress`);
+        if (pendingReviewCount > 0) statusParts.push(`${pendingReviewCount} pending review`);
+        
+        const detailedStatus = statusParts.length > 0 ? statusParts.join(', ') : 'No objectives';
+
+        // Determine primary status for UI styling
+        let primaryStatus: 'active' | 'pending_review' | 'overdue' | 'completed' = 'active';
+        
+        if (totalObjectives === 0) {
+          primaryStatus = 'active';
+        } else if (overdueCount > 0) {
+          primaryStatus = 'overdue';
+        } else if (pendingReviewCount > 0) {
+          primaryStatus = 'pending_review';
+        } else if (completedCount === totalObjectives && totalObjectives > 0) {
+          primaryStatus = 'completed';
+        }
+
+        // Get team size for this manager
+        const teamSize = manager._count?.managedUsers || 0;
+
+        return {
+          id: manager.id,
+          name: manager.name || `${manager.firstName || ''} ${manager.lastName || ''}`.trim() || 'Unknown',
+          email: manager.email,
+          role: manager.title || 'Manager',
+          department: manager.department?.name || 'N/A',
+          teamName: manager.team?.name || 'N/A',
+          teamSize: teamSize,
+          seniorManager: seniorManagerId,
+          objectivesCount: totalObjectives,
+          completionRate: completionRate,
+          status: primaryStatus,
+          detailedStatus: detailedStatus,
+          statusCounts: {
+            completed: completedCount,
+            inProgress: inProgressCount,
+            overdue: overdueCount,
+            pendingReview: pendingReviewCount,
+            total: totalObjectives
+          },
+          lastActive: manager.updatedAt,
+          employeeId: manager.employeeId || 'N/A'
+        };
+      } catch (mapError) {
+        console.error(`Error processing manager ${manager.id}:`, mapError);
+        // Return a minimal object to prevent breaking the entire list
+        return {
+          id: manager.id,
+          name: manager.name || 'Unknown',
+          email: manager.email,
+          role: manager.title || 'Manager',
+          department: manager.department?.name || 'N/A',
+          teamName: manager.team?.name || 'N/A',
+          teamSize: manager._count?.managedUsers || 0,
+          seniorManager: seniorManagerId,
+          objectivesCount: 0,
+          completionRate: 0,
+          status: 'active' as const,
+          detailedStatus: 'Error loading objectives',
+          statusCounts: {
+            completed: 0,
+            inProgress: 0,
+            overdue: 0,
+            pendingReview: 0,
+            total: 0
+          },
+          lastActive: manager.updatedAt,
+          employeeId: manager.employeeId || 'N/A'
+        };
       }
-
-      // Count objectives by status for detailed breakdown
-      const completedCount = objectives.filter((obj: any) => obj.status === 'COMPLETED' || obj.status === 'BONUS_APPROVED').length;
-      const inProgressCount = objectives.filter((obj: any) => obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED').length;
-      const overdueCount = objectives.filter((obj: any) => 
-        new Date(obj.dueDate) < new Date() && 
-        (obj.status === 'IN_PROGRESS' || obj.status === 'ACTIVE' || obj.status === 'ASSIGNED')
-      ).length;
-      const pendingReviewCount = objectives.filter((obj: any) => obj.status === 'SUBMITTED_TO_MANAGER').length;
-
-      // Create detailed status string
-      const statusParts = [];
-      if (completedCount > 0) statusParts.push(`${completedCount} completed`);
-      if (overdueCount > 0) statusParts.push(`${overdueCount} overdue`);
-      if (inProgressCount > 0) statusParts.push(`${inProgressCount} in progress`);
-      if (pendingReviewCount > 0) statusParts.push(`${pendingReviewCount} pending review`);
-      
-      const detailedStatus = statusParts.length > 0 ? statusParts.join(', ') : 'No objectives';
-
-      // Determine primary status for UI styling
-      let primaryStatus: 'active' | 'pending_review' | 'overdue' | 'completed' = 'active';
-      
-      if (totalObjectives === 0) {
-        primaryStatus = 'active';
-      } else if (overdueCount > 0) {
-        primaryStatus = 'overdue';
-      } else if (pendingReviewCount > 0) {
-        primaryStatus = 'pending_review';
-      } else if (completedCount === totalObjectives && totalObjectives > 0) {
-        primaryStatus = 'completed';
-      }
-
-      // Get team size for this manager
-      const teamSize = manager._count?.managedUsers || 0;
-
-      return {
-        id: manager.id,
-        name: manager.name || `${manager.firstName || ''} ${manager.lastName || ''}`.trim() || 'Unknown',
-        email: manager.email,
-        role: manager.title || 'Manager',
-        department: manager.department?.name || 'N/A',
-        teamName: manager.team?.name || 'N/A',
-        teamSize: teamSize,
-        seniorManager: seniorManagerId,
-        objectivesCount: totalObjectives,
-        completionRate: completionRate,
-        status: primaryStatus,
-        detailedStatus: detailedStatus,
-        statusCounts: {
-          completed: completedCount,
-          inProgress: inProgressCount,
-          overdue: overdueCount,
-          pendingReview: pendingReviewCount,
-          total: totalObjectives
-        },
-        lastActive: manager.updatedAt,
-        employeeId: manager.employeeId || 'N/A'
-      };
-    });
+    }));
 
     console.log('✅ Returning subordinate managers:', managersWithMetrics.length);
     console.log('📊 Manager details:', managersWithMetrics);
@@ -144,7 +181,5 @@ export async function GET(request: Request) {
       { success: false, error: 'Internal server error', details: errorMessage },
       { status: 500 }
     );
-  } finally {
-    await prisma.$disconnect();
   }
 }

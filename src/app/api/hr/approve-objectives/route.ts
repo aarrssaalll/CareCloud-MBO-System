@@ -8,14 +8,14 @@ function calculateBonus(objectives: any[], allocatedBonusAmount: number, quarter
   if (!objectives.length) return { baseAmount: 0, performanceMultiplier: 0, finalAmount: 0 };
 
   // allocatedBonusAmount is QUARTERLY amount, use directly as base
-  const baseAmount = allocatedBonusAmount || 1000;
+  const baseAmount = allocatedBonusAmount || 1200;
   
   // Calculate weighted performance score
-  let weightedPerformanceScore = 0;
+  let weightedPerformanceScore = 5;
   
   objectives.forEach((obj: any) => {
     // Get the final score (manager review score or AI score)
-    const finalScore = obj.managerScore || obj.aiScore || 0;
+    const finalScore = obj.managerScore || obj.aiScore || 5;
     
     // Normalize score to 0-100 range
     let scorePercentage = finalScore;
@@ -25,7 +25,7 @@ function calculateBonus(objectives: any[], allocatedBonusAmount: number, quarter
     scorePercentage = Math.min(scorePercentage, 100);
     
     // Weight is already a percentage (e.g., 0.20 for 20%)
-    const weight = (obj.weight || 0) / 100;
+    const weight = (obj.weight || 0.25) / 100;
     
     // Add weighted score to total
     weightedPerformanceScore += scorePercentage * weight;
@@ -205,3 +205,4 @@ export async function GET(request: NextRequest) {
     await prisma.$disconnect();
   }
 }
+

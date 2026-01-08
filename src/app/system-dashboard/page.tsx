@@ -150,7 +150,7 @@ export default function SystemDashboard() {
           if (objectivesResult.success && objectivesResult.objectives && Array.isArray(objectivesResult.objectives)) {
             totalObjectivesAssigned = objectivesResult.objectives.length;
             pendingObjectives = objectivesResult.objectives.filter((obj: any) => 
-              obj.status === 'ASSIGNED' || obj.status === 'IN_PROGRESS' || obj.status === 'SUBMITTED'
+              obj.status === 'MANAGER_SUBMITTED' || obj.status === 'SENIOR_REVIEWED'
             ).length;
           }
         }
@@ -361,15 +361,17 @@ export default function SystemDashboard() {
           <div className="py-6">
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-3xl font-bold text-gray-900">CareCloud MBO System Dashboard</h1>
-                <p className="mt-1 text-sm text-gray-500">
-                  Comprehensive organizational performance overview for Q3 2025
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-[#333333] to-[#666666] bg-clip-text text-transparent mb-2">
+                  Good morning, {user.firstName || user.name}
+                </h1>
+                <p className="text-[#666666]">
+                  {new Date().toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
                 </p>
-              </div>
-              <div className="flex items-center justify-end">
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-white">Senior Management Dashboard</p>
-                </div>
               </div>
             </div>
           </div>
@@ -456,6 +458,48 @@ export default function SystemDashboard() {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <button
+            onClick={() => router.push('/senior-management/review-objectives')}
+            className="bg-gradient-to-br from-[#004E9E] to-[#007BFF] p-6 rounded-xl text-white hover:shadow-lg transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-left">
+                <h3 className="text-lg font-semibold mb-2">Review Objectives</h3>
+                <p className="text-blue-100 text-sm">Review and approve manager objectives</p>
+              </div>
+              <CheckCircleIcon className="h-8 w-8 text-blue-200 group-hover:scale-110 transition-transform" />
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push('/performance')}
+            className="bg-gradient-to-br from-green-600 to-green-700 p-6 rounded-xl text-white hover:shadow-lg transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-left">
+                <h3 className="text-lg font-semibold mb-2">Performance</h3>
+                <p className="text-green-100 text-sm">Analyze organizational performance metrics</p>
+              </div>
+              <ChartBarIcon className="h-8 w-8 text-green-200 group-hover:scale-110 transition-transform" />
+            </div>
+          </button>
+
+          <button
+            onClick={() => router.push('/settings')}
+            className="bg-gradient-to-br from-purple-600 to-purple-700 p-6 rounded-xl text-white hover:shadow-lg transition-all group"
+          >
+            <div className="flex items-center justify-between">
+              <div className="text-left">
+                <h3 className="text-lg font-semibold mb-2">System Settings</h3>
+                <p className="text-purple-100 text-sm">Configure system parameters and options</p>
+              </div>
+              <Cog6ToothIcon className="h-8 w-8 text-purple-200 group-hover:scale-110 transition-transform" />
+            </div>
+          </button>
+        </div>
+
         {/* Department Performance & Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
           {/* Department Performance */}
@@ -527,7 +571,7 @@ export default function SystemDashboard() {
         </div>
 
         {/* Detailed Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Objective Status */}
           <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Objective Status</h3>
@@ -578,35 +622,6 @@ export default function SystemDashboard() {
                   {systemHealth?.status?.toUpperCase() || '-'}
                 </span>
               </div>
-            </div>
-          </div>
-
-          {/* System Actions */}
-          <div className="bg-white shadow-sm rounded-lg border border-gray-200 p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-            <div className="space-y-3">
-              <button 
-                onClick={() => router.push('/senior-management/review-objectives')}
-                className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-md hover:from-purple-700 hover:to-purple-800 text-sm flex items-center justify-center space-x-2 transition-all"
-              >
-                <CheckCircleIcon className="h-4 w-4" />
-                <span>Review Manager Objectives</span>
-              </button>
-              <button className="w-full px-4 py-2 bg-[#004E9E] text-white rounded-md hover:bg-[#003875] text-sm flex items-center justify-center space-x-2">
-                <DocumentTextIcon className="h-4 w-4" />
-                <span>Generate Full Report</span>
-              </button>
-              <button className="w-full px-4 py-2 bg-[#007BFF] text-white rounded-md hover:bg-[#0056b3] text-sm flex items-center justify-center space-x-2">
-                <ArrowPathIcon className="h-4 w-4" />
-                <span>Sync System Data</span>
-              </button>
-              <button 
-                onClick={() => router.push('/settings')}
-                className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm flex items-center justify-center space-x-2"
-              >
-                <Cog6ToothIcon className="h-4 w-4" />
-                <span>System Settings</span>
-              </button>
             </div>
           </div>
         </div>

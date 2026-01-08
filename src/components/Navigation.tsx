@@ -32,15 +32,8 @@ export default function Navigation() {
         <div className="flex items-center justify-between h-16 gap-3">
           {/* Left: Brand */}
           <Link href="/dashboard" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 bg-gradient-to-br from-[#004E9E] to-[#007BFF] rounded-xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all">
-              <svg className="w-6 h-6 text-white" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M3 12l2-2 7-7 7 7-2 2V20a1 1 0 01-1 1h-3v-5a1 1 0 00-1-1h-2a1 1 0 00-1 1v5H6a1 1 0 01-1-1v-8z"/>
-              </svg>
-            </div>
-            <div>
-              <div className="text-base font-bold text-gray-900">CareCloud</div>
-              <div className="text-[11px] text-gray-500 font-medium uppercase tracking-wider">MBO SYSTEM</div>
-            </div>
+            <img src="/carecloud-logo.png" alt="CareCloud Logo" className="h-10 w-auto mr-5" />
+            
           </Link>
 
           {/* Right: User and Sign out */}

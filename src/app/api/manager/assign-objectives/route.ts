@@ -40,19 +40,22 @@ export async function POST(request: Request) {
       const requestedWeight = parseFloat(objective.weight) || 0.2; // Default 20%
 
       if (!weightValidations.has(quarter)) {
-        // Get current weight allocation for this quarter
+        // Get current weight allocation for this quarter (only active objectives)
         const currentObjectives = await prisma.mboObjective.findMany({
           where: {
             userId: employeeId,
             quarter: quarter,
-            year: year
+            year: year,
+            status: {
+              in: ['ASSIGNED', 'IN_PROGRESS', 'ACTIVE']
+            }
           },
           select: {
             weight: true
           }
         });
 
-        const currentAllocated = currentObjectives.reduce((sum, obj) => sum + (obj.weight || 0), 0);
+        const currentAllocated = currentObjectives.reduce((sum: number, obj: any) => sum + (obj.weight || 0), 0);
         weightValidations.set(quarter, { currentAllocated, requestedTotal: 0 });
       }
 
@@ -79,7 +82,7 @@ export async function POST(request: Request) {
     // Create objectives in the database (weight validation passed)
     const createdObjectives = await Promise.all(
       objectives.map(async (objective: any) => {
-        return await prisma.mboObjective.create({
+        const newObjective = await prisma.mboObjective.create({
           data: {
             title: objective.title,
             description: objective.description || '',
@@ -92,9 +95,43 @@ export async function POST(request: Request) {
             quarter: objective.quarter || `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
             year: year,
             userId: employeeId,
-            assignedById: assignedById
+            assignedById: assignedById,
+            isQuantitative: objective.isQuantitative || false,
+            objectiveType: objective.objectiveType || (objective.isQuantitative ? 'QUANTITATIVE' : 'QUALITATIVE'),
           }
         });
+
+        // If quantitative, create quantitative data
+        if (objective.isQuantitative && objective.quantitativeData) {
+          const quantitative = await prisma.mboQuantitativeEmployeeObjective.create({
+            data: {
+              employeeObjectiveId: newObjective.id,
+              totalTargetRevenue: objective.quantitativeData.totalTargetRevenue,
+              currency: objective.quantitativeData.currency || 'USD',
+              trackingStartDate: new Date(),
+            },
+          });
+
+          // Create practice revenues if provided
+          if (objective.quantitativeData.practiceRevenues && objective.quantitativeData.practiceRevenues.length > 0) {
+            const practicesCount = objective.quantitativeData.practiceRevenues.length;
+            const objectiveWeight = parseFloat(objective.weight) || 0.2;
+            
+            await prisma.mboEmployeePracticeRevenue.createMany({
+              data: objective.quantitativeData.practiceRevenues.map((practice: any) => ({
+                quantitativeEmployeeObjectiveId: quantitative.id,
+                practiceName: practice.practiceName,
+                targetRevenue: practice.targetRevenue,
+                // If only one practice, use the objective's total weight; otherwise use practice weight or distribute equally
+                weight: practice.weight !== undefined 
+                  ? practice.weight 
+                  : (practicesCount === 1 ? objectiveWeight * 100 : (objectiveWeight * 100) / practicesCount),
+              })),
+            });
+          }
+        }
+
+        return newObjective;
       })
     );
 
@@ -131,3 +168,4 @@ export async function POST(request: Request) {
     await prisma.$disconnect();
   }
 }
+

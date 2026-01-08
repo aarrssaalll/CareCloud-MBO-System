@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { MicrophoneIcon } from "@heroicons/react/24/outline";
+import { useState, useEffect } from "react";
 import LoadingSpinner from '@/components/LoadingSpinner';
 import {
   CheckCircleIcon,
@@ -10,7 +9,12 @@ import {
   PencilIcon,
   ScaleIcon,
   EyeIcon,
-  XMarkIcon
+  XMarkIcon,
+  InformationCircleIcon,
+  FlagIcon,
+  ChartBarIcon,
+  CalendarIcon,
+  UserIcon
 } from "@heroicons/react/24/outline";
 import { useAuth } from '@/hooks/useAuth';
 
@@ -32,11 +36,25 @@ interface Objective {
   category?: string;
   employeeRemarks?: string;
   managerFeedback?: string;
+  isQuantitative?: boolean;
+  objectiveType?: string;
   assignedBy?: {
     id: string;
     name: string;
     email: string;
     title: string;
+  };
+  quantitativeData?: {
+    id: string;
+    totalTargetRevenue: number;
+    totalAchievedRevenue: number;
+    practiceRevenues: Array<{
+      id: string;
+      practiceName: string;
+      targetRevenue: number;
+      achievedRevenue: number;
+      weight: number;
+    }>;
   };
   reviews: any[];
 }
@@ -53,242 +71,6 @@ export default function EmployeeObjectivesPage() {
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [submitObjectiveId, setSubmitObjectiveId] = useState<string | null>(null);
   const [finalComments, setFinalComments] = useState('');
-  const [interimText, setInterimText] = useState('');
-  const [listening, setListening] = useState(false);
-  const [metrics, setMetrics] = useState<{ firstInterimMs?: number; firstFinalMs?: number }>({});
-  
-  // Voice recognition refs
-  const recognitionRef = useRef<any>(null);
-  const listeningRef = useRef(false); // latest listening flag for handlers
-  const rafRef = useRef<number | null>(null); // for requestAnimationFrame throttle
-  const interimBufferRef = useRef(""); // accumulate interim between frames
-  const startTimeRef = useRef<number | null>(null);
-  const firstInterimLoggedRef = useRef(false);
-
-  // Utility: safely set listening (state + ref)
-  const setListeningSafe = (val: boolean) => {
-    listeningRef.current = val;
-    setListening(val);
-  };
-
-  // Pre-check permission (non-blocking best effort)
-  async function ensureMicrophonePermission() {
-    // Try to avoid prompting in worst-case UX by asking once.
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      // Immediately stop tracks to avoid leaving mic open
-      stream.getTracks().forEach(t => t.stop());
-      return true;
-    } catch (err) {
-      console.warn("Microphone permission denied or unavailable:", err);
-      return false;
-    }
-  }
-
-  function createRecognitionInstance() {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) return null;
-    const r = new SpeechRecognition();
-    r.lang = "en-US";
-    r.interimResults = true;
-    r.continuous = true;
-    r.maxAlternatives = 1;
-    return r;
-  }
-
-  function flushInterimToState() {
-    // Called via rAF to throttle updates
-    const value = interimBufferRef.current;
-    if (value !== interimText) {
-      setInterimText(value);
-      // Log first interim latency once
-      if (!firstInterimLoggedRef.current && startTimeRef.current) {
-        const firstInterimMs = Math.round(performance.now() - startTimeRef.current);
-        firstInterimLoggedRef.current = true;
-        setMetrics(m => ({ ...m, firstInterimMs }));
-      }
-    }
-    rafRef.current = null;
-  }
-
-  function scheduleInterimFlush() {
-    if (rafRef.current == null) {
-      rafRef.current = requestAnimationFrame(flushInterimToState);
-    }
-  }
-
-  function startRecognition() {
-    // Avoid duplicate starts
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-      } catch (e) {
-        // ignore if already started
-      }
-      setListeningSafe(true);
-      return;
-    }
-
-    const r = createRecognitionInstance();
-    if (!r) {
-      alert("Speech recognition not supported in this browser.");
-      return;
-    }
-
-    // Reset metrics
-    recognitionRef.current = r;
-    startTimeRef.current = performance.now();
-    firstInterimLoggedRef.current = false;
-    interimBufferRef.current = "";
-    setMetrics({});
-
-    r.onresult = (event: any) => {
-      let finalTranscript = '';
-      let interimTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript;
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      // Handle final results immediately
-      if (finalTranscript.trim()) {
-        if (!firstInterimLoggedRef.current && startTimeRef.current) {
-          const firstFinalMs = Math.round(performance.now() - startTimeRef.current);
-          setMetrics(m => ({ ...m, firstFinalMs }));
-        }
-        
-        setFinalComments(prev => {
-          const sep = prev && !prev.endsWith(" ") ? " " : "";
-          return (prev || "") + sep + finalTranscript.trim() + " ";
-        });
-      }
-
-      // Handle interim results with throttling
-      if (interimTranscript.trim()) {
-        interimBufferRef.current = interimTranscript.trim();
-        scheduleInterimFlush();
-      }
-    };
-
-    r.onstart = () => {
-      console.log('🎤 Speech recognition started');
-      setListeningSafe(true);
-    };
-
-    r.onend = () => {
-      console.log("[speech] onend");
-      // If user still wants to listen, restart with small backoff
-      if (listeningRef.current) {
-        // small backoff to avoid tight restart loop
-        setTimeout(() => {
-          // if still listening and no instance exists, create fresh
-          if (listeningRef.current) {
-            try {
-              // sometimes calling start on existing instance throws; create new one
-              if (!recognitionRef.current) {
-                startRecognition();
-              } else {
-                recognitionRef.current.start();
-              }
-              console.log("[speech] restarted after onend");
-            } catch (err) {
-              console.error("[speech] failed restart", err);
-              // clear and stop
-              setListeningSafe(false);
-              if (recognitionRef.current) {
-                try { recognitionRef.current.stop(); } catch (_) {}
-                recognitionRef.current = null;
-              }
-            }
-          }
-        }, 200); // 200ms backoff recommended
-      } else {
-        // user has stopped
-        setListeningSafe(false);
-        if (recognitionRef.current) {
-          try { recognitionRef.current.stop(); } catch (_) {}
-          recognitionRef.current = null;
-        }
-      }
-    };
-
-    r.onerror = (event: any) => {
-      switch (event.error) {
-        case 'no-speech':
-        case 'aborted':
-          return; // Silent for common cases
-        case 'audio-capture':
-          alert('Microphone access denied. Please check your browser permissions and try again.');
-          break;
-        case 'not-allowed':
-          alert('Microphone access is not allowed. Please:\n1. Click the microphone icon in your browser address bar\n2. Select "Allow"\n3. Refresh the page');
-          break;
-        case 'network':
-          alert('Network error occurred. Please check your internet connection.');
-          break;
-        default:
-          console.error(`Speech recognition error: ${event.error}`);
-          alert(`Speech recognition error: ${event.error}. Please try again.`);
-      }
-      setListeningSafe(false);
-      recognitionRef.current = null;
-    };
-
-    // Start recognition
-    try {
-      r.start();
-      setListeningSafe(true);
-    } catch (err) {
-      console.error("[speech] start failed:", err);
-      setListeningSafe(false);
-    }
-  }
-
-  function stopRecognition() {
-    setListeningSafe(false);
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch (e) {
-        console.warn("stop error", e);
-      }
-      recognitionRef.current = null;
-    }
-    // Flush any interim text into finalComments when stopping
-    if (interimBufferRef.current) {
-      setFinalComments(prev => {
-        const sep = prev && !prev.endsWith(" ") ? " " : "";
-        return (prev || "") + sep + interimBufferRef.current.trim() + " ";
-      });
-      interimBufferRef.current = "";
-      setInterimText("");
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-        rafRef.current = null;
-      }
-    }
-  }
-
-  // Start/Stop function (toggle)
-  const handleVoiceInput = async () => {
-    // If already listening -> stop
-    if (listeningRef.current) {
-      stopRecognition();
-      return;
-    }
-    // Start
-    const success = await ensureMicrophonePermission();
-    if (!success) {
-      alert('Microphone permission required.');
-      return;
-    }
-    startRecognition();
-  };
   const [digitalSignature, setDigitalSignature] = useState('');
 
   // Helper functions
@@ -399,19 +181,6 @@ export default function EmployeeObjectivesPage() {
     if (!user) return;
     loadObjectives();
   }, [authLoading, user]);
-
-  // Cleanup speech recognition on unmount
-  useEffect(() => {
-    return () => {
-      if (recognitionRef.current) {
-        try { recognitionRef.current.stop(); } catch (_) {}
-        recognitionRef.current = null;
-      }
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
-      }
-    };
-  }, []);
 
   if (authLoading || loading) {
     return <LoadingSpinner message="Loading your objectives..." />;
@@ -554,46 +323,48 @@ export default function EmployeeObjectivesPage() {
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{objective.title}</h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        <h3 className="text-xl font-semibold text-gray-900">{objective.title}</h3>
+                        {(objective.isQuantitative || objective.objectiveType === 'quantitative') && (
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                            Quantitative - Revenue
+                          </span>
+                        )}
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
                           objective.status === 'COMPLETED' ? 'bg-green-100 text-green-800' :
                           objective.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-800' :
-                          objective.status === 'ASSIGNED' ? 'bg-yellow-100 text-yellow-800' :
+                          objective.status === 'ASSIGNED' ? 'bg-gray-100 text-gray-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {objective.status === 'ASSIGNED' ? ' Assigned' :
-                           objective.status === 'IN_PROGRESS' ? ' In Progress' :
-                           objective.status === 'COMPLETED' ? ' Completed' : objective.status}
+                          {objective.status === 'ASSIGNED' ? 'Assigned' :
+                           objective.status === 'IN_PROGRESS' ? 'In Progress' :
+                           objective.status === 'COMPLETED' ? 'Completed' : objective.status.replace('_', ' ')}
                         </span>
                         {isOverdue(objective.dueDate) && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                             Overdue
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            Overdue
                           </span>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 leading-relaxed">{objective.description}</p>
                       
                       {/* Metadata Section */}
-                      <div className="mt-3 flex items-center space-x-6 text-xs text-gray-500">
-                        {objective.category && (
-                          <span className="flex items-center space-x-1">
-                            <span></span>
-                            <span className="capitalize">{objective.category}</span>
-                          </span>
-                        )}
-                        <span className="flex items-center space-x-1">
-                          <span></span>
-                          <span>Due: {new Date(objective.dueDate).toLocaleDateString()}</span>
-                        </span>
-                        <span className="flex items-center space-x-1">
-                          <span></span>
-                          <span>Weight: {Math.round(objective.weight * 100)}%</span>
-                        </span>
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <span className="text-xs text-gray-500">Due Date</span>
+                          <p className="font-medium text-gray-900">{new Date(objective.dueDate).toLocaleDateString()}</p>
+                          <p className="text-xs text-gray-500">{objective.quarter} {objective.year}</p>
+                        </div>
+                        <div className="bg-gray-50 p-3 rounded-lg">
+                          <span className="text-xs text-gray-500">Weight</span>
+                          <p className="font-medium text-gray-900">{Math.round(objective.weight * 100)}%</p>
+                          <p className="text-xs text-gray-500">of total score</p>
+                        </div>
                         {objective.assignedBy && (
-                          <span className="flex items-center space-x-1">
-                            <span></span>
-                            <span>By: {objective.assignedBy.name}</span>
-                          </span>
+                          <div className="bg-gray-50 p-3 rounded-lg">
+                            <span className="text-xs text-gray-500">Assigned By</span>
+                            <p className="font-medium text-gray-900">{objective.assignedBy.name}</p>
+                            <p className="text-xs text-gray-500">{objective.assignedBy.title}</p>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -601,30 +372,166 @@ export default function EmployeeObjectivesPage() {
 
                   {/* Progress Section */}
                   <div className="mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-sm font-medium text-gray-700">Progress</span>
-                      <span className="text-sm font-semibold text-[#004E9E]">
-                        {Math.min(Math.round(((objective.current || 0) / objective.target) * 100), 100)}%
-                      </span>
-                    </div>
-                    <div className="bg-gray-200 rounded-full h-3 relative overflow-hidden">
-                      <div
-                        className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] h-3 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${Math.min(((objective.current || 0) / objective.target) * 100, 100)}%`
-                        }}
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs text-gray-500 mt-2">
-                      <span className="flex items-center space-x-1">
-                        <span></span>
-                        <span>Current: <strong>{objective.current || 0}</strong></span>
-                      </span>
-                      <span className="flex items-center space-x-1">
-                        <span></span>
-                        <span>Target: <strong>{objective.target}</strong></span>
-                      </span>
-                    </div>
+                    {!(objective.isQuantitative || objective.objectiveType === 'quantitative') ? (
+                      <>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="text-sm font-medium text-gray-700">Progress</span>
+                          <span className="text-sm font-semibold text-[#004E9E]">
+                            {Math.min(Math.round(((objective.current || 0) / objective.target) * 100), 100)}%
+                          </span>
+                        </div>
+                        <div className="bg-gray-200 rounded-full h-3 relative overflow-hidden">
+                          <div
+                            className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] h-3 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${Math.min(((objective.current || 0) / objective.target) * 100, 100)}%`
+                            }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500 mt-2">
+                          <span>Current: <strong>{objective.current || 0}</strong></span>
+                          <span>Target: <strong>{objective.target}</strong></span>
+                        </div>
+                      </>
+                    ) : (
+                      /* Quantitative Objective Layout - Revenue Focus */
+                      <>
+                        {/* Summary Stats for Quantitative */}
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <FlagIcon className="h-4 w-4 text-gray-500" />
+                              <span className="text-xs font-medium text-gray-600">Weight</span>
+                            </div>
+                            <p className="text-2xl font-bold text-gray-900">{Math.round(objective.weight * 100)}%</p>
+                            <p className="text-xs text-gray-500">of total score</p>
+                          </div>
+
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-xs font-medium text-gray-600">Target Revenue</span>
+                            </div>
+                            <p className="text-2xl font-bold text-gray-900">
+                              ${objective.quantitativeData!.totalTargetRevenue.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500">total goal</p>
+                          </div>
+
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-xs font-medium text-gray-600">Achieved</span>
+                            </div>
+                            <p className="text-2xl font-bold text-gray-900">
+                              ${objective.quantitativeData!.totalAchievedRevenue.toLocaleString()}
+                            </p>
+                            <p className="text-xs text-gray-500">current total</p>
+                          </div>
+
+                          <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-xs font-medium text-gray-600">Overall Progress</span>
+                            </div>
+                            <p className="text-2xl font-bold text-[#004E9E]">
+                              {Math.min(Math.round(((objective.quantitativeData!.totalAchievedRevenue || 0) / objective.quantitativeData!.totalTargetRevenue) * 100), 100)}%
+                            </p>
+                            <div className="w-full bg-gray-200 rounded-full h-1.5 mt-2">
+                              <div 
+                                className="bg-[#004E9E] h-1.5 rounded-full transition-all duration-300"
+                                style={{ width: `${Math.min(((objective.quantitativeData!.totalAchievedRevenue || 0) / objective.quantitativeData!.totalTargetRevenue) * 100, 100)}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Practice Revenue Breakdown */}
+                        <div className="mb-6">
+                          <h4 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                            <ChartBarIcon className="h-5 w-5 mr-2 text-gray-500" />
+                            Practice Revenue Breakdown ({objective.quantitativeData!.practiceRevenues.length} Practices)
+                          </h4>
+                          <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                            <div className="grid grid-cols-12 gap-4 p-3 bg-gray-100 border-b border-gray-200 text-xs font-medium text-gray-600 uppercase">
+                              <div className="col-span-2">Practice Name</div>
+                              <div className="col-span-1 text-center">Weight</div>
+                              <div className="col-span-2 text-right">Target</div>
+                              <div className="col-span-2 text-right">Achieved</div>
+                              <div className="col-span-2 text-right">Remaining</div>
+                              <div className="col-span-3">Progress</div>
+                            </div>
+                            {objective.quantitativeData!.practiceRevenues.map((practice, index) => {
+                              const remaining = practice.targetRevenue - practice.achievedRevenue;
+                              return (
+                                <div 
+                                  key={practice.id} 
+                                  className={`grid grid-cols-12 gap-4 p-3 items-center ${
+                                    index !== objective.quantitativeData!.practiceRevenues.length - 1 
+                                      ? 'border-b border-gray-200' 
+                                      : ''
+                                  } hover:bg-gray-100 transition-colors`}
+                                >
+                                  <div className="col-span-2">
+                                    <span className="font-medium text-gray-900">{practice.practiceName}</span>
+                                  </div>
+                                  <div className="col-span-1 text-center">
+                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800">
+                                      {Math.round(practice.weight)}%
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    <span className="text-sm text-gray-700 font-medium">
+                                      ${practice.targetRevenue.toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    <span className="text-sm text-green-700 font-semibold">
+                                      ${practice.achievedRevenue.toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="col-span-2 text-right">
+                                    <span className={`text-sm font-medium ${
+                                      remaining > 0 ? 'text-orange-600' : 'text-green-600'
+                                    }`}>
+                                      ${Math.abs(remaining).toLocaleString()}
+                                    </span>
+                                  </div>
+                                  <div className="col-span-3">
+                                    <div className="flex items-center space-x-2">
+                                      <div className="flex-1 bg-gray-200 rounded-full h-2">
+                                        <div 
+                                          className="h-2 rounded-full transition-all duration-300 bg-[#004E9E]"
+                                          style={{ width: `${Math.min(100, ((practice.achievedRevenue || 0) / practice.targetRevenue) * 100)}%` }}
+                                        ></div>
+                                      </div>
+                                      <span className="text-xs font-semibold text-gray-700 min-w-[45px] text-right">
+                                        {Math.min(Math.round(((practice.achievedRevenue || 0) / practice.targetRevenue) * 100), 100)}%
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
+                        {/* Due Date for Quantitative */}
+                        <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 mb-6 inline-block">
+                          <div className="flex items-center space-x-3">
+                            <CalendarIcon className="h-5 w-5 text-gray-500" />
+                            <div>
+                              <span className="text-xs text-gray-600">Due Date: </span>
+                              <span className={`text-sm font-semibold ${
+                                isOverdue(objective.dueDate) ? 'text-red-600' : 'text-gray-900'
+                              }`}>
+                                {new Date(objective.dueDate).toLocaleDateString()}
+                              </span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                ({objective.quarter} {objective.year})
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   {/* Manager Feedback Section */}
@@ -744,13 +651,17 @@ export default function EmployeeObjectivesPage() {
                   <div className="mt-5 flex justify-end space-x-3">
                     {objective.status !== 'COMPLETED' && editingObjective !== objective.id && (
                       <>
-                        <button
-                          onClick={() => startEditing(objective)}
-                          className="px-4 py-2.5 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center space-x-2"
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                          <span>Update Progress</span>
-                        </button>
+                        {/* Only show Update Progress button for qualitative objectives */}
+                        {!(objective.isQuantitative || objective.objectiveType === 'quantitative') && (
+                          <button
+                            onClick={() => startEditing(objective)}
+                            className="px-4 py-2.5 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center space-x-2"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                            <span>Update Progress</span>
+                          </button>
+                        )}
+                        
                         <button
                           onClick={() => openSubmitModal(objective.id)}
                           className="px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:shadow-lg transition-all font-medium flex items-center space-x-2"
@@ -819,50 +730,30 @@ export default function EmployeeObjectivesPage() {
               </div>
               
               <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <label className="block text-sm font-medium text-gray-700 flex items-center">
-                    Final Comments *
-                    <button
-                      type="button"
-                      onClick={handleVoiceInput}
-                      aria-pressed={listening}
-                      title={listening ? "Stop voice input" : "Start voice input"}
-                      className={`ml-3 p-2 rounded-full ${listening ? "bg-red-500 text-white" : "bg-[#004E9E] text-white"}`}
-                    >
-                      <MicrophoneIcon className="h-4 w-4" />
-                    </button>
-                  </label>
-                  <div className="text-sm text-gray-600">
-                    {listening ? "🔴 Recording..." : "Voice input available"}
-                  </div>
-                  <div className="ml-auto text-xs text-gray-400">
-                    <div>firstInterimMs: {metrics.firstInterimMs ?? "—"} ms</div>
-                    <div>firstFinalMs: {metrics.firstFinalMs ?? "—"} ms</div>
-                  </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Final Comments *
+                </label>
+                <div className="relative">
+                  <textarea
+                    value={finalComments}
+                    onChange={(e) => setFinalComments(e.target.value)}
+                    placeholder="Describe your accomplishments, challenges overcome, and key outcomes achieved..."
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors pr-10"
+                    rows={5}
+                  />
+                  <button
+                    type="button"
+                    title="Voice input (Coming soon)"
+                    className="absolute top-2 right-2 p-2 rounded-full bg-gray-200 text-gray-500 hover:bg-[#004E9E] hover:text-white transition-colors cursor-not-allowed"
+                    disabled
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                  </button>
                 </div>
-                <textarea
-                  value={`${finalComments || ""}${interimText ? (finalComments && !finalComments.endsWith(" ") ? " " : "") + interimText : ""}`}
-                  onChange={(e) => {
-                    // allow manual edit - update finalComments only (keep interim separate)
-                    setFinalComments(e.target.value);
-                    // clear interim if user edits
-                    interimBufferRef.current = "";
-                    setInterimText("");
-                  }}
-                  placeholder="Describe your accomplishments, challenges overcome, and key outcomes achieved..."
-                  className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-[#004E9E] focus:ring-[#004E9E] focus:ring-2 transition-colors ${
-                    listening ? "ring-2 ring-red-500 border-red-500" : ""
-                  }`}
-                  rows={5}
-                />
                 <p className="text-xs text-gray-500 mt-1">
-                  {listening ? (
-                    <span className="text-red-600 font-medium">
-                      🎤 Speech is being converted to text...
-                    </span>
-                  ) : (
-                    "Provide detailed information to help your manager understand your achievements"
-                  )}
+                  Provide detailed information to help your manager understand your achievements
                 </p>
               </div>
               

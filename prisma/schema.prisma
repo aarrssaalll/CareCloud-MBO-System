@@ -104,12 +104,15 @@ model MboObjective {
   hrNotes              String?      @db.NVarChar(Max)
   aiScoreMetadata      String?      @db.NVarChar(Max)
   digitalSignature     String?      @db.NVarChar(Max)
+  isQuantitative       Boolean              @default(false)
+  objectiveType        String?              @db.NVarChar(50)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   userId       String               @db.NVarChar(36)
   assignedById String?              @db.NVarChar(36)
   
   reviews      MboObjectiveReview[]
+  quantitativeData MboQuantitativeEmployeeObjective?
   user         MboUser              @relation("UserObjectives", fields: [userId], references: [id], onDelete: Cascade)
   assignedBy   MboUser?             @relation("AssignedByUser", fields: [assignedById], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
@@ -231,6 +234,10 @@ model MboManagerObjective {
   hrNotes                     String?   @db.NVarChar(Max)
   bonusAmount                 Float?
   
+  // Objective type fields
+  isQuantitative              Boolean   @default(false)
+  objectiveType               String?   @db.NVarChar(50)
+  
   // Audit fields
   createdAt                   DateTime  @default(now())
   updatedAt                   DateTime  @updatedAt
@@ -242,6 +249,7 @@ model MboManagerObjective {
   // Relations
   manager                     MboUser   @relation("ManagerObjectives", fields: [managerId], references: [id], onDelete: Cascade)
   assignedBySeniorManager     MboUser   @relation("AssignedManagerObjectives", fields: [assignedBySeniorManagerId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  quantitativeData            MboQuantitativeObjective?
 
   @@index([managerId])
   @@index([assignedBySeniorManagerId])
@@ -249,6 +257,114 @@ model MboManagerObjective {
   @@index([quarter, year])
   @@index([dueDate])
   @@map("mbo_manager_objectives")
+}
+
+model MboQuantitativeObjective {
+  id                    String              @id @default(cuid()) @db.NVarChar(36)
+  managerObjectiveId    String              @unique @db.NVarChar(36)
+  totalTargetRevenue    Float
+  totalAchievedRevenue  Float               @default(0)
+  overallProgress       Float               @default(0)
+  currency              String              @default("USD") @db.NVarChar(10)
+  trackingStartDate     DateTime            @default(now())
+  lastUpdatedAt         DateTime            @updatedAt
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  
+  // Relations
+  managerObjective      MboManagerObjective @relation(fields: [managerObjectiveId], references: [id], onDelete: Cascade)
+  practiceRevenues      MboPracticeRevenue[]
+
+  @@index([managerObjectiveId])
+  @@map("mbo_quantitative_objectives")
+}
+
+model MboQuantitativeEmployeeObjective {
+  id                       String                    @id @default(cuid()) @db.NVarChar(36)
+  employeeObjectiveId      String                    @unique @db.NVarChar(36)
+  totalTargetRevenue       Float
+  totalAchievedRevenue     Float                     @default(0)
+  overallProgress          Float                     @default(0)
+  currency                 String                    @default("USD") @db.NVarChar(10)
+  trackingStartDate        DateTime                  @default(now())
+  lastUpdatedAt            DateTime                  @updatedAt
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  
+  // Relations
+  employeeObjective        MboObjective              @relation(fields: [employeeObjectiveId], references: [id], onDelete: Cascade)
+  practiceRevenues         MboEmployeePracticeRevenue[]
+
+  @@index([employeeObjectiveId])
+  @@map("mbo_quantitative_employee_objectives")
+}
+
+model MboPracticeRevenue {
+  id                        String                   @id @default(cuid()) @db.NVarChar(36)
+  quantitativeObjectiveId   String                   @db.NVarChar(36)
+  practiceName              String                   @db.NVarChar(255)
+  practiceCode              String?                  @db.NVarChar(50)
+  targetRevenue             Float
+  achievedRevenue           Float                    @default(0)
+  progressPercentage        Float                    @default(0)
+  weight                    Float                    @default(1.0)
+  status                    String                   @default("ACTIVE") @db.NVarChar(50)
+  notes                     String?                  @db.NVarChar(Max)
+  
+  // Versioning and tracking
+  version                   Int                      @default(1)
+  isCurrent                 Boolean                  @default(true)
+  isSnapshot                Boolean                  @default(false)
+  updateType                String                   @default("MANUAL") @db.NVarChar(50)
+  previousAchievedRevenue   Float?
+  revenueDelta              Float?
+  
+  // Audit fields
+  recordedBy                String?                  @db.NVarChar(255)
+  recordedAt                DateTime                 @default(now())
+  remarks                   String?                  @db.NVarChar(Max)
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  
+  // Relations
+  quantitativeObjective     MboQuantitativeObjective @relation(fields: [quantitativeObjectiveId], references: [id], onDelete: Cascade)
+
+  @@index([quantitativeObjectiveId])
+  @@map("mbo_practice_revenues")
+}
+
+model MboEmployeePracticeRevenue {
+  id                               String                           @id @default(cuid()) @db.NVarChar(36)
+  quantitativeEmployeeObjectiveId  String                           @db.NVarChar(36)
+  practiceName                     String                           @db.NVarChar(255)
+  practiceCode                     String?                          @db.NVarChar(50)
+  targetRevenue                    Float
+  achievedRevenue                  Float                            @default(0)
+  progressPercentage               Float                            @default(0)
+  weight                           Float                            @default(1.0)
+  status                           String                           @default("ACTIVE") @db.NVarChar(50)
+  notes                            String?                          @db.NVarChar(Max)
+  
+  // Versioning and tracking
+  version                          Int                              @default(1)
+  isCurrent                        Boolean                          @default(true)
+  isSnapshot                       Boolean                          @default(false)
+  updateType                       String                           @default("MANUAL") @db.NVarChar(50)
+  previousAchievedRevenue          Float?
+  revenueDelta                     Float?
+  
+  // Audit fields
+  recordedBy                       String?                          @db.NVarChar(255)
+  recordedAt                       DateTime                         @default(now())
+  remarks                          String?                          @db.NVarChar(Max)
+  createdAt                        DateTime                         @default(now())
+  updatedAt                        DateTime                         @updatedAt
+  
+  // Relations
+  quantitativeEmployeeObjective    MboQuantitativeEmployeeObjective @relation(fields: [quantitativeEmployeeObjectiveId], references: [id], onDelete: Cascade)
+
+  @@index([quantitativeEmployeeObjectiveId])
+  @@map("mbo_employee_practice_revenues")
 }
 
 model MboNotification {

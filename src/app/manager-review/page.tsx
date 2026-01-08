@@ -14,7 +14,8 @@ import {
   DocumentTextIcon,
   ExclamationTriangleIcon,
   DocumentCheckIcon,
-  SparklesIcon
+  SparklesIcon,
+  MicrophoneIcon
 } from "@heroicons/react/24/outline";
 import { ManagerReview, AIAnalysisResult, WorkflowStatus } from "../../types/workflow";
 
@@ -745,13 +746,22 @@ export default function ManagerReviewPage() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Submission Notes (Optional)
                     </label>
-                    <textarea
-                      value={individualNotes}
-                      onChange={(e) => setIndividualNotes(e.target.value)}
-                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                      rows={3}
-                      placeholder="Add any additional notes for HR review..."
-                    />
+                    <div className="relative">
+                      <textarea
+                        value={individualNotes}
+                        onChange={(e) => setIndividualNotes(e.target.value)}
+                        className="w-full pr-12 border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                        rows={3}
+                        placeholder="Add any additional notes for HR review..."
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-[#004E9E] hover:bg-gray-100 rounded-md transition-colors"
+                        title="Voice input (Coming soon)"
+                      >
+                        <MicrophoneIcon className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
 
                   <div>

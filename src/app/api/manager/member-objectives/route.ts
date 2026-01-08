@@ -38,6 +38,15 @@ export async function GET(request: Request) {
             name: true,
             email: true
           }
+        },
+        quantitativeData: {
+          include: {
+            practiceRevenues: {
+              orderBy: {
+                practiceName: 'asc'
+              }
+            }
+          }
         }
       },
       orderBy: {

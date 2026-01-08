@@ -178,11 +178,7 @@ export default function Navigation({ user }: NavigationProps) {
             <div className="flex items-center space-x-4">
               <Link href="/objectives" className="group flex items-center space-x-3">
                 <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-[#004E9E] to-[#007BFF] rounded-xl shadow-lg group-hover:shadow-2xl transition-all duration-300 flex items-center justify-center">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
+                  <img src="/carecloud-logo.png" alt="CareCloud Logo" className="h-12 w-auto rounded-xl shadow-lg group-hover:shadow-2xl transition-all duration-300" />
                   <div className="absolute -inset-1 bg-gradient-to-r from-[#004E9E] to-[#007BFF] rounded-xl opacity-0 group-hover:opacity-50 blur transition-all duration-300"></div>
                 </div>
                 <div>

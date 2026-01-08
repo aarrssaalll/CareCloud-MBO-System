@@ -88,12 +88,34 @@ export default function HRIncomingObjectivesPage() {
   const [objectives, setObjectives] = useState<Objective[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
+  const [manualBonusOverrides, setManualBonusOverrides] = useState<Record<string, { amount: number; reason: string }>>({});
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
     if (!user) return;
     loadIncomingObjectives();
   }, [authLoading, user]);
+
+  // Handle checkbox toggle for manual bonus override
+  useEffect(() => {
+    if (!selectedObjective) return;
+    
+    const checkbox = document.getElementById(`override_${selectedObjective.id}`) as HTMLInputElement;
+    const detailsDiv = document.getElementById(`override_details_${selectedObjective.id}`);
+    
+    const handleChange = () => {
+      if (checkbox.checked) {
+        detailsDiv?.classList.remove('hidden');
+      } else {
+        detailsDiv?.classList.add('hidden');
+      }
+    };
+
+    checkbox?.addEventListener('change', handleChange);
+    return () => checkbox?.removeEventListener('change', handleChange);
+  }, [selectedObjective]);
 
   const loadIncomingObjectives = async () => {
     setLoading(true);
@@ -212,6 +234,45 @@ export default function HRIncomingObjectivesPage() {
       // Find the objective to get its type
       const objectiveToApprove = objectives.find(obj => obj.id === objectiveId);
       
+      // Check if manual bonus override is enabled
+      const overrideCheckbox = document.getElementById(`override_${objectiveId}`) as HTMLInputElement;
+      const isManualBonusEnabled = overrideCheckbox?.checked || false;
+      
+      let finalBonusAmount = calculateBonusAmount(objectiveToApprove!);
+      let bonusReason = '';
+
+      if (isManualBonusEnabled) {
+        const manualBonusInput = document.getElementById(`manual_bonus_${objectiveId}`) as HTMLInputElement;
+        const reasonInput = document.getElementById(`override_reason_${objectiveId}`) as HTMLTextAreaElement;
+        
+        const manualAmount = parseFloat(manualBonusInput?.value || '0');
+        if (manualAmount > 0) {
+          finalBonusAmount = manualAmount;
+          bonusReason = reasonInput?.value || 'Manual override by HR';
+
+          // Call manual bonus API first
+          const manualBonusRes = await fetch('/api/hr/manual-bonus', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              employeeId: objectiveToApprove?.userId || objectiveToApprove?.managerId,
+              amount: manualAmount,
+              quarter: objectiveToApprove?.quarter || 'Q4',
+              year: objectiveToApprove?.year || new Date().getFullYear(),
+              reason: bonusReason,
+              hrId: user?.id
+            })
+          });
+
+          if (!manualBonusRes.ok) {
+            alert('Failed to set manual bonus. Please try again.');
+            return;
+          }
+        }
+      }
+
       const response = await fetch('/api/hr/approve-objective', {
         method: 'POST',
         headers: {
@@ -221,16 +282,34 @@ export default function HRIncomingObjectivesPage() {
           objectiveId,
           hrId: user?.id,
           action: 'approve',
-          notes: `Approved for bonus calculation - ${objectiveToApprove?.objectiveType === 'MANAGER' ? 'Manager' : 'Employee'} objective`,
+          notes: `Approved for bonus calculation - ${objectiveToApprove?.objectiveType === 'MANAGER' ? 'Manager' : 'Employee'} objective${isManualBonusEnabled ? ` - Manual Bonus: $${finalBonusAmount}` : ''}`,
           objectiveType: objectiveToApprove?.objectiveType || 'EMPLOYEE'
         }),
       });
 
       const result = await response.json();
       if (result.success) {
-        // Refresh the list
-        loadIncomingObjectives();
-        setSelectedObjective(null);
+        // Get employee name for success message
+        const employeeName = objectiveToApprove?.user?.name || objectiveToApprove?.manager?.name || objectiveToApprove?.submittedBy?.name || 'Employee';
+        const bonusAmount = finalBonusAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        
+        // Show success popup
+        setSuccessMessage(`${bonusAmount} has been approved for bonus for ${employeeName}.`);
+        setShowSuccessPopup(true);
+
+        // Auto close after 3 seconds
+        setTimeout(() => {
+          setShowSuccessPopup(false);
+          loadIncomingObjectives();
+          setSelectedObjective(null);
+        }, 3000);
+
+        // Clear the override state
+        setManualBonusOverrides(prev => {
+          const newOverrides = { ...prev };
+          delete newOverrides[objectiveId];
+          return newOverrides;
+        });
       } else {
         alert('Failed to approve objective: ' + result.error);
       }
@@ -307,29 +386,56 @@ export default function HRIncomingObjectivesPage() {
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-1 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-blue-200/50 overflow-hidden group max-w-md mx-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-4 mb-3">
-                    <div className="p-4 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-lg shadow-md group-hover:scale-110 transition-transform duration-300">
-                      <ClockIcon className="h-8 w-8 text-white" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-semibold text-blue-900">Pending Reviews</p>
-                      <p className="text-sm text-blue-600">Awaiting HR approval</p>
-                    </div>
-                  </div>
-                  <p className="text-4xl font-bold text-blue-900 mb-2">
-                    {objectives.filter(obj => obj.status !== 'REJECTED' && obj.status !== 'HR_APPROVED').length}
-                  </p>
-                  <p className="text-sm text-blue-700 font-medium">Objectives pending bonus approval</p>
-                </div>
+        {/* Summary Cards - Minimal Design */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          {/* Pending Reviews */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <ClockIcon className="h-6 w-6 text-gray-600" />
               </div>
             </div>
-            <div className="h-1 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
+            <p className="text-sm font-medium text-gray-600">Pending Reviews</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">
+              {objectives.filter(obj => obj.status !== 'REJECTED' && obj.status !== 'HR_APPROVED').length}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">Awaiting HR approval</p>
+          </div>
+
+          {/* Approved This Quarter - Placeholder */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <CheckCircleIcon className="h-6 w-6 text-gray-600" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-600">Approved This Quarter</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
+          </div>
+
+          {/* Total Bonus Allocated - Placeholder */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <DocumentCheckIcon className="h-6 w-6 text-gray-600" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-600">Total Bonus Allocated</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">$0</p>
+            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
+          </div>
+
+          {/* Average Score - Placeholder */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-3">
+              <div className="p-3 bg-gray-50 rounded-lg">
+                <SparklesIcon className="h-6 w-6 text-gray-600" />
+              </div>
+            </div>
+            <p className="text-sm font-medium text-gray-600">Average Score</p>
+            <p className="text-3xl font-bold text-gray-900 mt-2">0</p>
+            <p className="text-xs text-gray-500 mt-1">Coming soon</p>
           </div>
         </div>
 
@@ -565,6 +671,33 @@ export default function HRIncomingObjectivesPage() {
                   </div>
                 </div>
 
+                {/* Manual Bonus Override Option */}
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4">
+                  <label className="flex items-center space-x-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      id={`override_${selectedObjective?.id}`}
+                      className="w-5 h-5 text-[#004E9E] rounded"
+                    />
+                    <span className="font-semibold text-gray-900 text-base">Override with Manual Bonus Amount</span>
+                  </label>
+                  <div id={`override_details_${selectedObjective?.id}`} className="hidden mt-3 space-y-3">
+                    <input
+                      type="number"
+                      id={`manual_bonus_${selectedObjective?.id}`}
+                      placeholder={`Enter manual bonus amount (current: $${calculateBonusAmount(selectedObjective)})`}
+                      className="w-full border border-yellow-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <textarea
+                      id={`override_reason_${selectedObjective?.id}`}
+                      placeholder="Reason for override (optional)"
+                      rows={2}
+                      className="w-full border border-yellow-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <p className="text-xs text-yellow-800">✓ When this checkbox is enabled, the manual bonus amount will be used instead of the calculated amount.</p>
+                  </div>
+                </div>
+
                 {/* Manager Feedback Section */}
                 {(selectedObjective.managerFeedback || (selectedObjective.reviews && selectedObjective.reviews.length > 0)) && (
                   <div className="space-y-3">
@@ -636,6 +769,32 @@ export default function HRIncomingObjectivesPage() {
                     </>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Popup */}
+      {showSuccessPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-md mx-auto animate-pulse">
+            <div className="flex items-center justify-center mb-6">
+              <div className="bg-green-100 rounded-full p-4">
+                <CheckCircleIcon className="h-12 w-12 text-green-600" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-center text-gray-900 mb-3">
+              Bonus Approved Successfully!
+            </h3>
+            <p className="text-center text-gray-700 text-base leading-relaxed">
+              {successMessage}
+            </p>
+            <div className="mt-6 flex justify-center">
+              <div className="inline-flex items-center space-x-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
               </div>
             </div>
           </div>

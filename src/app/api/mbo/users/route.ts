@@ -122,6 +122,7 @@ export async function POST(request: Request) {
       phone,
       hireDate,
       salary,
+      allocatedBonusAmount,
       password
     } = body;
 
@@ -164,6 +165,14 @@ export async function POST(request: Request) {
     // Create user with default password for HR
     const defaultPassword = password || 'CareCloud2025!';
 
+    console.log('💾 Creating user data:', { 
+      name, 
+      email, 
+      role: role.toUpperCase(),
+      salary: salary ? parseFloat(salary) : null,
+      allocatedBonusAmount: allocatedBonusAmount ? parseFloat(allocatedBonusAmount) : null
+    });
+
     const user = await prisma.mboUser.create({
       data: {
         name,
@@ -178,7 +187,8 @@ export async function POST(request: Request) {
         managerId: managerId || null,
         phone: phone || null,
         hireDate: hireDate ? new Date(hireDate) : new Date(),
-        salary: salary ? parseFloat(salary) : null,
+        salary: salary !== undefined && salary !== null && salary !== "" ? parseFloat(salary) : null,
+        allocatedBonusAmount: allocatedBonusAmount !== undefined && allocatedBonusAmount !== null && allocatedBonusAmount !== "" ? parseFloat(allocatedBonusAmount) : null,
         password: defaultPassword
       },
       include: {
@@ -195,6 +205,7 @@ export async function POST(request: Request) {
     });
 
     console.log('✅ HR Module - User created successfully:', user.id);
+    console.log('✅ Created with salary:', user.salary, '| Bonus amount:', user.allocatedBonusAmount);
 
     return NextResponse.json({
       success: true,
@@ -223,9 +234,14 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const body = await request.json();
-    const { id, ...updateData } = body;
+    const { id: bodyId, ...updateData } = body;
+    
+    // Try to get ID from URL path as well
+    const urlId = request.url.split('/').pop();
+    const id = bodyId || urlId;
 
-    console.log('📝 HR Module - Updating user:', id);
+    console.log('📝 HR Module - Updating user:', id, '| From body:', bodyId, '| From URL:', urlId);
+    console.log('📝 Update data:', { allocatedBonusAmount: updateData.allocatedBonusAmount, salary: updateData.salary });
 
     if (!id) {
       return NextResponse.json({
@@ -281,7 +297,8 @@ export async function PUT(request: Request) {
         ...updateData,
         role: updateData.role ? updateData.role.toUpperCase() : undefined,
         hireDate: updateData.hireDate ? new Date(updateData.hireDate) : undefined,
-        salary: updateData.salary ? parseFloat(updateData.salary) : undefined
+        salary: updateData.salary !== undefined && updateData.salary !== null && updateData.salary !== "" ? parseFloat(updateData.salary) : undefined,
+        allocatedBonusAmount: updateData.allocatedBonusAmount !== undefined && updateData.allocatedBonusAmount !== null && updateData.allocatedBonusAmount !== "" ? parseFloat(updateData.allocatedBonusAmount) : undefined
       },
       include: {
         department: {
@@ -297,6 +314,7 @@ export async function PUT(request: Request) {
     });
 
     console.log('✅ HR Module - User updated successfully:', updatedUser.id);
+    console.log('✅ Updated bonus amount:', updatedUser.allocatedBonusAmount, '| Salary:', updatedUser.salary);
 
     return NextResponse.json({
       success: true,
@@ -394,3 +412,4 @@ export async function DELETE(request: Request) {
     }, { status: 500 });
   }
 }
+

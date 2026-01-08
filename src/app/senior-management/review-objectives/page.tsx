@@ -22,7 +22,13 @@ import {
   PlusIcon,
   BuildingOfficeIcon,
   UserGroupIcon,
-  PencilIcon
+  PencilIcon,
+  BellIcon,
+  InformationCircleIcon,
+  DocumentTextIcon,
+  CurrencyDollarIcon,
+  MicrophoneIcon,
+  SparklesIcon
 } from '@heroicons/react/24/outline';
 
 interface User {
@@ -61,6 +67,21 @@ interface ManagerObjective {
   seniorManagerScore?: number;
   seniorManagerComments?: string;
   finalScore?: number;
+  objectiveType?: string;
+  isQuantitative?: boolean;
+  quantitativeData?: {
+    id: string;
+    totalTargetRevenue: number;
+    totalAchievedRevenue: number;
+    overallProgress: number;
+    practiceRevenues: Array<{
+      id: string;
+      practiceName: string;
+      targetRevenue: number;
+      achievedRevenue: number;
+      progressPercentage: number;
+    }>;
+  };
 }
 
 interface Manager {
@@ -115,8 +136,19 @@ export default function SeniorManagementReviewObjectives() {
     weight: 20,
     dueDate: '',
     quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
-    year: new Date().getFullYear()
+    year: new Date().getFullYear(),
+    objectiveType: 'qualitative', // NEW: 'qualitative' or 'quantitative'
+    isQuantitative: false // NEW: Boolean flag
   });
+  
+  // NEW: Quantitative objective state
+  const [practiceRevenues, setPracticeRevenues] = useState<Array<{
+    id: string;
+    practiceName: string;
+    targetRevenue: string;
+    achievedRevenue: string;
+    weight: string; // Individual practice weight (e.g., "15" for 15%)
+  }>>([]);
   
   // Quarterly weights tracking
   const [quarterlyWeights, setQuarterlyWeights] = useState<{[key: string]: {allocated: number, available: number}}>({});
@@ -169,16 +201,65 @@ export default function SeniorManagementReviewObjectives() {
     }
   }, [selectedManager, objectiveData.year]);
 
+  // Populate form when editing an objective
+  useEffect(() => {
+    if (selectedObjective && showAssignModal) {
+      setSelectedManager(selectedObjective.managerId);
+      
+      // Check if it's a quantitative objective
+      const isQuant = selectedObjective.isQuantitative || selectedObjective.objectiveType === 'quantitative';
+      
+      setObjectiveData({
+        title: selectedObjective.title,
+        description: selectedObjective.description,
+        category: selectedObjective.category,
+        target: String(selectedObjective.target),
+        weight: selectedObjective.weight,
+        dueDate: new Date(selectedObjective.dueDate).toISOString().split('T')[0],
+        quarter: selectedObjective.quarter,
+        year: selectedObjective.year,
+        objectiveType: isQuant ? 'quantitative' : 'qualitative',
+        isQuantitative: isQuant
+      });
+
+      // If quantitative, load practice revenues
+      if (isQuant && (selectedObjective as any).quantitativeData?.practiceRevenues) {
+        const practices = (selectedObjective as any).quantitativeData.practiceRevenues.map((p: any) => ({
+          id: p.id,
+          practiceName: p.practiceName,
+          targetRevenue: String(p.targetRevenue),
+          achievedRevenue: String(p.achievedRevenue),
+          weight: String(p.weight || 0)
+        }));
+        setPracticeRevenues(practices);
+      }
+    }
+  }, [selectedObjective, showAssignModal]);
+
   // Helper functions for weight validation
   const getRemainingWeight = () => {
     if (!selectedManager || !quarterlyWeights[objectiveData.quarter]) {
       return 100; // Default to 100% if no data
     }
-    return quarterlyWeights[objectiveData.quarter].available || 0;
+    
+    // If editing, add back the current objective's weight to the available weight
+    let available = quarterlyWeights[objectiveData.quarter].available || 0;
+    if (selectedObjective) {
+      available += Math.round(selectedObjective.weight);
+    }
+    
+    return Math.round(available);
   };
 
   const isWeightValid = () => {
     return objectiveData.weight <= getRemainingWeight();
+  };
+
+  const formatStatusText = (status: string) => {
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   const loadCompletedObjectives = async (seniorManagerId: string) => {
@@ -332,7 +413,7 @@ export default function SeniorManagementReviewObjectives() {
       setCompletedObjectives(prev => prev.filter(obj => obj.id !== objective.id));
       setReviewedObjectives(prev => [...prev, scoredObjective]);
       
-      alert(`✅ AI scoring completed for "${objective.title}"! Score: ${aiResult.score}/10`);
+      alert(`AI scoring completed for "${objective.title}"! Score: ${aiResult.score}/10`);
     } catch (error) {
       console.error('Error in AI scoring:', error);
       alert('Error generating AI score. Please try again.');
@@ -427,17 +508,17 @@ export default function SeniorManagementReviewObjectives() {
     const hasJustification = selectedObjective.seniorManagerComments?.trim();
 
     if (!hasScore) {
-      alert('❌ Incomplete Review!\n\nPlease ensure the objective has a score (AI or senior manager override) before submitting.');
+      alert('Incomplete Review!\n\nPlease ensure the objective has a score (AI or senior manager override) before submitting.');
       return;
     }
 
     if (!finalScore) {
-      alert('❌ Missing Final Score!\n\nPlease ensure the objective has a final score before submitting.');
+      alert('Missing Final Score!\n\nPlease ensure the objective has a final score before submitting.');
       return;
     }
 
     if (isOverride && !hasJustification) {
-      alert('❌ Override Justification Required!\n\nThis objective has an overridden AI score but lacks justification comments.\n\nPlease provide justification before submitting to HR.');
+      alert('Override Justification Required!\n\nThis objective has an overridden AI score but lacks justification comments.\n\nPlease provide justification before submitting to HR.');
       return;
     }
 
@@ -519,7 +600,7 @@ export default function SeniorManagementReviewObjectives() {
         // Remove from reviewed objectives as it's now with HR
         setReviewedObjectives(prev => prev.filter(obj => obj.id !== selectedObjective.id));
         
-        alert(`✅ Successfully submitted "${selectedObjective.title}" to HR for bonus approval!\n\n` +
+        alert(`Successfully submitted "${selectedObjective.title}" to HR for bonus approval!\n\n` +
               `Manager: ${selectedObjective.managerName}\n` +
               `Final Score: ${selectedObjective.finalScore}/10\n` +
               `${isOverride ? `Override Applied: AI ${selectedObjective.aiScore} → Senior Manager ${selectedObjective.seniorManagerScore}\n` : ''}` +
@@ -535,7 +616,7 @@ export default function SeniorManagementReviewObjectives() {
       
     } catch (error) {
       console.error('Error submitting individual objective to HR:', error);
-      alert(`❌ Error submitting to HR: ${error instanceof Error ? error.message : 'Please try again.'}`);
+      alert(`Error submitting to HR: ${error instanceof Error ? error.message : 'Please try again.'}`);
     } finally {
       setIndividualSubmitting(prev => ({ ...prev, [selectedObjective.id]: false }));
     }
@@ -562,9 +643,9 @@ export default function SeniorManagementReviewObjectives() {
       );
       
       if (overrideIssues.length > 0) {
-        alert(`❌ Override Justification Required!\n\n${overrideIssues.length} objective(s) have overridden AI scores but lack justification comments.\n\nPlease provide justification for all score overrides before submitting to HR.`);
+        alert(`Override Justification Required!\n\n${overrideIssues.length} objective(s) have overridden AI scores but lack justification comments.\n\nPlease provide justification for all score overrides before submitting to HR.`);
       } else {
-        alert(`❌ Incomplete Reviews!\n\n${invalidReviews.length} objective(s) need to be completed with scores and comments.`);
+        alert(`Incomplete Reviews!\n\n${invalidReviews.length} objective(s) need to be completed with scores and comments.`);
       }
       return;
     }
@@ -593,7 +674,7 @@ export default function SeniorManagementReviewObjectives() {
 
       const result = await response.json();
       
-      alert(`✅ Successfully submitted ${result.results.length} manager objectives to HR for bonus approval!\nTotal bonus amount: $${result.totalBonusAmount.toFixed(2)}`);
+      alert(`Successfully submitted ${result.results.length} manager objectives to HR for bonus approval!\nTotal bonus amount: $${result.totalBonusAmount.toFixed(2)}`);
       setShowSubmissionModal(false);
       setSeniorSignature('');
       setSubmissionNotes('');
@@ -619,6 +700,23 @@ export default function SeniorManagementReviewObjectives() {
       return;
     }
 
+    // Additional validation for quantitative objectives
+    if (objectiveData.objectiveType === 'quantitative') {
+      if (practiceRevenues.length === 0 || practiceRevenues.some(p => !p.practiceName || !p.targetRevenue || !p.weight)) {
+        alert('Please add at least one complete practice revenue entry with weight');
+        return;
+      }
+      
+      // Validate that practice weights sum to objective weight
+      const totalPracticeWeight = practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.weight)) || 0), 0);
+      const objectiveWeight = parseFloat(String(objectiveData.weight || '0'));
+      
+      if (Math.abs(totalPracticeWeight - objectiveWeight) >= 0.01) {
+        alert(`Weight Mismatch!\n\nPractice weights (${totalPracticeWeight.toFixed(1)}%) must sum to exactly the objective weight (${objectiveWeight.toFixed(1)}%).\n\nPlease adjust practice weights before submitting.`);
+        return;
+      }
+    }
+
     setIsAssigning(true);
     try {
       const manager = managers.find(m => m.id === selectedManager);
@@ -627,53 +725,102 @@ export default function SeniorManagementReviewObjectives() {
         return;
       }
 
-      const response = await fetch('/api/senior-management/assign-objective', {
-        method: 'POST',
+      const isEditing = selectedObjective !== null;
+
+      // Use different endpoints for qualitative vs quantitative
+      const method = isEditing ? 'PUT' : 'POST';
+      const endpoint = objectiveData.objectiveType === 'quantitative'
+        ? isEditing 
+          ? `/api/senior-management/quantitative-objectives/${selectedObjective.id}`
+          : '/api/senior-management/quantitative-objectives'
+        : isEditing 
+          ? `/api/senior-management/assign-objective/${selectedObjective.id}`
+          : '/api/senior-management/assign-objective';
+
+      // Build request body based on objective type
+      const requestBody = objectiveData.objectiveType === 'quantitative'
+        ? {
+            managerId: selectedManager,
+            seniorManagerId: user?.id,
+            title: objectiveData.title,
+            description: objectiveData.description,
+            quarter: objectiveData.quarter,
+            year: objectiveData.year,
+            dueDate: objectiveData.dueDate,
+            weight: objectiveData.weight,
+            practiceRevenues: practiceRevenues.map(p => ({
+              practiceName: p.practiceName,
+              targetRevenue: p.targetRevenue,
+              weight: p.weight,
+            })),
+          }
+        : {
+            managerId: selectedManager,
+            ...objectiveData,
+            assignedBy: user?.id,
+            assignedDate: new Date().toISOString()
+          };
+
+      console.log(`${objectiveData.objectiveType === 'quantitative' ? 'Quantitative' : 'Qualitative'} Objective:`, endpoint, requestBody);
+
+      const response = await fetch(endpoint, {
+        method: method,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          managerId: selectedManager,
-          ...objectiveData,
-          assignedBy: user?.id,
-          assignedDate: new Date().toISOString()
-        })
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        if (errorData.details && errorData.details.quarter) {
-          // Handle weight validation error specifically
-          const { quarter, currentAllocated, requestedWeight, available, exceedsBy } = errorData.details;
-          alert(`❌ Weight Allocation Error for ${quarter}:\n\n` +
-                `Current allocated: ${currentAllocated}%\n` +
-                `Requested: ${requestedWeight}%\n` +
-                `Available: ${available}%\n` +
-                `Exceeds by: ${exceedsBy}%\n\n` +
-                `Please reduce the weight or choose a different quarter.`);
-        } else {
-          alert(`❌ ${errorData.error || 'Failed to assign objective'}`);
+        try {
+          const errorData = await response.json();
+          if (errorData.details && errorData.details.quarter) {
+            // Handle weight validation error specifically
+            const { quarter, currentAllocated, requestedWeight, available, exceedsBy } = errorData.details;
+            alert(`Weight Allocation Error:\n\n` +
+                  `Current allocated: ${currentAllocated}%\n` +
+                  `Requested: ${requestedWeight}%\n` +
+                  `Available: ${available}%\n` +
+                  `Exceeds by: ${exceedsBy}%\n\n` +
+                  `Please reduce the weight or choose a different quarter.`);
+          } else {
+            alert(`${errorData.error || 'Failed to save objective'}`);
+          }
+        } catch (parseError) {
+          // Response is not JSON, show status and text
+          const statusText = response.status === 405 ? 'Method Not Allowed' : response.statusText;
+          alert(`Error ${response.status}: ${statusText}\n\nPlease try again or contact support.`);
+          console.error('Response parsing error:', parseError, 'Status:', response.status);
         }
         return;
       }
 
-      const result = await response.json();
+      let result;
+      try {
+        result = await response.json();
+      } catch (parseError) {
+        alert(`Invalid response from server. Please try again.`);
+        console.error('Failed to parse success response:', parseError);
+        return;
+      }
       
       if (result.success) {
-        alert(`✅ Objective successfully assigned to ${manager.name}!`);
+        const displayType = objectiveData.objectiveType === 'quantitative' ? 'quantitative' : 'qualitative';
+        alert(`${displayType} objective successfully ${isEditing ? 'updated' : 'assigned'} ${isEditing ? '' : `to ${manager.name}!`}`);
         setShowAssignModal(false);
         resetAssignmentForm();
+        setSelectedObjective(null);
         loadAssignedObjectives();
         // Refresh quarterly weights after successful assignment
         if (selectedManager) {
           loadManagerQuarterlyWeights(selectedManager, objectiveData.year);
         }
       } else {
-        alert('Failed to assign objective. Please try again.');
+        alert('Failed to save objective. Please try again.');
       }
     } catch (error) {
-      console.error('Error assigning objective:', error);
-      alert('Error assigning objective. Please try again.');
+      console.error('Error saving objective:', error);
+      alert('Error saving objective. Please try again.');
     } finally {
       setIsAssigning(false);
     }
@@ -688,9 +835,12 @@ export default function SeniorManagementReviewObjectives() {
       weight: defaultWeightage,
       dueDate: '',
       quarter: `Q${Math.ceil((new Date().getMonth() + 1) / 3)}`,
-      year: new Date().getFullYear()
+      year: new Date().getFullYear(),
+      objectiveType: 'qualitative',
+      isQuantitative: false
     });
     setSelectedManager('');
+    setPracticeRevenues([]); // Clear practice revenues
   };
 
   const handleViewDetails = (objective: ManagerObjective) => {
@@ -837,12 +987,20 @@ export default function SeniorManagementReviewObjectives() {
                       <button
                         onClick={() => generateIndividualAIScore(objective)}
                         disabled={aiScoringInProgress[objective.id]}
-                        className="flex items-center space-x-1 px-3 py-1.5 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-purple-700 rounded-lg hover:from-purple-700 hover:to-purple-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-purple-500 via-pink-500 to-indigo-500 rounded-xl hover:from-purple-600 hover:via-pink-600 hover:to-indigo-600 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl transform hover:scale-105"
                       >
-                        <CpuChipIcon className="h-4 w-4" />
-                        <span>
-                          {aiScoringInProgress[objective.id] ? 'Scoring...' : 'AI Score'}
-                        </span>
+                        {aiScoringInProgress[objective.id] ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            <span>Scoring...</span>
+                          </>
+                        ) : (
+                          <>
+                            <SparklesIcon className="h-4 w-4 animate-pulse" />
+                            <span>AI Score</span>
+                            <CpuChipIcon className="h-4 w-4" />
+                          </>
+                        )}
                       </button>
                     </div>
                   </div>
@@ -850,7 +1008,7 @@ export default function SeniorManagementReviewObjectives() {
                   <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-200">
                     <div className="flex items-center space-x-4">
                       <span>Due: {new Date(objective.dueDate).toLocaleDateString()}</span>
-                      <span>Weight: {Math.round(objective.weight * 100)}%</span>
+                      <span>Weight: {Math.round(objective.weight)}%</span>
                       <span>Completed: {objective.completedAt ? new Date(objective.completedAt).toLocaleDateString() : 'N/A'}</span>
                     </div>
                   </div>
@@ -1129,8 +1287,14 @@ export default function SeniorManagementReviewObjectives() {
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Assign Objectives to Managers</h3>
-                  <p className="text-sm text-gray-500 mt-1">Select a manager and create custom objectives with 100% quarterly weightage allocation</p>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {selectedObjective ? 'Edit Objective' : 'Assign Objectives to Managers'}
+                  </h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    {selectedObjective 
+                      ? 'Update the objective details and weight allocation' 
+                      : 'Select a manager and create custom objectives with 100% quarterly weight pool allocation'}
+                  </p>
                 </div>
               </div>
 
@@ -1144,7 +1308,10 @@ export default function SeniorManagementReviewObjectives() {
                     {managers.map((manager) => (
                     <div
                       key={manager.id}
-                      onClick={() => setSelectedManager(manager.id)}
+                      onClick={() => {
+                        setSelectedManager(manager.id);
+                        loadManagerQuarterlyWeights(manager.id, objectiveData.year);
+                      }}
                       className={`border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
                         selectedManager === manager.id
                           ? 'border-[#004E9E] bg-blue-50 shadow-md'
@@ -1195,23 +1362,31 @@ export default function SeniorManagementReviewObjectives() {
               </div>
 
               {/* Create Objective Button */}
-              {selectedManager && (
-                <div className="border-t pt-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium text-gray-900">Ready to create objective for {managers.find(m => m.id === selectedManager)?.name}</h4>
-                      <p className="text-sm text-gray-500">Click the button to open the objective creation form</p>
-                    </div>
-                    <button
-                      onClick={() => setShowAssignModal(true)}
-                      className="bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white px-6 py-3 rounded-lg font-medium hover:shadow-lg transition-all flex items-center space-x-2"
-                    >
-                      <PlusIcon className="h-5 w-5" />
-                      <span>Create Custom Objective</span>
-                    </button>
+              <div className="border-t pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">
+                      {selectedManager 
+                        ? `Ready to create objective for ${managers.find(m => m.id === selectedManager)?.name}`
+                        : 'Select a manager to create an objective'
+                      }
+                    </h4>
+                    <p className="text-sm text-gray-500">Click the button to open the objective creation form</p>
                   </div>
+                  <button
+                    onClick={() => setShowAssignModal(true)}
+                    disabled={!selectedManager}
+                    className={`px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-all ${
+                      selectedManager
+                        ? 'bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white hover:shadow-lg'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                    <span>Create Custom Objective</span>
+                  </button>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Assigned Objectives List */}
@@ -1230,7 +1405,7 @@ export default function SeniorManagementReviewObjectives() {
                               {objective.category}
                             </span>
                             <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                              {objective.status}
+                              {formatStatusText(objective.status)}
                             </span>
                           </div>
                           <p className="text-sm text-gray-600 mb-2">{objective.description}</p>
@@ -1244,9 +1419,35 @@ export default function SeniorManagementReviewObjectives() {
                               <CalendarIcon className="h-4 w-4" />
                               <span>Due: {new Date(objective.dueDate).toLocaleDateString()}</span>
                             </div>
-                            <span>Weight: {Math.round(objective.weight * 100)}%</span>
+                            <span>Weight: {Math.round(objective.weight)}%</span>
                             <span>Target: {objective.target}</span>
                           </div>
+                        </div>
+                        <div className="flex items-center space-x-2 ml-4">
+                          {['ASSIGNED', 'IN_PROGRESS', 'COMPLETED'].includes(objective.status) && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedObjective(objective);
+                                  setShowAssignModal(true);
+                                }}
+                                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title="Edit Objective"
+                              >
+                                <PencilIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  // TODO: Implement remind functionality
+                                  alert('Remind functionality coming soon');
+                                }}
+                                className="p-2 text-gray-600 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                                title="Remind Manager"
+                              >
+                                <BellIcon className="h-5 w-5" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1272,7 +1473,9 @@ export default function SeniorManagementReviewObjectives() {
           <div className="relative top-10 mx-auto p-8 border w-11/12 max-w-5xl shadow-2xl rounded-xl bg-white">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">Create Manager Objective</h3>
+                <h3 className="text-xl font-semibold text-gray-900">
+                  {selectedObjective ? 'Edit Manager Objective' : 'Create Manager Objective'}
+                </h3>
                 {selectedManager && (
                   <p className="text-sm text-gray-500 mt-1">
                     for {managers.find(m => m.id === selectedManager)?.name} ({managers.find(m => m.id === selectedManager)?.title})
@@ -1283,6 +1486,7 @@ export default function SeniorManagementReviewObjectives() {
                 onClick={() => {
                   setShowAssignModal(false);
                   resetAssignmentForm();
+                  setSelectedObjective(null);
                 }}
                 className="text-gray-400 hover:text-gray-600"
               >
@@ -1290,189 +1494,590 @@ export default function SeniorManagementReviewObjectives() {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left Column - Basic Information */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 border-b pb-2">Basic Information</h4>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Objective Title *
-                  </label>
-                  <input
-                    type="text"
-                    value={objectiveData.title}
-                    onChange={(e) => setObjectiveData({ ...objectiveData, title: e.target.value })}
-                    placeholder="e.g., Improve Team Performance"
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description *
-                  </label>
-                  <textarea
-                    value={objectiveData.description}
-                    onChange={(e) => setObjectiveData({ ...objectiveData, description: e.target.value })}
-                    placeholder="Detailed description of what needs to be achieved..."
-                    rows={4}
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    value={objectiveData.category}
-                    onChange={(e) => setObjectiveData({ ...objectiveData, category: e.target.value })}
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                  >
-                    <option value="performance"> Performance</option>
-                    <option value="revenue"> Revenue</option>
-                    <option value="efficiency"> Efficiency</option>
-                    <option value="customer"> Customer</option>
-                    <option value="development"> Development</option>
-                    <option value="leadership"> Leadership</option>
-                    <option value="innovation"> Innovation</option>
-                    <option value="collaboration"> Collaboration</option>
-                    <option value="quality"> Quality</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Right Column - Metrics & Timeline */}
-              <div className="space-y-4">
-                <h4 className="font-medium text-gray-900 border-b pb-2">Metrics & Timeline</h4>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Target Value/Score *
-                  </label>
-                  <input
-                    type="number"
-                    value={objectiveData.target}
-                    onChange={(e) => setObjectiveData({ ...objectiveData, target: e.target.value })}
-                    placeholder="e.g., 95 (for 95% satisfaction)"
-                    min="1"
-                    max="1000"
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">The target value the manager should achieve</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Weight (%) - {objectiveData.quarter} {objectiveData.year}
-                    <span className="text-xs text-gray-500 ml-1">(Default: {defaultWeightage}%)</span>
-                  </label>
-                  <input
-                    type="range"
-                    value={objectiveData.weight}
-                    onChange={(e) => setObjectiveData({ ...objectiveData, weight: parseInt(e.target.value) })}
-                    min="5"
-                    max={Math.max(5, getRemainingWeight())}
-                    disabled={getRemainingWeight() === 0 || loadingWeights}
-                    className="w-full"
-                  />
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>5%</span>
-                    <span className="font-medium text-[#004E9E]">{objectiveData.weight}%</span>
-                    <span>{getRemainingWeight()}% max</span>
+           
+            {/* Objective Type Selector */}
+            <div className="mb-6 bg-white border border-gray-200 rounded-lg p-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                Select Objective Type *
+              </label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setObjectiveData({ ...objectiveData, objectiveType: 'qualitative', isQuantitative: false })}
+                  className={`p-4 rounded-lg border transition-all ${
+                    objectiveData.objectiveType === 'qualitative'
+                      ? 'border-[#004E9E] bg-blue-50'
+                      : 'border-gray-300 bg-white hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-center">
+                    <DocumentTextIcon className="h-8 w-8 text-gray-600 mb-2 mx-auto" />
+                    <h4 className={`font-semibold ${objectiveData.objectiveType === 'qualitative' ? 'text-[#004E9E]' : 'text-gray-700'}`}>
+                      Qualitative
+                    </h4>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Performance, Leadership, Innovation
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {loadingWeights ? 'Checking available weight...' :
-                      getRemainingWeight() === 0 ? 'No weight left for this quarter.' :
-                      `You can assign up to ${getRemainingWeight()}% more for ${objectiveData.quarter}. (${quarterlyWeights[objectiveData.quarter]?.allocated || 0}% already assigned)`}
-                  </p>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setObjectiveData({ ...objectiveData, objectiveType: 'quantitative', isQuantitative: true });
+                    // Initialize practice revenues if empty
+                    if (practiceRevenues.length === 0) {
+                      setPracticeRevenues([{
+                        id: Date.now().toString(),
+                        practiceName: '',
+                        targetRevenue: '',
+                        achievedRevenue: '0',
+                        weight: ''
+                      }]);
+                    }
+                  }}
+                  className={`p-4 rounded-lg border transition-all ${
+                    objectiveData.objectiveType === 'quantitative'
+                      ? 'border-[#004E9E] bg-blue-50'
+                      : 'border-gray-300 bg-white hover:border-gray-400'
+                  }`}
+                >
+                  <div className="text-center">
+                    <CurrencyDollarIcon className="h-8 w-8 text-gray-600 mb-2 mx-auto" />
+                    <h4 className={`font-semibold ${objectiveData.objectiveType === 'quantitative' ? 'text-[#004E9E]' : 'text-gray-700'}`}>
+                      Quantitative 
+                    </h4>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Practice-based Quantitative Objectives 
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Conditional Form based on Objective Type */}
+            {objectiveData.objectiveType === 'qualitative' ? (
+              // QUALITATIVE FORM (Existing)
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Left Column - Basic Information */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Basic Information</h4>
                   
-                  {/* Quarterly Weight Overview */}
-                  {quarterlyWeights && !loadingWeights && (
-                    <div className="mt-3 p-3 bg-gray-50 rounded-lg">
-                      <h5 className="text-xs font-medium text-gray-700 mb-2">Weight Allocation Overview - {objectiveData.year}</h5>
-                      <div className="grid grid-cols-4 gap-2">
-                        {Object.entries(quarterlyWeights).length > 0 ? (
-                          ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => {
-                            const info = quarterlyWeights[quarter] || { allocated: 0, available: 100 };
-                            return (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Objective Title *
+                    </label>
+                    <input
+                      type="text"
+                      value={objectiveData.title}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, title: e.target.value })}
+                      placeholder="e.g., Improve Team Performance"
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <div className="relative">
+                      <textarea
+                        value={objectiveData.description}
+                        onChange={(e) => setObjectiveData({ ...objectiveData, description: e.target.value })}
+                        placeholder="Detailed description of what needs to be achieved..."
+                        rows={4}
+                        className="w-full pr-12 border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                      />
+                      <button
+                        type="button"
+                        className="absolute top-2 right-2 p-2 text-gray-400 hover:text-[#004E9E] hover:bg-gray-100 rounded-md transition-colors"
+                        title="Voice input (Coming soon)"
+                      >
+                        <MicrophoneIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select
+                      value={objectiveData.category}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, category: e.target.value })}
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    >
+                      <option value="performance"> Performance</option>
+                      <option value="revenue"> Revenue</option>
+                      <option value="efficiency"> Efficiency</option>
+                      <option value="customer"> Customer</option>
+                      <option value="development"> Development</option>
+                      <option value="leadership"> Leadership</option>
+                      <option value="innovation"> Innovation</option>
+                      <option value="collaboration"> Collaboration</option>
+                      <option value="quality"> Quality</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Right Column - Metrics & Timeline */}
+                <div className="space-y-4">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Metrics & Timeline</h4>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Target Value/Score *
+                    </label>
+                    <input
+                      type="number"
+                      value={objectiveData.target}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, target: e.target.value })}
+                      placeholder="e.g., 95 (for 95% satisfaction)"
+                      min="1"
+                      max="1000"
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">The target value the manager should achieve</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Weight (%) - {objectiveData.quarter} {objectiveData.year}
+                      <span className="text-xs text-gray-500 ml-1">(Default: {defaultWeightage}%)</span>
+                    </label>
+                    <input
+                      type="range"
+                      value={objectiveData.weight}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, weight: parseInt(e.target.value) })}
+                      min="5"
+                      max={Math.max(5, getRemainingWeight())}
+                      disabled={getRemainingWeight() === 0 || loadingWeights}
+                      className="w-full"
+                    />
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>5%</span>
+                      <span className="font-medium text-[#004E9E]">{objectiveData.weight}%</span>
+                      <span>{getRemainingWeight()}% max</span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {loadingWeights ? 'Checking available weight...' :
+                        getRemainingWeight() === 0 ? 'No weight left for this quarter.' :
+                        selectedObjective 
+                          ? `You can assign up to ${getRemainingWeight()}% for ${objectiveData.quarter}. (This objective can be adjusted independently)`
+                          : `You can assign up to ${getRemainingWeight()}% more for ${objectiveData.quarter}. (${Math.round(quarterlyWeights[objectiveData.quarter]?.allocated || 0)}% already assigned)`}
+                    </p>
+                    
+                    {/* Quarterly Weight Overview */}
+                    {quarterlyWeights && !loadingWeights && (
+                      <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                        <h5 className="text-xs font-medium text-gray-700 mb-2">Weight Allocation Overview - {objectiveData.year}</h5>
+                        <div className="grid grid-cols-4 gap-2">
+                          {Object.entries(quarterlyWeights).length > 0 ? (
+                            ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => {
+                              const info = quarterlyWeights[quarter] || { allocated: 0, available: 100 };
+                              return (
+                                <div key={quarter} className="text-center">
+                                  <div className={`text-xs font-medium ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-600'}`}>
+                                    {quarter}
+                                  </div>
+                                  <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-500'}`}>
+                                    {Math.round(info.allocated)}% used
+                                  </div>
+                                  <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-400'}`}>
+                                    {Math.round(info.available)}% left
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => (
                               <div key={quarter} className="text-center">
                                 <div className={`text-xs font-medium ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-600'}`}>
                                   {quarter}
                                 </div>
                                 <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-500'}`}>
-                                  {info.allocated}% used
+                                  0% used
                                 </div>
                                 <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-400'}`}>
-                                  {info.available}% left
+                                  100% left
                                 </div>
                               </div>
-                            );
-                          })
-                        ) : (
-                          ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => (
-                            <div key={quarter} className="text-center">
-                              <div className={`text-xs font-medium ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-600'}`}>
-                                {quarter}
-                              </div>
-                              <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-500'}`}>
-                                0% used
-                              </div>
-                              <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-400'}`}>
-                                100% left
-                              </div>
-                            </div>
-                          ))
-                        )}
+                            ))
+                          )}
+                        </div>
                       </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Quarter</label>
+                      <select
+                        value={objectiveData.quarter}
+                        onChange={(e) => {
+                          setObjectiveData({ ...objectiveData, quarter: e.target.value });
+                          if (selectedManager) {
+                            loadManagerQuarterlyWeights(selectedManager, objectiveData.year);
+                          }
+                        }}
+                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                      >
+                        <option value="Q1">Q1 - Jan-Mar</option>
+                        <option value="Q2">Q2 - Apr-Jun</option>
+                        <option value="Q3">Q3 - Jul-Sep</option>
+                        <option value="Q4">Q4 - Oct-Dec</option>
+                      </select>
                     </div>
-                  )}
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Quarter</label>
-                    <select
-                      value={objectiveData.quarter}
-                      onChange={(e) => {
-                        setObjectiveData({ ...objectiveData, quarter: e.target.value });
-                        if (selectedManager) {
-                          loadManagerQuarterlyWeights(selectedManager, objectiveData.year);
-                        }
-                      }}
-                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                    >
-                      <option value="Q1">Q1 - Jan-Mar</option>
-                      <option value="Q2">Q2 - Apr-Jun</option>
-                      <option value="Q3">Q3 - Jul-Sep</option>
-                      <option value="Q4">Q4 - Oct-Dec</option>
-                    </select>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
+                      <select
+                        value={objectiveData.year}
+                        onChange={(e) => setObjectiveData({ ...objectiveData, year: Number(e.target.value) })}
+                        className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                      >
+                        <option value={2024}>2024</option>
+                        <option value={2025}>2025</option>
+                        <option value={2026}>2026</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
-                    <select
-                      value={objectiveData.year}
-                      onChange={(e) => setObjectiveData({ ...objectiveData, year: Number(e.target.value) })}
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
+                    <input
+                      type="date"
+                      value={objectiveData.dueDate}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, dueDate: e.target.value })}
                       className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                    >
-                      <option value={2024}>2024</option>
-                      <option value={2025}>2025</option>
-                      <option value={2026}>2026</option>
-                    </select>
+                    />
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
-                  <input
-                    type="date"
-                    value={objectiveData.dueDate}
-                    onChange={(e) => setObjectiveData({ ...objectiveData, dueDate: e.target.value })}
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                  />
                 </div>
               </div>
-            </div>
+            ) : (
+              // QUANTITATIVE FORM (New - Revenue-based)
+              <div className="space-y-6">
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Objective Title *
+                    </label>
+                    <select
+                      value={objectiveData.title}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, title: e.target.value })}
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    >
+                      <option value="">Select objective type...</option>
+                      <option value="Revenue">Revenue</option>
+                      <option value="New clients">New clients</option>
+                      <option value="AR target">AR target</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Description *
+                    </label>
+                    <input
+                      type="text"
+                      value={objectiveData.description}
+                      onChange={(e) => setObjectiveData({ ...objectiveData, description: e.target.value })}
+                      placeholder="Achieve quarterly revenue targets across practices"
+                      className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                    />
+                  </div>
+                </div>
+
+                {/* Weight Allocation */}
+                <div className="bg-white p-4 rounded-lg border border-gray-200">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Weight (%) - {objectiveData.quarter} {objectiveData.year}
+                        <span className="text-xs text-gray-500 ml-1">(Default: {defaultWeightage}%)</span>
+                      </label>
+                      <input
+                        type="range"
+                        value={objectiveData.weight}
+                        onChange={(e) => setObjectiveData({ ...objectiveData, weight: parseInt(e.target.value) })}
+                        min="5"
+                        max={Math.max(5, getRemainingWeight())}
+                        disabled={getRemainingWeight() === 0 || loadingWeights}
+                        className="w-full"
+                      />
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>5%</span>
+                        <span className="font-medium text-[#004E9E]">{objectiveData.weight}%</span>
+                        <span>{getRemainingWeight()}% max</span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {loadingWeights ? 'Checking available weight...' :
+                          getRemainingWeight() === 0 ? 'No weight left for this quarter.' :
+                          selectedObjective 
+                            ? `You can assign up to ${getRemainingWeight()}% for ${objectiveData.quarter}. (This objective can be adjusted independently)`
+                            : `You can assign up to ${getRemainingWeight()}% more for ${objectiveData.quarter}. (${Math.round(quarterlyWeights[objectiveData.quarter]?.allocated || 0)}% already assigned)`}
+                      </p>
+                      
+                      {/* Quarterly Weight Overview */}
+                      {quarterlyWeights && !loadingWeights && (
+                        <div className="mt-3 p-3 bg-gray-50 rounded-lg">
+                          <h5 className="text-xs font-medium text-gray-700 mb-2">Weight Allocation Overview - {objectiveData.year}</h5>
+                          <div className="grid grid-cols-4 gap-2">
+                            {Object.entries(quarterlyWeights).length > 0 ? (
+                              ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => {
+                                const info = quarterlyWeights[quarter] || { allocated: 0, available: 100 };
+                                return (
+                                  <div key={quarter} className="text-center">
+                                    <div className={`text-xs font-medium ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-600'}`}>
+                                      {quarter}
+                                    </div>
+                                    <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-500'}`}>
+                                      {Math.round(info.allocated)}% used
+                                    </div>
+                                    <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-400'}`}>
+                                      {Math.round(info.available)}% left
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              ['Q1', 'Q2', 'Q3', 'Q4'].map((quarter) => (
+                                <div key={quarter} className="text-center">
+                                  <div className={`text-xs font-medium ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-600'}`}>
+                                    {quarter}
+                                  </div>
+                                  <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-500'}`}>
+                                    0% used
+                                  </div>
+                                  <div className={`text-xs ${quarter === objectiveData.quarter ? 'text-[#004E9E]' : 'text-gray-400'}`}>
+                                    100% left
+                                  </div>
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Quarter</label>
+                          <select
+                            value={objectiveData.quarter}
+                            onChange={(e) => {
+                              setObjectiveData({ ...objectiveData, quarter: e.target.value });
+                              if (selectedManager) {
+                                loadManagerQuarterlyWeights(selectedManager, objectiveData.year);
+                              }
+                            }}
+                            className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                          >
+                            <option value="Q1">Q1 - Jan-Mar</option>
+                            <option value="Q2">Q2 - Apr-Jun</option>
+                            <option value="Q3">Q3 - Jul-Sep</option>
+                            <option value="Q4">Q4 - Oct-Dec</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
+                          <select
+                            value={objectiveData.year}
+                            onChange={(e) => {
+                              setObjectiveData({ ...objectiveData, year: Number(e.target.value) });
+                              if (selectedManager) {
+                                loadManagerQuarterlyWeights(selectedManager, Number(e.target.value));
+                              }
+                            }}
+                            className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                          >
+                            <option value={2024}>2024</option>
+                            <option value={2025}>2025</option>
+                            <option value={2026}>2026</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">Due Date *</label>
+                        <input
+                          type="date"
+                          value={objectiveData.dueDate}
+                          onChange={(e) => setObjectiveData({ ...objectiveData, dueDate: e.target.value })}
+                          className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Practice Revenue Table */}
+                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="font-semibold text-gray-900">Practice-Based Revenue Targets</h4>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPracticeRevenues([...practiceRevenues, {
+                          id: Date.now().toString(),
+                          practiceName: '',
+                          targetRevenue: '',
+                          achievedRevenue: '0',
+                          weight: ''
+                        }]);
+                      }}
+                      className="px-3 py-1 bg-[#004E9E] text-white rounded-md text-sm hover:bg-[#003a73] transition-colors flex items-center gap-1"
+                    >
+                      <PlusIcon className="w-4 h-4" />
+                      Add Practice
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {practiceRevenues.map((practice, index) => (
+                      <div key={practice.id} className="grid grid-cols-11 gap-3 bg-white p-4 rounded-md border border-gray-200">
+                        <div className="col-span-4">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Practice Name *
+                          </label>
+                          <input
+                            type="text"
+                            value={practice.practiceName}
+                            onChange={(e) => {
+                              const updated = [...practiceRevenues];
+                              updated[index].practiceName = e.target.value;
+                              setPracticeRevenues(updated);
+                            }}
+                            placeholder="e.g., Cardiology, Pediatrics"
+                            className="w-full text-sm border-gray-300 rounded-md focus:ring-[#004E9E] focus:border-[#004E9E]"
+                          />
+                        </div>
+
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Weight (%) *
+                          </label>
+                          <input
+                            type="number"
+                            value={practice.weight}
+                            onChange={(e) => {
+                              const updated = [...practiceRevenues];
+                              updated[index].weight = e.target.value;
+                              setPracticeRevenues(updated);
+                            }}
+                            placeholder="15"
+                            min="0"
+                            max="100"
+                            step="0.1"
+                            className="w-full text-sm border-gray-300 rounded-md focus:ring-[#004E9E] focus:border-[#004E9E]"
+                          />
+                        </div>
+
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Target Revenue ($) *
+                          </label>
+                          <input
+                            type="number"
+                            value={practice.targetRevenue}
+                            onChange={(e) => {
+                              const updated = [...practiceRevenues];
+                              updated[index].targetRevenue = e.target.value;
+                              setPracticeRevenues(updated);
+                              // Update total target
+                              const total = practiceRevenues.reduce((sum, p) => sum + (parseFloat(p.targetRevenue) || 0), 0);
+                              setObjectiveData({ ...objectiveData, target: total.toString() });
+                            }}
+                            placeholder="250000"
+                            min="0"
+                            className="w-full text-sm border-gray-300 rounded-md focus:ring-[#004E9E] focus:border-[#004E9E]"
+                          />
+                        </div>
+
+                        <div className="col-span-2">
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Achieved ($)
+                          </label>
+                          <input
+                            type="number"
+                            value={practice.achievedRevenue}
+                            disabled
+                            placeholder="0"
+                            className="w-full text-sm border-gray-300 rounded-md bg-gray-100 cursor-not-allowed"
+                          />
+                        </div>
+
+                        <div className="col-span-1 flex items-end justify-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = practiceRevenues.filter((_, i) => i !== index);
+                              setPracticeRevenues(updated);
+                              // Recalculate total
+                              const total = updated.reduce((sum, p) => sum + (parseFloat(p.targetRevenue) || 0), 0);
+                              setObjectiveData({ ...objectiveData, target: total.toString() });
+                            }}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                            title="Remove practice"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Total Summary */}
+                    <div className="bg-gray-50 p-4 rounded-md border border-gray-200">
+                      <div className="grid grid-cols-3 gap-4">
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Total Revenue Target:</span>
+                          <div className="text-2xl font-bold text-gray-900">
+                            ${practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.targetRevenue)) || 0), 0).toLocaleString()}
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Total Weight Allocated:</span>
+                          <div className={`text-2xl font-bold ${
+                            Math.abs(practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.weight)) || 0), 0) - parseFloat(String(objectiveData.weight || '0'))) < 0.01
+                              ? 'text-green-600' 
+                              : 'text-red-600'
+                          }`}>
+                            {practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.weight)) || 0), 0).toFixed(1)}%
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-sm font-medium text-gray-600">Objective Weight:</span>
+                          <div className="text-2xl font-bold text-gray-900">
+                            {parseFloat(String(objectiveData.weight || '0')).toFixed(1)}%
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Validation Message */}
+                      {practiceRevenues.length > 0 && Math.abs(practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.weight)) || 0), 0) - parseFloat(String(objectiveData.weight || '0'))) >= 0.01 && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-red-700 bg-red-50 px-3 py-2 rounded border border-red-200">
+                          <ExclamationTriangleIcon className="w-5 h-5 flex-shrink-0" />
+                          <span>
+                            Practice weights must sum to exactly {parseFloat(String(objectiveData.weight || '0')).toFixed(1)}%. 
+                            Currently: {practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.weight)) || 0), 0).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                      
+                      {practiceRevenues.length > 0 && Math.abs(practiceRevenues.reduce((sum, p) => sum + (parseFloat(String(p.weight)) || 0), 0) - parseFloat(String(objectiveData.weight || '0'))) < 0.01 && (
+                        <div className="mt-3 flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded border border-green-200">
+                          <CheckCircleIcon className="w-5 h-5 flex-shrink-0" />
+                          <span>
+                            Perfect! Practice weights sum to {parseFloat(String(objectiveData.weight || '0')).toFixed(1)}%
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="mt-8 flex justify-end space-x-4 border-t pt-6">
               <button
@@ -1486,17 +2091,25 @@ export default function SeniorManagementReviewObjectives() {
               </button>
               <button
                 onClick={handleAssignObjective}
-                disabled={isAssigning || !selectedManager || !isWeightValid() || !objectiveData.title || !objectiveData.description || !objectiveData.target || !objectiveData.dueDate}
+                disabled={
+                  isAssigning || 
+                  !selectedManager || 
+                  !objectiveData.title || 
+                  !objectiveData.description || 
+                  !objectiveData.dueDate ||
+                  (objectiveData.objectiveType === 'qualitative' && (!isWeightValid() || !objectiveData.target)) ||
+                  (objectiveData.objectiveType === 'quantitative' && (practiceRevenues.length === 0 || practiceRevenues.some(p => !p.practiceName || !p.targetRevenue)))
+                }
                 className="px-6 py-2 bg-gradient-to-r from-[#004E9E] to-[#007BFF] text-white rounded-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center space-x-2"
               >
                 {isAssigning ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>Assigning...</span>
+                    <span>{selectedObjective ? 'Saving...' : 'Assigning...'}</span>
                   </>
                 ) : (
                   <>
-                    <span>Create & Assign Objective</span>
+                    <span>{selectedObjective ? 'Save Changes' : 'Create & Assign Objective'}</span>
                   </>
                 )}
               </button>
@@ -1558,7 +2171,7 @@ export default function SeniorManagementReviewObjectives() {
                           {selectedObjective.category}
                         </span>
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                          Weight: {Math.round(selectedObjective.weight * 100)}%
+                          Weight: {Math.round(selectedObjective.weight)}%
                         </span>
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
                           Due: {new Date(selectedObjective.dueDate).toLocaleDateString()}
@@ -1739,13 +2352,22 @@ export default function SeniorManagementReviewObjectives() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Submission Notes (Optional)
                   </label>
-                  <textarea
-                    value={submissionNotes}
-                    onChange={(e) => setSubmissionNotes(e.target.value)}
-                    className="w-full border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
-                    rows={3}
-                    placeholder="Add any additional notes for HR review..."
-                  />
+                  <div className="relative">
+                    <textarea
+                      value={submissionNotes}
+                      onChange={(e) => setSubmissionNotes(e.target.value)}
+                      className="w-full pr-12 border-gray-300 rounded-md shadow-sm focus:ring-[#004E9E] focus:border-[#004E9E]"
+                      rows={3}
+                      placeholder="Add any additional notes for HR review..."
+                    />
+                    <button
+                      type="button"
+                      className="absolute top-2 right-2 p-2 text-gray-400 hover:text-[#004E9E] hover:bg-gray-100 rounded-md transition-colors"
+                      title="Voice input (Coming soon)"
+                    >
+                      <MicrophoneIcon className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
                 
                 <div className="flex space-x-2 pt-4">
