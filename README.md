@@ -1,6 +1,6 @@
 # CareCloud MBO System
 
-A comprehensive Automated Management by Objectives (MBO) Reporting System built with Next.js, TypeScript, and Tailwind CSS.
+A comprehensive Automated Management by Objectives (MBO) Reporting System built with Next.js, TypeScript, and Tailwind CSS with SQL Server in the back.
 
 ## Project Overview
 
